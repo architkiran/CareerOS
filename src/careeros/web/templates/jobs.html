@@ -13,6 +13,12 @@
     {% for w in ['remote','hybrid','onsite'] %}<option value="{{ w }}" {% if filters.workplace == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select>
   <select name="days"><option value="">Any time</option>
     {% for d, label in [(1,'Last 24h'),(7,'Last 7 days'),(30,'Last 30 days')] %}<option value="{{ d }}" {% if filters.days == d %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select name="lane_id"><option value="">Best lane</option>
+    {% for l in lanes %}<option value="{{ l.id }}" {% if filters.lane_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
+  <select name="eligibility">
+    {% for v, label in [('not_fail','Hide filtered out'),('pass','Passes filters'),('unknown','Needs review'),('fail','Filtered out'),('any','Any eligibility')] %}<option value="{{ v }}" {% if filters.eligibility == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <input name="min_score" type="number" min="0" max="100" value="{{ filters.min_score if filters.min_score is not none else '' }}" placeholder="Min score" class="narrow">
+  <select name="sort"><option value="newest">Newest</option><option value="score" {% if filters.sort == 'score' %}selected{% endif %}>Best score</option></select>
   <label class="check"><input type="checkbox" name="dupes" value="true" {% if filters.possible_duplicates %}checked{% endif %}> Possible duplicates</label>
   <button>Filter</button> <a href="/jobs">Clear</a>
 </form>
@@ -22,7 +28,7 @@
   {% else %}<p class="empty" data-testid="jobs-empty">No jobs yet. Add sources on the <a href="/sources">Sources</a> page and run discovery from the <a href="/">Overview</a>.</p>{% endif %}
 {% else %}
 <table class="table">
-  <thead><tr><th>Role</th><th>Company</th><th>Location</th><th>Type</th><th>First seen</th><th>Triage</th></tr></thead>
+  <thead><tr><th>Role</th><th>Company</th><th>Location</th><th>Type</th><th>Match</th><th>First seen</th><th>Triage</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr data-testid="job-row">
@@ -33,6 +39,10 @@
     <td>{{ r.company }}</td>
     <td>{{ r.job.location_text or '' }}{% if r.job.workplace_type %} <span class="muted">· {{ r.job.workplace_type }}</span>{% endif %}</td>
     <td>{{ (r.job.employment_type or 'not stated').replace('_', ' ') }}</td>
+    <td data-testid="match-cell">{% if r.match and r.match.match.classified %}
+      <strong class="score">{{ r.match.effective_score }}</strong> <span class="pill pill-elig-{{ r.match.effective_eligibility }}">{{ {'pass':'pass','unknown':'review','fail':'filtered'}[r.match.effective_eligibility] }}</span>
+      <br><span class="muted">{{ r.match.lane_name }}{% if r.match.override %} · overridden{% endif %}</span>
+      {% else %}<span class="muted">no lane match</span>{% endif %}</td>
     <td>{{ r.job.first_seen_at|localtime }}</td>
     <td><span class="pill pill-{{ r.job.triage_status }}">{{ r.job.triage_status }}</span></td>
   </tr>

@@ -62,8 +62,9 @@ def test_discovery_task_runs_pipeline(factory: sessionmaker[Session]) -> None:
         assert run.status == "partial" and run.finished_at is not None
         assert run.counters_json["new"] == 3 and run.counters_json["failed_sources"] == 1
         assert "ExampleBank" in (run.error_summary or "")
-        task = s.scalars(select(Task)).one()
-        assert task.status == "succeeded"
+        tasks = {t.task_type: t for t in s.scalars(select(Task))}
+        assert tasks["ingest.all"].status == "succeeded"
+        assert tasks["match.all"].status == "queued"  # new jobs trigger rescoring
         types = [e.event_type for e in s.scalars(select(ActivityEvent))]
         assert "task.queued" in types and "run.completed" in types
 

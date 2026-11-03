@@ -4,7 +4,8 @@
 <section class="status-header">
   <h1>Overview</h1>
   <span class="badge badge-{{ status.status }}" data-testid="overall-status">{{ status.status }}</span>
-  {% if ov %}<form method="post" action="/pipeline/run" class="push-right">{{ csrf() }}<button data-testid="run-discovery">Run discovery now</button></form>{% endif %}
+  {% if ov %}<form method="post" action="/matching/rescore" class="push-right">{{ csrf() }}<button class="secondary">Rescore</button></form>
+  <form method="post" action="/pipeline/run">{{ csrf() }}<button data-testid="run-discovery">Run discovery now</button></form>{% endif %}
 </section>
 {% if queued == '1' %}<div class="alert alert-ok" role="status">Queued. Progress will appear below as it happens.</div>{% elif queued == 'already' %}<div class="alert alert-warn" role="status">A discovery run is already queued or running.</div>{% endif %}
 

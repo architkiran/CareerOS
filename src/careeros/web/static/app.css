@@ -66,3 +66,13 @@ dl.facts dt { color:var(--muted); } dl.facts dd { margin:0; }
 .events li.fresh { animation: fresh 2s ease-out; }
 @keyframes fresh { from { background:color-mix(in srgb, var(--ok) 18%, transparent); } to { background:transparent; } }
 @media (max-width: 700px) { .table thead { display:none; } .table td { display:block; border:none; padding:2px 0; } .table tr { display:block; border-bottom:1px solid var(--line); padding:8px 0; } }
+.narrow { width:110px; }
+.score { font-size:18px; font-weight:700; }
+.pill-elig-pass { color:var(--ok); border-color:var(--ok); }
+.pill-elig-unknown { color:var(--warn); border-color:var(--warn); }
+.pill-elig-fail { color:var(--bad); border-color:var(--bad); }
+details.lane { border-top:1px solid var(--line); padding:10px 0; }
+details.lane > summary { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+h3 { font-size:14px; margin:14px 0 6px; }
+.quote { font-style:italic; }
+button.secondary { background:none; color:var(--fg); }

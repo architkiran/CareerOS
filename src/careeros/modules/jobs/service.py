@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import Select, func, or_, select
@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 from careeros.common.clock import utcnow
 from careeros.db.models import Company, Job, JobSourceRecord, Source
 from careeros.modules.events.service import record_event
+
+if TYPE_CHECKING:
+    from careeros.modules.matching.service import LaneMatchView
 
 TriageAction = Literal["shortlist", "reject", "save", "reviewed", "reset"]
 TRIAGE_STATUSES = ("new", "saved", "shortlisted", "reviewed", "rejected")
@@ -38,6 +41,10 @@ class JobFilters:
     workplace: str | None = None
     days: int | None = None
     possible_duplicates: bool = False
+    lane_id: str | None = None
+    eligibility: Literal["any", "pass", "unknown", "fail", "not_fail"] = "not_fail"
+    min_score: int | None = None
+    sort: Literal["newest", "score"] = "newest"
     page: int = 1
 
 
@@ -46,6 +53,7 @@ class JobRow:
     job: Job
     company: str
     sources: list[str]
+    match: "LaneMatchView | None" = None
 
 
 def _filtered(filters: JobFilters) -> Select[Job, str]:
@@ -83,15 +91,43 @@ def _filtered(filters: JobFilters) -> Select[Job, str]:
     return stmt
 
 
+def _match_for(
+    session: Session, job_ids: list[str], lane_id: str | None
+) -> dict[str, "LaneMatchView"]:
+    from careeros.modules.matching.service import best_matches, lane_matches
+
+    return lane_matches(session, job_ids, lane_id) if lane_id else best_matches(session, job_ids)
+
+
 def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]:
-    base = _filtered(filters)
-    total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
-    page = max(filters.page, 1)
-    rows = session.execute(
-        base.order_by(Job.first_seen_at.desc(), Job.title)
-        .limit(PAGE_SIZE)
-        .offset((page - 1) * PAGE_SIZE)
+    """SQL handles text/field filters; match-based filters and score sort run in Python.
+
+    Fine for a personal inbox of a few thousand jobs.
+    """
+    all_rows = session.execute(
+        _filtered(filters).order_by(Job.first_seen_at.desc(), Job.title)
     ).all()
+    matches = _match_for(session, [job.id for job, _ in all_rows], filters.lane_id)
+
+    def keep(job: Job) -> bool:
+        m = matches.get(job.id)
+        if filters.lane_id and (m is None or not m.match.classified):
+            return False
+        elig = m.effective_eligibility if m else None
+        if filters.eligibility == "not_fail" and elig == "fail":
+            return False
+        if filters.eligibility in ("pass", "unknown", "fail") and elig != filters.eligibility:
+            return False
+        return not (
+            filters.min_score is not None and (m is None or m.effective_score < filters.min_score)
+        )
+
+    kept = [(job, company) for job, company in all_rows if keep(job)]
+    if filters.sort == "score":
+        kept.sort(key=lambda r: -(matches[r[0].id].effective_score if r[0].id in matches else -1))
+    total = len(kept)
+    page = max(filters.page, 1)
+    rows = kept[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
     job_ids = [job.id for job, _ in rows]
     names: dict[str, list[str]] = {}
     if job_ids:
@@ -101,7 +137,9 @@ def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]
             .where(JobSourceRecord.job_id.in_(job_ids))
         ):
             names.setdefault(job_id, []).append(name)
-    return [JobRow(job, company, names.get(job.id, [])) for job, company in rows], int(total)
+    return [
+        JobRow(job, company, names.get(job.id, []), matches.get(job.id)) for job, company in rows
+    ], int(total)
 
 
 @dataclass

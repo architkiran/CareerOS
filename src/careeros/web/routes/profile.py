@@ -19,6 +19,7 @@ from careeros.modules.profile.schemas import (
     SkillIn,
     WorkAuthorizationIn,
 )
+from careeros.modules.scheduler.worker import enqueue_rescore
 from careeros.web import forms
 from careeros.web.csrf import verify_csrf
 from careeros.web.deps import error_messages, get_session
@@ -100,6 +101,7 @@ async def save_basics(request: Request, session: SessionDep) -> Response:
     except ValidationError as exc:
         return _profile_error(request, session, error_messages(exc))
     service.update_profile(session, data)
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile?saved=basics")
 
@@ -118,6 +120,7 @@ async def add_fact(request: Request, session: SessionDep) -> Response:
     except ValidationError as exc:
         return _profile_error(request, session, error_messages(exc))
     service.add_fact(session, data)
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile?saved=facts#facts")
 
@@ -137,6 +140,7 @@ async def add_skill(request: Request, session: SessionDep) -> Response:
         return _profile_error(request, session, error_messages(exc))
     except service.ConflictError as exc:
         return _profile_error(request, session, [str(exc)])
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile?saved=skills#skills")
 
@@ -156,6 +160,7 @@ async def add_experience(request: Request, session: SessionDep) -> Response:
     except ValidationError as exc:
         return _profile_error(request, session, error_messages(exc))
     service.add_experience(session, data)
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile?saved=experience#experience")
 
@@ -175,6 +180,7 @@ async def add_project(request: Request, session: SessionDep) -> Response:
     except ValidationError as exc:
         return _profile_error(request, session, error_messages(exc))
     service.add_project(session, data)
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile?saved=projects#projects")
 
@@ -187,6 +193,7 @@ async def verify_item(kind: str, item_id: str, request: Request, session: Sessio
         service.set_verified(session, item_kind, item_id, forms.text(f, "status") == "verified")
     except service.NotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect(f"/profile#{kind}")
 
@@ -198,6 +205,7 @@ def delete_item(kind: str, item_id: str, session: SessionDep) -> Response:
         service.delete_item(session, item_kind, item_id)
     except service.NotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect(f"/profile#{kind}")
 
@@ -238,6 +246,7 @@ async def save_work_auth(request: Request, session: SessionDep) -> Response:
             status_code=422,
         )
     service.save_work_authorization(session, data)
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile/work-authorization?saved=1")
 
@@ -287,6 +296,7 @@ def lanes_page(request: Request, session: SessionDep, saved: str | None = None) 
 @router.post("/lanes/defaults")
 def add_defaults(session: SessionDep) -> Response:
     added = service.add_default_lanes(session)
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect(f"/lanes?saved=defaults-{added}")
 
@@ -300,6 +310,7 @@ async def create_lane(request: Request, session: SessionDep) -> Response:
         return _lanes_error(request, session, error_messages(exc))
     except service.ConflictError as exc:
         return _lanes_error(request, session, [str(exc)])
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/lanes?saved=created")
 
@@ -315,6 +326,7 @@ async def update_lane(lane_id: str, request: Request, session: SessionDep) -> Re
         return _lanes_error(request, session, [str(exc)])
     except service.NotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect(f"/lanes?saved=updated#lane-{lane_id}")
 
@@ -326,6 +338,7 @@ async def toggle_lane(lane_id: str, request: Request, session: SessionDep) -> Re
         service.set_lane_enabled(session, lane_id, forms.checkbox(f, "enabled"))
     except service.NotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect(f"/lanes#lane-{lane_id}")
 
@@ -370,5 +383,6 @@ async def import_json(request: Request, session: SessionDep) -> Response:
         return _profile_error(request, session, error_messages(exc)[:10])
     except service.ConflictError as exc:
         return _profile_error(request, session, [str(exc)])
+    enqueue_rescore(session, "profile or lanes changed")
     session.commit()
     return _redirect("/profile?saved=import")
