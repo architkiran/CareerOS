@@ -274,7 +274,10 @@ def test_inbox_lane_min_score_and_sort(scored: sessionmaker[Session], client: Te
         client.get("/jobs?eligibility=any&min_score=100").text.count('data-testid="job-row"') == 0
     )
     sorted_html = client.get("/jobs?eligibility=any&sort=score").text
-    scores = [int(x.split("</strong>")[0]) for x in sorted_html.split('<strong class="meter-num score">')[1:]]
+    scores = [
+        int(x.split("</strong>")[0])
+        for x in sorted_html.split('<strong class="meter-num score">')[1:]
+    ]
     assert scores == sorted(scores, reverse=True) and len(scores) >= 5
 
 
