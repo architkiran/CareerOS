@@ -76,3 +76,9 @@ details.lane > summary { display:flex; flex-wrap:wrap; gap:8px; align-items:cent
 h3 { font-size:14px; margin:14px 0 6px; }
 .quote { font-style:italic; }
 button.secondary { background:none; color:var(--fg); }
+.pill-policy-sponsorship_offered { color:var(--ok); border-color:var(--ok); }
+.pill-policy-no_sponsorship { color:var(--bad); border-color:var(--bad); }
+.pill-policy-case_by_case, .pill-policy-unknown { color:var(--warn); border-color:var(--warn); }
+.pill-review-accepted { color:var(--ok); border-color:var(--ok); } .pill-review-rejected { color:var(--bad); border-color:var(--bad); }
+.pill-review-pending { color:var(--warn); border-color:var(--warn); }
+.filters a.active { font-weight:700; text-decoration:none; }

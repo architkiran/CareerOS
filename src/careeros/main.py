@@ -16,7 +16,7 @@ from careeros.common.logging import configure_logging
 from careeros.config import Settings, get_settings
 from careeros.db.session import create_sqlite_engine, make_session_factory
 from careeros.web.csrf import csrf_middleware
-from careeros.web.routes import events, jobs, profile, sources, system
+from careeros.web.routes import events, jobs, profile, research, sources, system
 from careeros.web.templating import STATIC_DIR, build_templates
 
 logger = logging.getLogger("careeros")
@@ -79,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sources.router)
     app.include_router(jobs.router)
     app.include_router(events.router)
+    app.include_router(research.router)
 
     if not settings.is_localhost_bound:
         logger.warning("Bound to %s, not localhost. Add authentication first.", settings.app_host)

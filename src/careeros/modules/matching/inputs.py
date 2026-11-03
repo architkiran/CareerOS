@@ -25,6 +25,8 @@ class JobInput:
     salary_max: int | None
     salary_interval: str | None
     status: str
+    employer_policy: str = "unknown"  # from accepted official evidence (Phase 5)
+    employer_policy_note: str | None = None
 
 
 @dataclass(frozen=True)

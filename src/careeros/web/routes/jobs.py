@@ -116,7 +116,27 @@ def job_detail(job_id: str, request: Request, session: SessionDep) -> HTMLRespon
 
 
 def _detail_ctx(session: Session, detail: Any) -> dict[str, Any]:
-    return {"d": detail, "matches": matching.matches_for_job(session, detail.job.id)}
+    from careeros.modules.research import service as research
+
+    job = detail.job
+    return {
+        "d": detail,
+        "matches": matching.matches_for_job(session, job.id),
+        "research_item": research.research_for_job(session, job.id),
+        "policy": research.employer_policy(session, job.company_id, job.id),
+        "evidence": research.evidence_for(session, job.company_id, job.id),
+        "claim_labels": research.CLAIM_LABELS,
+        "age_days": research.evidence_age_days,
+    }
+
+
+def job_detail_response(
+    request: Request, session: Session, job_id: str, extra: dict[str, Any], status_code: int = 200
+) -> HTMLResponse:
+    detail = jobs.get_job_detail(session, job_id)
+    if detail is None:
+        raise HTTPException(404, "Job not found")
+    return _render(request, "job_detail.html", _detail_ctx(session, detail) | extra, status_code)
 
 
 @router.post("/jobs/{job_id}/override")
