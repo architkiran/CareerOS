@@ -33,8 +33,9 @@ def test_missing_salary_is_neutral_not_zero() -> None:
     assert comp.score is None and comp.points == comp.weight * 0.5 and comp.to_dict()["neutral"]
     assert no_salary.completeness < 100
     assert "Salary not disclosed." in no_salary.risks
-    expected = round(sum(d.weight * (0.5 if d.score is None else d.score)
-                         for d in no_salary.dimensions))
+    expected = round(
+        sum(d.weight * (0.5 if d.score is None else d.score) for d in no_salary.dimensions)
+    )
     assert no_salary.score == expected
     below = evaluate(mi(job(salary_min=10000, salary_max=20000, salary_interval="year")))
     above = evaluate(mi(job(salary_min=90000, salary_max=99000, salary_interval="year")))
