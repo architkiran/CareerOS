@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Follow-ups · CareerOS{% endblock %}
+{% block content %}
+<h1>Follow-ups</h1>
+{% if not rows %}<p class="empty" data-testid="follow-ups-empty">No open follow-ups. One is added automatically a week after you record a submission.</p>
+{% else %}<table class="table"><thead><tr><th>Due</th><th>Job</th><th>What</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr data-testid="follow-up-row" class="{{ 'overdue' if r.overdue }}">
+  <td>{{ r.follow_up.due_at|localtime }}{% if r.overdue %} <span class="bad">overdue</span>{% endif %}</td>
+  <td><a href="/applications/{{ r.follow_up.application_id }}">{{ r.job_title }}</a> · {{ r.company }}</td>
+  <td>{{ r.follow_up.action_type.replace('_', ' ') }}{% if r.follow_up.notes %}<br><span class="muted">{{ r.follow_up.notes }}</span>{% endif %}</td>
+  <td>{% for s in ['done', 'skipped'] %}<form method="post" action="/follow-ups/{{ r.follow_up.id }}/close" class="inline">{{ csrf() }}<input type="hidden" name="status" value="{{ s }}"><input type="hidden" name="back" value="/follow-ups"><button class="link">{{ 'Done' if s == 'done' else 'Skip' }}</button></form>{% endfor %}</td>
+</tr>{% endfor %}</tbody></table>{% endif %}
+{% endblock %}

@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from careeros.db.models import Application, Company, Document, Job, RoleLane
 from careeros.modules.applications import service as apps
+from careeros.modules.approvals import service as gate
 from careeros.modules.documents import service as docs
+from careeros.modules.outreach import service as outreach
 from careeros.web import forms
 from careeros.web.csrf import verify_csrf
 from careeros.web.deps import get_session
@@ -43,6 +45,14 @@ def workspace_ctx(session: Session, app: Application) -> dict[str, Any]:
         "history": apps.history(session, app.id),
         "next_statuses": apps.TRANSITIONS[app.status],
         "labels": docs.DOC_LABELS,
+        "drafts": [
+            (d, c, outreach.read_body(d))
+            for d, c in outreach.drafts_for_application(session, app.id)
+        ],
+        "follow_ups": [
+            f for f in gate.open_follow_ups(session) if f.follow_up.application_id == app.id
+        ],
+        "approvals": [a for a in gate.list_approvals(session) if a.target_id == app.id],
     }
 
 

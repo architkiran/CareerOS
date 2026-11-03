@@ -3,6 +3,8 @@
   <a class="card stat" href="/jobs"><h2>Active jobs</h2><p class="big">{{ ov.jobs.active }}</p><p class="muted">{{ ov.jobs.untriaged }} untriaged</p></a>
   <a class="card stat" href="/jobs?triage=shortlisted"><h2>Shortlisted</h2><p class="big" data-testid="stat-shortlisted">{{ ov.jobs.shortlisted }}</p><p class="muted">{{ ov.jobs.saved }} saved</p></a>
   <a class="card stat" href="/jobs?eligibility=pass&sort=score"><h2>Passing filters</h2><p class="big" data-testid="stat-passing">{{ ov.matching.passing }}</p><p class="muted">{{ ov.matching.needs_review }} need review · {{ ov.matching.filtered_out }} filtered out</p></a>
+  <a class="card stat" href="/approvals"><h2>Approvals waiting</h2><p class="big" data-testid="stat-approvals">{{ ov.approvals_waiting }}</p><p class="muted">need your decision or confirmation</p></a>
+  <a class="card stat" href="/follow-ups"><h2>Follow-ups due</h2><p class="big" data-testid="stat-follow-ups">{{ ov.follow_ups_due }}</p><p class="{{ 'bad' if ov.follow_ups_overdue else 'muted' }}">{{ ov.follow_ups_overdue }} overdue · next 3 days</p></a>
   <a class="card stat" href="/jobs?dupes=true"><h2>Possible duplicates</h2><p class="big">{{ ov.jobs.possible_duplicates }}</p><p class="muted">to review</p></a>
 </section>
 <section class="cards">

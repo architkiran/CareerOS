@@ -89,3 +89,8 @@ button.secondary { background:none; color:var(--fg); }
 .pill-doc-blocked, .pill-app-rejected { color:var(--bad); border-color:var(--bad); }
 pre.diff { background:var(--card); border:1px solid var(--line); padding:12px; border-radius:8px; overflow:auto; font-size:13px; }
 pre.diff .add { color:var(--ok); } pre.diff .del { color:var(--bad); }
+.pill-approval-approved, .pill-approval-used { color:var(--ok); border-color:var(--ok); }
+.pill-approval-pending { color:var(--warn); border-color:var(--warn); }
+.pill-approval-rejected, .pill-approval-invalidated, .pill-approval-expired { color:var(--bad); border-color:var(--bad); }
+textarea.message, pre.message { width:100%; white-space:pre-wrap; font:inherit; }
+.checklist { padding-left:18px; } tr.overdue td:first-child { font-weight:600; }

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Approvals · CareerOS{% endblock %}
+{% block content %}
+<h1>Approvals</h1>
+<p class="muted">Every external action needs your approval of the exact package. CareerOS never submits or sends anything: you do it yourself, then record it here. Approvals expire after 72 hours, work once, and are cancelled if the package changes.</p>
+<h2>Waiting on you</h2>
+{% if not pending %}<p class="empty" data-testid="approvals-empty">Nothing waiting. Request approval from an application once its resume is ready.</p>
+{% else %}<ul class="items">{% for a in pending %}
+  <li data-testid="approval-row"><a href="/approvals/{{ a.id }}">{{ labels[a.action_type] }}</a> <span class="pill pill-approval-{{ a.status }}">{{ a.status }}</span>
+  <span class="muted">requested {{ a.requested_at|localtime }} · expires {{ a.expires_at|localtime }}</span></li>{% endfor %}</ul>{% endif %}
+<h2>Audit trail</h2>
+{% if not history %}<p class="empty">No past approvals.</p>{% else %}
+<table class="table" data-testid="audit"><thead><tr><th>Action</th><th>Status</th><th>Requested</th><th>Decided</th><th>Payload hash</th></tr></thead><tbody>
+{% for a in history %}<tr><td><a href="/approvals/{{ a.id }}">{{ labels[a.action_type] }}</a></td><td><span class="pill pill-approval-{{ a.status }}">{{ a.status }}</span>{% if a.decision_note %}<br><span class="muted">{{ a.decision_note }}</span>{% endif %}</td>
+<td>{{ a.requested_at|localtime }}</td><td>{{ (a.used_at or a.decided_at)|localtime }}</td><td><code>{{ a.payload_hash[:16] }}</code></td></tr>{% endfor %}
+</tbody></table>{% endif %}
+{% endblock %}

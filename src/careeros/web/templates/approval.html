@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Approval · CareerOS{% endblock %}
+{% block content %}
+<p><a href="/approvals">← Approvals</a>{% if application %} · <a href="/applications/{{ application.id }}">Application</a>{% endif %}</p>
+<h1>{{ labels[a.action_type] }} <span class="pill pill-approval-{{ a.status }}" data-testid="approval-status">{{ a.status }}</span></h1>
+{% if request.query_params.get('error') %}<div class="alert alert-error" role="alert" data-testid="approval-error">{{ request.query_params.get('error') }}</div>{% endif %}
+{% if not integrity_ok %}<div class="alert alert-error">The saved snapshot for this approval failed its integrity check. Don't use it; request a new approval.</div>{% endif %}
+{% if a.status == 'invalidated' %}<div class="alert alert-warn">{{ a.decision_note or 'The package changed.' }} Request a new approval from the application.</div>{% endif %}
+{% if a.status == 'expired' %}<div class="alert alert-warn">This approval expired. Request a new one.</div>{% endif %}
+
+<section class="card" data-testid="package">
+  <h2>Exact package</h2>
+  <dl class="facts">
+    <dt>Action</dt><dd>{{ labels[a.action_type] }}</dd>
+    <dt>Destination</dt><dd>{% if a.action_type == 'submit_application' %}<a href="{{ a.destination }}" rel="noopener noreferrer nofollow" target="_blank">{{ a.destination }}</a> <span class="muted">(official posting; you submit there)</span>{% else %}{{ a.destination }}{% endif %}</dd>
+    {% if snap.data.job_title %}<dt>Role</dt><dd>{{ snap.data.job_title }} at {{ snap.data.company }}</dd>{% endif %}
+    <dt>Requested</dt><dd>{{ a.requested_at|localtime }}</dd>
+    <dt>Expires</dt><dd>{{ a.expires_at|localtime }}</dd>
+    <dt>Payload hash</dt><dd><code>{{ a.payload_hash }}</code></dd>
+  </dl>
+  {% if snap.data.documents %}
+  <h3>Documents</h3>
+  <ul class="items">{% for d in snap.data.documents %}{% set doc = documents.get(d.hash) %}
+    <li>{{ d.type.replace('_', ' ')|capitalize }} v{{ d.version }} <code>{{ d.hash[:12] }}</code>{% if doc %} · <a href="/documents/{{ doc.id }}/download">Download exactly this version</a>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if draft %}
+  <h3>Message</h3>
+  {% if draft.subject %}<p><strong>Subject:</strong> {{ draft.subject }}</p>{% endif %}
+  <textarea readonly rows="8" class="message" data-testid="message-body">{{ body }}</textarea>
+  {% endif %}
+</section>
+
+{% if a.status == 'pending' %}
+<section class="card">
+  <h2>Review</h2>
+  <ul class="checklist">
+    <li>Every statement in the documents is true and I can back it up.</li>
+    <li>I'll answer any work authorization, sponsorship, demographic or legal questions myself on the official form.</li>
+    <li>The destination above is the official place to apply or the right recipient.</li>
+  </ul>
+  <form method="post" action="/approvals/{{ a.id }}/decide" class="grid">{{ csrf() }}
+    <label class="check wide"><input type="checkbox" name="confirmed"> I reviewed this exact package and approve it</label>
+    <label class="wide">Note (optional) <input name="note" maxlength="1000"></label>
+    <div class="actions"><button name="decision" value="approve" data-testid="approve">Approve</button>
+      <button name="decision" value="reject" class="secondary">Reject</button></div>
+  </form>
+</section>
+{% elif a.status == 'approved' %}
+<section class="card">
+  <h2>Do it yourself, then record it</h2>
+  <p>{% if a.action_type == 'submit_application' %}Open the official posting, upload the documents above and fill in the form yourself.{% else %}Copy the message above and send it yourself.{% endif %} Come back and confirm once it's done. Nothing is recorded until you do.</p>
+  <form method="post" action="/approvals/{{ a.id }}/done" class="grid">{{ csrf() }}
+    <label>When (optional) <input type="datetime-local" name="when"></label>
+    <label class="check wide"><input type="checkbox" name="confirmed"> I {{ 'submitted' if a.action_type == 'submit_application' else 'sent' }} this myself, exactly as approved</label>
+    <div><button data-testid="confirm-done">Record it</button></div>
+  </form>
+</section>
+{% elif a.status == 'used' %}
+<p class="alert alert-ok">Recorded as done {{ a.used_at|localtime }}.</p>
+{% endif %}
+{% endblock %}

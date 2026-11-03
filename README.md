@@ -58,7 +58,8 @@ See `docs/` for detailed contracts.
 | 4. Deterministic matching | Done |
 | 5. Employer research and work-authorization evidence | Done |
 | 6. Application workspace and document generation | Done |
-| 7+ | Not started |
+| 7. Approvals, outreach drafts, follow-ups | Done |
+| 8+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -174,6 +175,18 @@ On any job, click **Start application**. The workspace (`/applications/<id>`) ge
 - **Versions are immutable.** Regenerating after a profile change creates v2, v3 and so on, with a diff. Files are `.docx` in `data/documents/` (owner-only permissions), each checked against its stored hash on download.
 - **Tracker.** `/applications` lists everything. Statuses after submission (response, screen, interview, offer, rejected, withdrawn) are set by you. *Submitted* is only recorded through the approval step (Phase 7).
 
+## Approvals, outreach and follow-ups (Phase 7)
+
+**CareerOS never submits an application or sends a message.** Every external action goes through one approval gate:
+
+1. Once a resume is *ready*, click **Review package and request approval** on the application. CareerOS saves an exact snapshot (destination, document versions and their hashes) with a hash of its own.
+2. On the approval page, check the package, tick the confirmation and **Approve**.
+3. Submit it yourself on the official posting, then click **Record it**. Only then is the application marked *submitted*, and a follow-up is scheduled for a week later.
+
+Approvals expire after 72 hours and can be used once. They're cancelled automatically if anything in the package changes, such as a regenerated resume or an edited message. `/approvals` keeps a full audit trail.
+
+**Outreach** is draft-only: add a contact and a message on the application, approve it, send it yourself, and record it. There's no LinkedIn automation. **Follow-ups** (`/follow-ups`) show what's due or overdue, and the Overview counts them.
+
 ## Code map
 
 | Path | Purpose |
@@ -204,6 +217,8 @@ On any job, click **Start application**. The workspace (`/applications/<id>`) ge
 | `src/careeros/modules/research/` | Evidence capture, review and employer policy (migration `0007`) |
 | `src/careeros/modules/documents/` | Content builder, QA checks, DOCX rendering, versions and diff (migration `0008`) |
 | `src/careeros/modules/applications/` | Application tracker and status rules |
+| `src/careeros/modules/approvals/` | Approval gate, payload snapshots and hashes, follow-ups (migration `0009`) |
+| `src/careeros/modules/outreach/` | Draft-only outreach contacts and messages |
 | `src/careeros/web/routes/events.py` | SSE stream and polling feed |
 | `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |
