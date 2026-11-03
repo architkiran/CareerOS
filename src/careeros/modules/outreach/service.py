@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from careeros.common.fs import private_dir
 from careeros.db.models import OutreachContact, OutreachDraft
 from careeros.modules.events.service import record_event
 from careeros.modules.sources.text import sha256
@@ -60,8 +61,7 @@ def add_contact(session: Session, company_id: str, data: ContactIn) -> OutreachC
 
 def _body_path(data_dir: Path, draft_id: str) -> Path:
     folder = data_dir / "outreach"
-    folder.mkdir(parents=True, exist_ok=True)
-    folder.chmod(0o700)
+    private_dir(folder)
     return folder / f"{draft_id}.txt"
 
 

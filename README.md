@@ -88,7 +88,37 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-## Run
+## Always-on with Docker (recommended)
+
+Run CareerOS in a container that starts itself and stays up whenever your Mac is on, so http://127.0.0.1:8000 always works. Discovery also runs once a day on its own.
+
+**One-time setup**
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free for personal use).
+2. In Docker Desktop: **Settings → General → Start Docker Desktop when you sign in**.
+3. Stop any `careeros serve` running in a terminal, then from this folder:
+   ```bash
+   docker compose up -d --build
+   ```
+4. Bookmark http://127.0.0.1:8000.
+
+That's it. The container restarts by itself after crashes, reboots and Docker Desktop restarts (`restart: unless-stopped`). It uses this folder's `data/`, `exports/`, `backups/` and `config/`, so your existing database carries over.
+
+**What it does on start:** if your database needs migrations, it first writes a verified backup to `backups/`, then migrates. A new database is created if none exists.
+
+**Everyday commands** (run CareerOS commands *inside* the container, never `careeros` on the Mac at the same time):
+```bash
+docker compose exec careeros careeros sources sync     # after editing config/sources.toml
+docker compose exec careeros careeros backup
+docker compose logs -f careeros                         # see what it's doing
+docker compose up -d --build                            # after pulling new code
+docker compose down                                     # stop it (it won't come back until `up`)
+```
+
+**Limits, honestly:** it's live while your Mac is awake. When the Mac sleeps, the container pauses too, and the Overview shows a missed scheduled run. It's reachable only from this Mac (`127.0.0.1`); don't change the port mapping, because CareerOS has no login (see `docs/REMOTE_ACCESS.md`).
+
+**Optional local AI in Docker:** set `MODEL_PROVIDER=ollama` and `OLLAMA_MODEL=...` in `.env`; the container reaches Ollama on your Mac at `host.docker.internal:11434`.
+
+## Run without Docker
 
 ```bash
 careeros migrate   # creates ./data/careeros.db and applies migrations

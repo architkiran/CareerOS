@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
+from careeros.common.fs import private_dir
 from careeros.db.models import (
     Application,
     Company,
@@ -103,8 +104,7 @@ def load_candidate(session: Session) -> Candidate:
 
 def documents_dir(data_dir: Path, application_id: str) -> Path:
     path = data_dir / "documents" / application_id
-    path.mkdir(parents=True, exist_ok=True)
-    path.chmod(0o700)
+    private_dir(path)
     return path
 
 

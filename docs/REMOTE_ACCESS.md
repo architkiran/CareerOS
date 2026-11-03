@@ -13,3 +13,6 @@ CareerOS holds your resume facts, work-authorization answers, application histor
 2. If you must, use a private mesh VPN you control (devices you own only), keep the app bound to the VPN interface, and set `ALLOW_REMOTE=true`.
 3. Never port-forward from your router or deploy to a public host without first adding real authentication, HTTPS and secure cookies. CSRF protection is already in place for state-changing requests.
 4. Keep backups (`careeros backup`) before trying anything.
+
+## Docker
+`docker-compose.yml` publishes the port as `127.0.0.1:8000:8000`, so only this Mac can reach it. Inside the container the app listens on `0.0.0.0`, which `CONTAINER=true` allows only for that wildcard address. Changing the mapping to `8000:8000` would expose CareerOS to your whole network.

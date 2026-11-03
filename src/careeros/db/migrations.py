@@ -3,6 +3,7 @@
 Migrations are applied only by an explicit command, never at app startup.
 """
 
+import os
 from pathlib import Path
 
 from alembic import command
@@ -12,12 +13,28 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Engine
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
+
+
+def migrations_dir() -> Path:
+    """Where the Alembic scripts live.
+
+    CAREEROS_MIGRATIONS_DIR wins (set by the Docker image); then the source checkout
+    (editable installs); then ./migrations relative to the working directory.
+    """
+    override = os.environ.get("CAREEROS_MIGRATIONS_DIR")
+    candidates = [Path(override)] if override else []
+    candidates += [PROJECT_ROOT / "migrations", Path.cwd() / "migrations"]
+    for path in candidates:
+        if (path / "env.py").is_file():
+            return path
+    raise FileNotFoundError(
+        "Can't find the migrations folder. Set CAREEROS_MIGRATIONS_DIR to its path."
+    )
 
 
 def alembic_config(database_url: str) -> Config:
     cfg = Config()
-    cfg.set_main_option("script_location", str(MIGRATIONS_DIR))
+    cfg.set_main_option("script_location", str(migrations_dir()))
     cfg.set_main_option("sqlalchemy.url", database_url)
     return cfg
 

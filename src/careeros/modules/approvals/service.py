@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
+from careeros.common.fs import private_dir
 from careeros.db.models import (
     Application,
     Approval,
@@ -139,8 +140,7 @@ def current_payload(session: Session, approval: Approval) -> Payload | None:
 
 def _approvals_dir(data_dir: Path) -> Path:
     path = data_dir / "approvals"
-    path.mkdir(parents=True, exist_ok=True)
-    path.chmod(0o700)
+    private_dir(path)
     return path
 
 
