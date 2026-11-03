@@ -29,22 +29,62 @@ class FilterResult:
 # ---------- employment type and exclusions ----------
 
 
+_EMPLOYMENT_PHRASES: dict[str, re.Pattern[str]] = {
+    "full_time": re.compile(
+        r"\b(?:this is an?\s+|is an?\s+|position type:?\s*|employment type:?\s*)?"
+        r"full[- ]time(?![- ]equivalent)\b(?:\s+(?:role|position|job|opportunity|employee|"
+        r"permanent|salaried|exempt|w-?2))?"
+    ),
+    "part_time": re.compile(r"\bpart[- ]time\s+(?:role|position|job|opportunity)\b"),
+    "contract": re.compile(
+        r"\b(?:this is an?\s+)?(?:\d+[- ]month\s+)?contract(?:or)?\s+(?:role|position|"
+        r"assignment|engagement|opportunity)\b|\bcontract[- ]to[- ]hire\b"
+    ),
+    "internship": re.compile(r"\b(?:summer\s+)?internship\s+(?:role|position|program)\b"),
+    "temporary": re.compile(r"\btemporary\s+(?:role|position|assignment)\b"),
+}
+
+
+def _employment_from_description(text: str) -> tuple[set[str], dict[str, re.Match[str]]]:
+    low = text.lower()
+    found: dict[str, re.Match[str]] = {}
+    for kind, pattern in _EMPLOYMENT_PHRASES.items():
+        m = pattern.search(low)
+        if m:
+            found[kind] = m
+    return set(found), found
+
+
 def employment_filter(job: JobInput, lane: LaneInput) -> FilterResult:
     allowed = ", ".join(t.replace("_", " ") for t in lane.employment_types)
-    if job.employment_type is None:
+    if job.employment_type is not None:
+        label = job.employment_type.replace("_", " ")
+        if job.employment_type in lane.employment_types:
+            return FilterResult("employment_type", "pass", f"Source states {label}.")
+        return FilterResult(
+            "employment_type", "fail", f"Source states {label}; lane wants {allowed}."
+        )
+    # The source field is empty: look for an explicit statement in the posting text.
+    kinds, matches = _employment_from_description(job.description)
+    if not kinds:
         return FilterResult(
             "employment_type",
             "unknown",
-            f"Source doesn't state the employment type (lane wants {allowed}).",
+            f"Neither the source nor the description states the employment type "
+            f"(lane wants {allowed}).",
         )
-    if job.employment_type in lane.employment_types:
+    quote = excerpt(job.description, next(iter(matches.values())), 70)
+    if kinds <= set(lane.employment_types):
+        found = ", ".join(sorted(k.replace("_", " ") for k in kinds))
         return FilterResult(
-            "employment_type", "pass", f"Stated as {job.employment_type.replace('_', ' ')}."
+            "employment_type", "pass", f"Description explicitly says {found}.", quote
         )
+    found = ", ".join(sorted(k.replace("_", " ") for k in kinds))
     return FilterResult(
         "employment_type",
-        "fail",
-        f"Stated as {job.employment_type.replace('_', ' ')}; lane wants {allowed}.",
+        "unknown",
+        f"Description mentions {found}; lane wants {allowed}. Check the posting.",
+        quote,
     )
 
 
@@ -223,6 +263,84 @@ def looks_us(location: str) -> bool:
     return any(contains_term(low, name) for name in _US_NAMES)
 
 
+_NON_US = (
+    "canada",
+    "toronto",
+    "vancouver",
+    "montreal",
+    "ontario",
+    "mexico",
+    "cdmx",
+    "brazil",
+    "sao paulo",
+    "argentina",
+    "colombia",
+    "chile",
+    "united kingdom",
+    "uk",
+    "england",
+    "london",
+    "ireland",
+    "dublin",
+    "germany",
+    "berlin",
+    "munich",
+    "france",
+    "paris",
+    "netherlands",
+    "amsterdam",
+    "spain",
+    "madrid",
+    "barcelona",
+    "portugal",
+    "lisbon",
+    "poland",
+    "warsaw",
+    "sweden",
+    "stockholm",
+    "switzerland",
+    "zurich",
+    "italy",
+    "milan",
+    "india",
+    "bengaluru",
+    "bangalore",
+    "hyderabad",
+    "mumbai",
+    "pune",
+    "delhi",
+    "singapore",
+    "japan",
+    "tokyo",
+    "china",
+    "shanghai",
+    "hong kong",
+    "australia",
+    "sydney",
+    "melbourne",
+    "new zealand",
+    "philippines",
+    "manila",
+    "south korea",
+    "seoul",
+    "israel",
+    "tel aviv",
+    "uae",
+    "dubai",
+    "emea",
+    "apac",
+    "latam",
+)
+
+
+def looks_non_us(location: str) -> bool:
+    """True only when the location names a non-US place and no US place at all."""
+    if looks_us(location):
+        return False
+    low = location.lower()
+    return any(contains_term(low, name) for name in _NON_US)
+
+
 def _place_keys(place: str) -> set[str]:
     low = place.lower().strip()
     city = low.split(",")[0].strip()
@@ -241,6 +359,8 @@ def _matches_place(location: str, places: tuple[str, ...]) -> str | None:
 
 def location_filter(job: JobInput, lane: LaneInput, profile: ProfileInput) -> FilterResult:
     loc = job.location_text or ""
+    if loc and looks_non_us(loc):
+        return FilterResult("location", "fail", "Location is outside the US.", loc)
     if job.workplace_type == "remote" or (loc and contains_term(loc, "remote")):
         if lane.remote_ok:
             us_note = (
@@ -354,6 +474,12 @@ def work_authorization_filter(job: JobInput, profile: ProfileInput) -> FilterRes
             "unknown",
             f"Posting {kind}. Review against your own status.",
             quote,
+        )
+    if need == "no":
+        return FilterResult(
+            "work_authorization",
+            "pass",
+            "Posting doesn't mention sponsorship, and your confirmed status doesn't need it.",
         )
     ok = _first(_SPONSOR_OK, low)
     if ok:

@@ -17,3 +17,8 @@ PRODUCT_SPEC.md requires hard filters separate from an explainable 0-100 score, 
 
 ## Consequences
 Scores are explainable line by line and testable. Changing any rule requires bumping `ALGORITHM_VERSION`, which rescores everything on the next pass.
+
+## Amendment: `match-v2` (2026-11-03)
+Greenhouse's list API never states employment type, so every Greenhouse job was "unknown" on that filter and none could pass. v2 reads an *explicit* statement from the posting text ("this is a full-time position", "6-month contract role", "contract-to-hire", "internship program") and quotes it as evidence. If only allowed types are mentioned the filter passes; if a disallowed type is mentioned it stays unknown (never an inferred fail); if nothing is stated it stays unknown. "Full-time equivalent" is ignored. Stored v1 scores are rescored automatically when the worker starts.
+
+Also in v2: a location that names only non-US places (e.g. "Toronto", "Singapore", "EMEA") fails the location filter, since the target is US roles; a location naming any US place is never failed. And when the posting says nothing about sponsorship but the user's *confirmed* answer is that they don't need it, the work-authorization filter passes, because the policy doesn't affect them. If they do need sponsorship, a silent posting stays unknown until employer research (Phase 5) resolves it.

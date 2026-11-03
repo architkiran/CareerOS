@@ -221,6 +221,15 @@ class Worker:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
+    def ensure_current_scores(self) -> None:
+        """Queue a rescore once at startup if the matching algorithm changed."""
+        from careeros.modules.matching.service import has_stale_scores
+
+        with self.factory() as session:
+            if has_stale_scores(session):
+                enqueue_rescore(session, "matching algorithm updated")
+                session.commit()
+
     def run_once(self) -> bool:
         """Schedule if due, then run at most one task. Returns True if a task ran."""
         with self.factory() as session:
@@ -250,6 +259,10 @@ class Worker:
 
     def _loop(self) -> None:
         logger.info("Worker %s started", self.worker_id)
+        try:
+            self.ensure_current_scores()
+        except Exception:
+            logger.exception("Could not check for stale scores")
         while not self._stop.is_set():
             try:
                 ran = self.run_once()
