@@ -19,8 +19,8 @@ from tests.matching_helpers import job, lane, profile
 def test_employment() -> None:
     assert employment_filter(job(), lane()).decision == "pass"
     assert employment_filter(job(employment_type="contract"), lane()).decision == "fail"
-    r = employment_filter(job(employment_type=None), lane())
-    assert r.decision == "unknown" and "doesn't state" in r.reason
+    r = employment_filter(job(employment_type=None, description="No details."), lane())
+    assert r.decision == "unknown" and "Neither the source nor the description" in r.reason
 
 
 def test_excluded_terms_on_title_only() -> None:
@@ -58,7 +58,7 @@ def test_seniority(guess: SeniorityGuess, expected: str) -> None:
         ("Austin, TX", None, {"open_to_relocation": True}, "pass"),
         ("Austin, TX", None, {"open_to_relocation": False, "relocation_locations": ()}, "fail"),
         ("Austin, TX", None, {"open_to_relocation": None, "relocation_locations": ()}, "unknown"),
-        ("London, UK", None, {"open_to_relocation": True}, "unknown"),
+        ("London, UK", None, {"open_to_relocation": True}, "fail"),
         ("Remote", "remote", {}, "pass"),
         (None, None, {}, "unknown"),
     ],
@@ -129,3 +129,69 @@ def test_status() -> None:
 def test_combine() -> None:
     p, u, f = (FilterResult("a", d, "") for d in ("pass", "unknown", "fail"))
     assert combine([p, p]) == "pass" and combine([p, u]) == "unknown" and combine([u, f]) == "fail"
+
+
+@pytest.mark.parametrize(
+    ("text", "decision", "quote_has"),
+    [
+        ("This is a full-time position based in NYC.", "pass", "full-time"),
+        ("Full time, salaried role with benefits.", "pass", "full time"),
+        ("Employment type: Full-time", "pass", "full-time"),
+        ("This is a 6-month contract role.", "unknown", "contract role"),
+        ("Contract-to-hire opportunity.", "unknown", "contract-to-hire"),
+        ("Join our summer internship program.", "unknown", "internship program"),
+        ("Full-time role; also open to a contract role for the right person.", "unknown", None),
+        ("Budget of 3 full-time equivalents.", "unknown", None),
+        ("Great team, great benefits.", "unknown", None),
+    ],
+)
+def test_employment_from_description(text: str, decision: str, quote_has: str | None) -> None:
+    r = employment_filter(job(employment_type=None, description=text), lane())
+    assert r.decision == decision
+    if quote_has:
+        assert r.evidence and quote_has in r.evidence.lower()
+
+
+def test_source_field_wins_over_description() -> None:
+    r = employment_filter(
+        job(employment_type="contract", description="This is a full-time role."), lane()
+    )
+    assert r.decision == "fail" and "Source states contract" in r.reason
+
+
+def test_description_never_produces_a_fail() -> None:
+    for text in ("This is a 6-month contract role.", "Temporary position for Q1."):
+        assert (
+            employment_filter(job(employment_type=None, description=text), lane()).decision
+            != "fail"
+        )
+
+
+@pytest.mark.parametrize(
+    ("loc", "expected"),
+    [
+        ("Toronto, ON", "fail"),
+        ("Singapore", "fail"),
+        ("Mexico City (CDMX)", "fail"),
+        ("Remote - EMEA", "fail"),
+        ("London, UK", "fail"),
+        ("Chicago, US-Remote, Canada-Remote", "pass"),
+        ("New York or London", "pass"),
+        ("Somewhere Unusual", "pass"),
+    ],  # unknown place + open to relocation: not failed
+)
+def test_non_us_locations(loc: str, expected: str) -> None:
+    r = location_filter(job(location_text=loc), lane(), profile(open_to_relocation=True))
+    assert (r.decision == "fail") == (expected == "fail")
+
+
+def test_silent_posting_passes_when_no_sponsorship_needed() -> None:
+    r = work_authorization_filter(job(description="Great team."), profile(needs_sponsorship="no"))
+    assert r.decision == "pass" and "doesn't need it" in r.reason
+
+
+def test_citizenship_requirement_still_unknown_when_no_sponsorship_needed() -> None:
+    r = work_authorization_filter(
+        job(description="Must be a U.S. citizen."), profile(needs_sponsorship="no")
+    )
+    assert r.decision == "unknown"

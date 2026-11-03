@@ -288,7 +288,7 @@ def test_job_detail_shows_breakdown(scored: sessionmaker[Session], client: TestC
     html = client.get(f"/jobs/{job.id}").text
     assert html.count('data-testid="lane-match"') == 6
     assert 'data-testid="filters-table"' in html and 'data-testid="score-table"' in html
-    assert "Skills alignment" in html and "match-v1" in html
+    assert "Skills alignment" in html and "match-v2" in html
     assert "Salary not disclosed" in html and "work authorization" in html
     assert "1 unverified skills were not counted." in html
 
@@ -356,3 +356,34 @@ def test_rescore_button(client: TestClient, factory: sessionmaker[Session]) -> N
 def test_overview_passing_stat(scored: sessionmaker[Session], client: TestClient) -> None:
     html = client.get("/partials/overview").text
     assert 'data-testid="stat-passing">' in html and "filtered out" in html
+
+
+def test_stale_algorithm_version_triggers_rescore(world: sessionmaker[Session]) -> None:
+    with world() as s:
+        matching.score_jobs(s)
+        s.commit()
+        assert not matching.has_stale_scores(s)
+        for m in s.scalars(select(JobLaneMatch)):
+            m.algorithm_version = "match-v0"
+        s.commit()
+        assert matching.has_stale_scores(s)
+    w = Worker(world)
+    w.ensure_current_scores()
+    w.run_once()
+    with world() as s:
+        assert not matching.has_stale_scores(s)
+        assert {m.algorithm_version for m in s.scalars(select(JobLaneMatch))} == {"match-v2"}
+
+
+def test_greenhouse_full_time_from_description_can_pass(world: sessionmaker[Session]) -> None:
+    with world() as s:
+        job = s.scalars(select(Job).where(Job.title == "Data Analyst")).one()
+        job.description_text += "\nThis is a full-time position."
+        s.commit()
+        matching.score_jobs(s)
+        s.commit()
+        view = next(
+            v for v in matching.matches_for_job(s, job.id) if v.lane_name == "Data / BI Analyst"
+        )
+        emp = next(f for f in view.match.hard_filter_results_json if f["name"] == "employment_type")
+    assert emp["decision"] == "pass" and "full-time" in emp["evidence"]

@@ -360,3 +360,9 @@ def clear_override(session: Session, job_id: str, lane_id: str) -> None:
         entity_id=job_id,
         metadata={"lane_id": lane_id},
     )
+
+
+def has_stale_scores(session: Session) -> bool:
+    """True if any stored match was produced by an older algorithm version."""
+    stmt = select(JobLaneMatch.id).where(JobLaneMatch.algorithm_version != ALGORITHM_VERSION)
+    return session.scalars(stmt.limit(1)).first() is not None

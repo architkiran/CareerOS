@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v1"
+ALGORITHM_VERSION = "match-v2"  # v2: employment type read from explicit description text
 
 
 @dataclass(frozen=True)
