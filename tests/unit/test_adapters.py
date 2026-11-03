@@ -26,7 +26,13 @@ def test_greenhouse_normalize() -> None:
     assert job.company_name == "ExamplePay"
     assert job.location_text == "New York, NY"
     assert job.department == "Analytics"
-    assert job.employment_type is None  # not stated by Greenhouse list API
+    assert job.employment_type == "full_time"  # from the board's "Time Type" field
+    assert (job.salary_min, job.salary_max, job.salary_currency, job.salary_interval) == (
+        85000,
+        110000,
+        "USD",
+        "year",
+    )  # single range; the zone range is ignored
     assert job.posted_at == datetime(2026, 10, 20, 13, 0, tzinfo=UTC)
     assert "<" not in job.description_text and "alert(1)" not in job.description_text
     assert "- SQL" in job.description_text
@@ -137,3 +143,25 @@ def test_date_parsing_edge_cases() -> None:
     assert parse_iso("2026-01-01T00:00:00") == datetime(2026, 1, 1, tzinfo=UTC)
     assert parse_epoch_ms("123") is None
     assert parse_epoch_ms(True) is None
+
+
+def test_greenhouse_metadata_contract_hourly_and_unknowns() -> None:
+    jobs = load_fixture("greenhouse_jobs.json")["jobs"]
+    contract = GH.normalize(jobs[1], "X")
+    assert contract.employment_type == "contract"
+    assert (contract.salary_min, contract.salary_max, contract.salary_interval) == (45, 60, "hour")
+    unknown = GH.normalize(jobs[2], "X")
+    assert unknown.employment_type is None  # Worker Type is null: not assumed
+    # Small amounts with no stated frequency are kept but never treated as yearly.
+    assert (unknown.salary_min, unknown.salary_interval) == (15, "unspecified")
+
+
+def test_greenhouse_metadata_garbage_is_ignored() -> None:
+    raw = dict(load_fixture("greenhouse_jobs.json")["jobs"][0])
+    raw["metadata"] = [
+        {"name": "Pay Range", "value": {"min_value": "abc", "max_value": None}},
+        "junk",
+        {"name": "Time Type", "value": 42},
+    ]
+    job = GH.normalize(raw, "X")
+    assert job.employment_type is None and job.salary_min is None

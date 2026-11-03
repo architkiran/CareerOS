@@ -15,6 +15,7 @@ from careeros import __version__
 from careeros.common.logging import configure_logging
 from careeros.config import Settings, get_settings
 from careeros.db.session import create_sqlite_engine, make_session_factory
+from careeros.web import errors
 from careeros.web.csrf import csrf_middleware
 from careeros.web.routes import (
     analytics,
@@ -85,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response.headers.setdefault(key, value)
         return response
 
+    errors.install(app)
     app.middleware("http")(csrf_middleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(system.router)

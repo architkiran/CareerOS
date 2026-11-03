@@ -190,3 +190,5 @@ details.lane > summary { display: flex; flex-wrap: wrap; gap: 10px; align-items:
 .more-filters > summary { color: var(--accent); font-size: 14px; display: inline-block; }
 .more-filters .filters { margin: 8px 0 0; }
 @media (max-width: 700px) { .hide-sm { display: none !important; } }
+.error-page { max-width: 60ch; padding: 32px 0; }
+.error-page h1 { margin-bottom: 10px; }

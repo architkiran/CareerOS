@@ -7,6 +7,7 @@ reproducible for a given algorithm version.
 
 import json
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
@@ -67,10 +68,11 @@ class MatchInput:
     profile: ProfileInput
 
     def input_hash(self) -> str:
-        payload = {
-            "v": ALGORITHM_VERSION,
-            "job": asdict(self.job),
-            "lane": asdict(self.lane),
-            "profile": asdict(self.profile),
-        }
-        return sha256(json.dumps(payload, sort_keys=True, default=str))
+        # Each part is hashed once and cached: a rescore compares thousands of job/lane pairs.
+        parts = (ALGORITHM_VERSION, _digest(self.job), _digest(self.lane), _digest(self.profile))
+        return sha256("|".join(parts))
+
+
+@lru_cache(maxsize=16_384)
+def _digest(part: JobInput | LaneInput | ProfileInput) -> str:
+    return sha256(json.dumps(asdict(part), sort_keys=True, default=str))

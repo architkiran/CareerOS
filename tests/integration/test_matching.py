@@ -269,7 +269,7 @@ def test_inbox_lane_min_score_and_sort(scored: sessionmaker[Session], client: Te
     html = client.get(f"/jobs?lane_id={lane.id}&eligibility=any").text
     assert "<strong>Data Analyst</strong>" in html
     assert "<strong>Business Operations Analyst</strong>" not in html
-    assert client.get("/jobs?eligibility=any&min_score=101").status_code == 422
+    assert client.get("/jobs?eligibility=any&min_score=101").status_code == 200  # ignored
     assert (
         client.get("/jobs?eligibility=any&min_score=100").text.count('data-testid="job-row"') == 0
     )
@@ -292,7 +292,7 @@ def test_job_detail_shows_breakdown(scored: sessionmaker[Session], client: TestC
     assert html.count('data-testid="lane-match"') == 6
     assert 'data-testid="filters-table"' in html and 'data-testid="score-table"' in html
     assert "Skills alignment" in html and "match-v2" in html
-    assert "Salary not disclosed" in html and "work authorization" in html
+    assert "Compensation" in html and "work authorization" in html
     assert "1 unverified skills were not counted." in html
 
 
@@ -381,6 +381,7 @@ def test_stale_algorithm_version_triggers_rescore(world: sessionmaker[Session]) 
 def test_greenhouse_full_time_from_description_can_pass(world: sessionmaker[Session]) -> None:
     with world() as s:
         job = s.scalars(select(Job).where(Job.title == "Data Analyst")).one()
+        job.employment_type = None  # as if the board gave no metadata
         job.description_text += "\nThis is a full-time position."
         s.commit()
         matching.score_jobs(s)
@@ -390,3 +391,50 @@ def test_greenhouse_full_time_from_description_can_pass(world: sessionmaker[Sess
         )
         emp = next(f for f in view.match.hard_filter_results_json if f["name"] == "employment_type")
     assert emp["decision"] == "pass" and "full-time" in emp["evidence"]
+
+
+def test_batched_scoring_commits_in_chunks_and_matches_unbatched(
+    world: sessionmaker[Session],
+) -> None:
+    from sqlalchemy import event
+
+    commits: list[int] = []
+    with world() as s:
+        event.listen(s, "after_commit", lambda _s: commits.append(1))
+        batched = matching.score_jobs(s, commit_every=2)
+        s.commit()
+        scores = {
+            (m.job_id, m.role_lane_id): (m.score, m.eligibility)
+            for m in s.scalars(select(JobLaneMatch))
+        }
+    assert len(commits) >= 4  # 7 jobs in batches of 2, plus the cleanup commit
+    with world() as s:
+        for m in s.scalars(select(JobLaneMatch)):
+            m.algorithm_version = "old"
+        s.commit()
+        plain = matching.score_jobs(s)
+        s.commit()
+        again = {
+            (m.job_id, m.role_lane_id): (m.score, m.eligibility)
+            for m in s.scalars(select(JobLaneMatch))
+        }
+    assert again == scores and (batched.passing, batched.failing) == (plain.passing, plain.failing)
+
+
+def test_contains_term_is_case_insensitive() -> None:
+    from careeros.modules.matching.text import contains_term
+
+    assert contains_term("We use POWER BI daily", "Power BI")
+    assert contains_term("C++ and SQL", "c++") and not contains_term("PostgreSQL", "SQL")
+
+
+def test_match_counts_reports_top_blocker(world: sessionmaker[Session], client: TestClient) -> None:
+    with world() as s:
+        matching.score_jobs(s)
+        s.commit()
+        c = matching.match_counts(s)
+    if c.needs_review:
+        assert c.top_blocker is not None and c.top_blocker[1] >= 1
+        assert 'data-testid="top-blocker"' in client.get("/partials/overview").text
+    else:
+        assert c.top_blocker is None

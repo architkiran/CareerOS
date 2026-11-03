@@ -1,7 +1,7 @@
 from typing import Annotated, Any, cast
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
@@ -39,14 +39,18 @@ def inbox(
     status: str = "active",
     source_id: str | None = None,
     workplace: str | None = None,
-    days: int | None = Query(default=None, ge=1, le=365),
+    days: str | None = None,
     dupes: bool = False,
     lane_id: str | None = None,
     eligibility: str = "not_fail",
-    min_score: int | None = Query(default=None, ge=0, le=100),
+    min_score: str | None = None,
     sort: str = "newest",
-    page: int = Query(default=1, ge=1, le=10_000),
+    page: str | None = None,
 ) -> HTMLResponse:
+    # Browser forms send every field, empty ones included; treat blanks and junk as "not set".
+    days_n = forms.bounded_int(days, 1, 365)
+    min_score_n = forms.bounded_int(min_score, 0, 100)
+    page_n = forms.bounded_int(page, 1, 10_000) or 1
     if eligibility not in ("any", "pass", "unknown", "fail", "not_fail"):
         eligibility = "not_fail"
     if sort not in ("newest", "score"):
@@ -63,13 +67,13 @@ def inbox(
         status=cast(Any, status),
         source_id=source_id or None,
         workplace=workplace or None,
-        days=days,
+        days=days_n,
         possible_duplicates=dupes,
         lane_id=lane_id or None,
         eligibility=cast(Any, eligibility),
-        min_score=min_score,
+        min_score=min_score_n,
         sort=cast(Any, sort),
-        page=page,
+        page=page_n,
     )
     rows, total = jobs.list_jobs(session, filters)
     params = {
@@ -80,11 +84,11 @@ def inbox(
             "status": status,
             "source_id": source_id,
             "workplace": workplace,
-            "days": days,
+            "days": days_n,
             "dupes": "true" if dupes else None,
             "lane_id": lane_id,
             "eligibility": eligibility if eligibility != "not_fail" else None,
-            "min_score": min_score,
+            "min_score": min_score_n,
             "sort": sort if sort != "newest" else None,
         }.items()
         if v is not None and v != "" and v is not False
@@ -100,7 +104,7 @@ def inbox(
             "sources": registry.list_sources(session),
             "triage_statuses": jobs.TRIAGE_STATUSES,
             "lanes": profile_service.list_lanes(session, enabled_only=True),
-            "page": page,
+            "page": page_n,
             "pages": pages,
             "query": urlencode(params),
             "any_jobs": total > 0 or bool(params.keys() - {"status"}),
