@@ -43,3 +43,17 @@ def test_normalize_company_drops_suffixes() -> None:
 
 def test_normalize_key_collapses_punctuation() -> None:
     assert normalize_key("  Data  Analyst (NYC)! ") == "data analyst nyc"
+
+
+def test_canonicalize_keeps_job_identifying_params() -> None:
+    a = canonicalize_url("https://stripe.com/jobs/search?gh_jid=5416444")
+    b = canonicalize_url("https://stripe.com/jobs/search?gh_jid=5601879&utm_source=x&gh_src=y")
+    assert a == "https://stripe.com/jobs/search?gh_jid=5416444"
+    assert b == "https://stripe.com/jobs/search?gh_jid=5601879"
+    assert a != b
+
+
+def test_canonicalize_keeps_generic_params() -> None:
+    assert canonicalize_url("https://careers.example.com/job?id=7&ref=abc") == (
+        "https://careers.example.com/job?id=7&ref=abc"
+    )
