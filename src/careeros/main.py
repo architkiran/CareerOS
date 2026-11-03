@@ -17,6 +17,7 @@ from careeros.config import Settings, get_settings
 from careeros.db.session import create_sqlite_engine, make_session_factory
 from careeros.web.csrf import csrf_middleware
 from careeros.web.routes import (
+    analytics,
     applications,
     approvals,
     events,
@@ -91,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(research.router)
     app.include_router(applications.router)
     app.include_router(approvals.router)
+    app.include_router(analytics.router)
 
     if not settings.is_localhost_bound:
         logger.warning("Bound to %s, not localhost. Add authentication first.", settings.app_host)

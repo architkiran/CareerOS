@@ -59,7 +59,8 @@ See `docs/` for detailed contracts.
 | 5. Employer research and work-authorization evidence | Done |
 | 6. Application workspace and document generation | Done |
 | 7. Approvals, outreach drafts, follow-ups | Done |
-| 8+ | Not started |
+| 8. Analytics | Done |
+| 9+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -187,6 +188,16 @@ Approvals expire after 72 hours and can be used once. They're cancelled automati
 
 **Outreach** is draft-only: add a contact and a message on the application, approve it, send it yourself, and record it. There's no LinkedIn automation. **Follow-ups** (`/follow-ups`) show what's due or overdue, and the Overview counts them.
 
+## Analytics (Phase 8)
+
+`/analytics` shows:
+- the funnel from discovered to offer
+- median days to submit and to first response
+- response and interview rates by lane, source and submission week
+- why you rejected jobs
+
+Every rate shows its count and a 95% range. Groups with fewer than 10 applications are marked *small sample*. A recommendation only appears when two groups each have enough data and their ranges don't overlap; otherwise it says there isn't enough data yet.
+
 ## Code map
 
 | Path | Purpose |
@@ -219,6 +230,7 @@ Approvals expire after 72 hours and can be used once. They're cancelled automati
 | `src/careeros/modules/applications/` | Application tracker and status rules |
 | `src/careeros/modules/approvals/` | Approval gate, payload snapshots and hashes, follow-ups (migration `0009`) |
 | `src/careeros/modules/outreach/` | Draft-only outreach contacts and messages |
+| `src/careeros/modules/analytics/` | Funnel, conversion rates with Wilson intervals, cautious recommendations |
 | `src/careeros/web/routes/events.py` | SSE stream and polling feed |
 | `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |

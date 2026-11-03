@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Analytics · CareerOS{% endblock %}
+{% macro pct(rate) %}{% if rate.value is not none %}{{ (rate.value * 100)|round|int }}%{% else %}n/a{% endif %}{% endmacro %}
+{% macro ci(rate) %}{% set i = rate.interval %}{% if i %}<span class="muted">{{ (i[0]*100)|round|int }} to {{ (i[1]*100)|round|int }}%</span>{% endif %}{% endmacro %}
+{% macro seg_table(title, rows, testid) %}
+<section class="card"><h2>{{ title }}</h2>
+{% if not rows %}<p class="empty">No submitted applications yet.</p>{% else %}
+<table class="table" data-testid="{{ testid }}"><thead><tr><th>Group</th><th>Submitted</th><th>Response rate</th><th>Interview rate</th></tr></thead><tbody>
+{% for s in rows %}<tr><td>{{ s.name }}</td><td>{{ s.submitted }}{% if s.response.small %} <span class="pill pill-unverified" title="Fewer than {{ min_sample }}: treat as anecdotal">small sample</span>{% endif %}</td>
+<td>{{ pct(s.response) }} ({{ s.response.hits }}/{{ s.response.n }}) {{ ci(s.response) }}</td>
+<td>{{ pct(s.interview) }} ({{ s.interview.hits }}/{{ s.interview.n }}) {{ ci(s.interview) }}</td></tr>{% endfor %}
+</tbody></table>{% endif %}</section>
+{% endmacro %}
+{% block content %}
+<h1>Analytics</h1>
+<p class="muted">Counts come from your jobs, applications and their recorded status changes. Ranges are 95% intervals; with fewer than {{ min_sample }} applications in a group, read them as anecdotes, not trends.</p>
+
+<section class="card"><h2>Funnel</h2>
+<div class="funnel" data-testid="funnel">
+{% for s in a.funnel %}
+<div class="funnel-row"><span class="funnel-label">{{ s.label }}</span>
+  <span class="funnel-bar"><span style="width: {{ [((s.count / top) * 100)|round(1), 0.5]|max }}%"></span></span>
+  <span class="funnel-count">{{ s.count }}</span>
+  <span class="muted funnel-rate">{% if s.from_previous %}{{ pct(s.from_previous) }} of previous{% endif %}</span></div>
+{% endfor %}
+</div></section>
+
+<section class="cards">
+  <article class="card"><h2>Time to submit</h2><p class="big">{{ a.median_days_to_submit if a.median_days_to_submit is not none else 'n/a' }}</p><p class="muted">median days from starting an application</p></article>
+  <article class="card"><h2>Time to first response</h2><p class="big">{{ a.median_days_to_response if a.median_days_to_response is not none else 'n/a' }}</p><p class="muted">median days after submitting</p></article>
+  <article class="card"><h2>Outcomes</h2>{% if a.outcomes %}<p>{% for k, v in a.outcomes.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% else %}<p class="muted">None yet</p>{% endif %}</article>
+</section>
+
+<section class="card"><h2>What the data says</h2>
+{% if a.recommendations %}<ul data-testid="recommendations">{% for r in a.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+{% else %}<p class="empty" data-testid="recommendations-empty">Nothing to say yet. Submit a few applications and record their outcomes.</p>{% endif %}
+</section>
+
+{{ seg_table("By role lane", a.by_lane, "by-lane") }}
+{{ seg_table("By source", a.by_source, "by-source") }}
+{{ seg_table("By submission week", a.by_week, "by-week") }}
+
+<section class="card"><h2>Why you rejected jobs</h2>
+{% if not a.rejection_reasons %}<p class="empty">No rejected jobs yet.</p>{% else %}
+<ul class="items">{% for reason, n in a.rejection_reasons %}<li>{{ reason }} <span class="muted">× {{ n }}</span></li>{% endfor %}</ul>{% endif %}
+</section>
+{% endblock %}
