@@ -6,6 +6,10 @@
   <input name="q" value="{{ filters.q or '' }}" placeholder="Search title, company, description" maxlength="200">
   <select name="triage"><option value="">Not rejected</option>
     {% for t in triage_statuses %}<option value="{{ t }}" {% if filters.triage == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  <button>Filter</button> <a href="/jobs">Clear</a>
+  <details class="more-filters" {% if filters.status != 'active' or filters.source_id or filters.workplace or filters.days or filters.lane_id or filters.eligibility != 'not_fail' or filters.min_score is not none or filters.sort != 'newest' or filters.possible_duplicates %}open{% endif %}>
+  <summary>More filters</summary>
+  <div class="filters">
   <select name="status">{% for s in ['active','closed','all'] %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
   <select name="source_id"><option value="">All sources</option>
     {% for s in sources %}<option value="{{ s.id }}" {% if filters.source_id == s.id %}selected{% endif %}>{{ s.display_name }} ({{ s.source_type }})</option>{% endfor %}</select>
@@ -20,7 +24,8 @@
   <input name="min_score" type="number" min="0" max="100" value="{{ filters.min_score if filters.min_score is not none else '' }}" placeholder="Min score" class="narrow">
   <select name="sort"><option value="newest">Newest</option><option value="score" {% if filters.sort == 'score' %}selected{% endif %}>Best score</option></select>
   <label class="check"><input type="checkbox" name="dupes" value="true" {% if filters.possible_duplicates %}checked{% endif %}> Possible duplicates</label>
-  <button>Filter</button> <a href="/jobs">Clear</a>
+  <button class="secondary">Apply</button>
+  </div></details>
 </form>
 
 {% if not rows %}
@@ -28,7 +33,7 @@
   {% else %}<p class="empty" data-testid="jobs-empty">No jobs yet. Add sources on the <a href="/sources">Sources</a> page and run discovery from the <a href="/">Overview</a>.</p>{% endif %}
 {% else %}
 <table class="table">
-  <thead><tr><th>Role</th><th>Company</th><th>Location</th><th>Type</th><th>Match</th><th>First seen</th><th>Triage</th></tr></thead>
+  <thead><tr><th>Role</th><th class="hide-sm">Company</th><th>Location</th><th class="hide-sm">Type</th><th>Match</th><th class="hide-sm">First seen</th><th>Triage</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr data-testid="job-row">
@@ -36,14 +41,17 @@
       {% if r.job.possible_duplicate_of_id %}<span class="pill pill-unverified">possible duplicate</span>{% endif %}
       {% if r.job.status == 'closed' %}<span class="pill">closed</span>{% endif %}
       <br><span class="muted">{{ r.sources | join(', ') }}</span></td>
-    <td>{{ r.company }}</td>
+    <td class="hide-sm">{{ r.company }}</td>
     <td>{{ r.job.location_text or '' }}{% if r.job.workplace_type %} <span class="muted">· {{ r.job.workplace_type }}</span>{% endif %}</td>
-    <td>{{ (r.job.employment_type or 'not stated').replace('_', ' ') }}</td>
+    <td class="hide-sm">{% if r.job.employment_type %}{{ r.job.employment_type.replace('_', ' ') }}{% else %}<span class="muted">not stated</span>{% endif %}</td>
     <td data-testid="match-cell">{% if r.match and r.match.match.classified %}
-      <strong class="score">{{ r.match.effective_score }}</strong> <span class="pill pill-elig-{{ r.match.effective_eligibility }}">{{ {'pass':'pass','unknown':'review','fail':'filtered'}[r.match.effective_eligibility] }}</span>
+      <span class="meter {{ r.match.effective_eligibility }}" title="Score {{ r.match.effective_score }}; {{ r.match.match.completeness }}% of the weighted information was known">
+        <strong class="meter-num score">{{ r.match.effective_score }}</strong>
+        <span class="meter-bar v{{ r.match.effective_score }} c{{ r.match.match.completeness }}" aria-hidden="true"><i></i><b></b></span></span>
+      <span class="pill pill-elig-{{ r.match.effective_eligibility }}">{{ {'pass':'pass','unknown':'review','fail':'filtered'}[r.match.effective_eligibility] }}</span>
       <br><span class="muted">{{ r.match.lane_name }}{% if r.match.override %} · overridden{% endif %}</span>
       {% else %}<span class="muted">no lane match</span>{% endif %}</td>
-    <td>{{ r.job.first_seen_at|localtime }}</td>
+    <td class="hide-sm">{{ r.job.first_seen_at|localtime }}</td>
     <td><span class="pill pill-{{ r.job.triage_status }}">{{ r.job.triage_status }}</span></td>
   </tr>
   {% endfor %}

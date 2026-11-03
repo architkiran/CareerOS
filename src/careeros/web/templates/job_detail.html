@@ -9,27 +9,12 @@
   · {{ (j.employment_type or 'employment type not stated').replace('_', ' ') }}
   {% if j.status == 'closed' %} · <span class="bad">no longer listed since {{ j.closed_at|localtime }}</span>{% endif %}</p>
 {{ alerts(errors, request.query_params.get('saved')) }}
+<div class="job-layout">
+<div class="job-main">
 
-<section class="card">
-  <h2>Application</h2>
-  {% if application %}<p><a href="/applications/{{ application.id }}" data-testid="open-application">Open application</a> · <span class="pill pill-app-{{ application.status }}">{{ application.status }}</span></p>
-  {% else %}<form method="post" action="/jobs/{{ j.id }}/application">{{ csrf() }}<button data-testid="start-application">Start application</button></form>{% endif %}
-</section>
 
-<section class="card">
-  <h2>Triage <span class="pill pill-{{ j.triage_status }}" data-testid="triage-status">{{ j.triage_status }}</span></h2>
-  {% if j.triage_reason %}<p class="muted">Reason: {{ j.triage_reason }}</p>{% endif %}
-  <div class="actions">
-  {% for action, label in [('shortlist','Shortlist'),('save','Save for later'),('reviewed','Mark reviewed'),('reset','Reset to new')] %}
-    <form method="post" action="/jobs/{{ j.id }}/triage" class="inline">{{ csrf() }}<input type="hidden" name="action" value="{{ action }}"><button {% if action == 'reset' %}class="link"{% endif %}>{{ label }}</button></form>
-  {% endfor %}
-  </div>
-  <form method="post" action="/jobs/{{ j.id }}/triage" class="grid">
-    {{ csrf() }}<input type="hidden" name="action" value="reject">
-    <label class="wide">Reject with reason <input name="reason" maxlength="1000" placeholder="e.g. requires 5+ years, not full-time" required></label>
-    <div><button class="danger-btn">Reject</button></div>
-  </form>
-</section>
+
+
 
 <section class="card" id="matching">
   <h2>Match</h2>
@@ -41,7 +26,7 @@
   {% set m = v.match %}{% set b = m.score_breakdown_json %}
   <details class="lane" id="lane-{{ v.lane_id }}" {% if loop.first %}open{% endif %} data-testid="lane-match">
     <summary><strong>{{ v.lane_name }}</strong>
-      <span class="score">{{ v.effective_score }}</span>/100
+      <span class="meter {{ v.effective_eligibility }}" title="{{ m.completeness }}% of the weighted information was known"><strong class="meter-num score">{{ v.effective_score }}</strong><span class="meter-bar v{{ v.effective_score }} c{{ m.completeness }}" aria-hidden="true"><i></i><b></b></span></span>
       <span class="pill pill-elig-{{ v.effective_eligibility }}">{{ {'pass':'passes filters','unknown':'needs review','fail':'filtered out'}[v.effective_eligibility] }}</span>
       {% if not m.classified %}<span class="muted">title not in this lane</span>{% endif %}
       {% if v.override %}<span class="pill">overridden</span>{% endif %}
@@ -145,15 +130,7 @@
   {% endif %}
 </section>
 
-<section class="card">
-  <h2>Sources</h2>
-  <ul class="items" data-testid="sightings">
-  {% for s in d.sightings %}
-    <li><a href="{{ s.source_url }}" rel="noopener noreferrer nofollow" target="_blank">{{ s.source_name }} ({{ s.source_type }})</a>
-      <span class="muted">id {{ s.external_id }} · first seen {{ s.first_seen_at|localtime }} · last seen {{ s.last_seen_at|localtime }}</span></li>
-  {% endfor %}
-  </ul>
-</section>
+
 
 {% if d.possible_duplicate_of or d.possible_duplicates %}
 <section class="card" data-testid="duplicate-group">
@@ -182,4 +159,38 @@
   <p class="muted">Shown as plain text from the source. Treated as untrusted content.</p>
   <div class="pre description">{{ j.description_text or 'No description provided.' }}</div>
 </section>
+</div>
+<aside class="job-side" aria-label="Actions">
+<section class="card">
+  <h2>Triage <span class="pill pill-{{ j.triage_status }}" data-testid="triage-status">{{ j.triage_status }}</span></h2>
+  {% if j.triage_reason %}<p class="muted">Reason: {{ j.triage_reason }}</p>{% endif %}
+  <div class="actions">
+  {% for action, label in [('shortlist','Shortlist'),('save','Save for later'),('reviewed','Mark reviewed'),('reset','Reset to new')] %}
+    <form method="post" action="/jobs/{{ j.id }}/triage" class="inline">{{ csrf() }}<input type="hidden" name="action" value="{{ action }}"><button class="{{ 'link' if action == 'reset' else ('' if action == 'shortlist' else 'secondary') }}">{{ label }}</button></form>
+  {% endfor %}
+  </div>
+  <form method="post" action="/jobs/{{ j.id }}/triage" class="grid">
+    {{ csrf() }}<input type="hidden" name="action" value="reject">
+    <label class="wide">Reject with reason <input name="reason" maxlength="1000" placeholder="e.g. requires 5+ years, not full-time" required></label>
+    <div><button class="danger-btn">Reject</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Application</h2>
+  {% if application %}<p><a href="/applications/{{ application.id }}" data-testid="open-application">Open application</a> · <span class="pill pill-app-{{ application.status }}">{{ application.status }}</span></p>
+  {% else %}<form method="post" action="/jobs/{{ j.id }}/application">{{ csrf() }}<button data-testid="start-application">Start application</button></form>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Sources</h2>
+  <ul class="items" data-testid="sightings">
+  {% for s in d.sightings %}
+    <li><a href="{{ s.source_url }}" rel="noopener noreferrer nofollow" target="_blank">{{ s.source_name }} ({{ s.source_type }})</a>
+      <span class="muted">id {{ s.external_id }} · first seen {{ s.first_seen_at|localtime }} · last seen {{ s.last_seen_at|localtime }}</span></li>
+  {% endfor %}
+  </ul>
+</section>
+</aside>
+</div>
 {% endblock %}

@@ -4,28 +4,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}CareerOS{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', path='favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <span class="brand">CareerOS</span>
-    <nav>
-      <a href="/">Overview</a>
-      <a href="/jobs">Jobs</a>
-      <a href="/research">Research</a>
-      <a href="/applications">Applications</a>
-      <a href="/approvals">Approvals</a>
-      <a href="/follow-ups">Follow-ups</a>
-      <a href="/analytics">Analytics</a>
-      <a href="/settings">Settings</a>
-      <a href="/profile">Profile</a>
-      <a href="/lanes">Role lanes</a>
-      <a href="/sources">Sources</a>
-    </nav>
-  </header>
-  <main class="container">
-    {% block content %}{% endblock %}
-  </main>
+  <a class="skip" href="#main">Skip to content</a>
+  {% set path = request.url.path %}
+  {% macro nav(href, label) -%}
+    {%- set on = (path == href) or (href != '/' and path.startswith(href)) -%}
+    <a href="{{ href }}" class="{{ 'on' if on }}" {% if on %}aria-current="page"{% endif %}>{{ label }}</a>
+  {%- endmacro %}
+  <div class="shell">
+    <aside class="side">
+      <a class="brand" href="/"><img src="{{ url_for('static', path='favicon.svg') }}" alt="" width="22" height="22"> CareerOS</a>
+      <nav aria-label="Main">
+        <p class="nav-group">Pipeline</p>
+        {{ nav('/', 'Overview') }}
+        {{ nav('/jobs', 'Jobs') }}
+        {{ nav('/research', 'Research') }}
+        {{ nav('/applications', 'Applications') }}
+        {{ nav('/approvals', 'Approvals') }}
+        {{ nav('/follow-ups', 'Follow-ups') }}
+        <p class="nav-group">Insight</p>
+        {{ nav('/analytics', 'Analytics') }}
+        <p class="nav-group">Setup</p>
+        {{ nav('/profile', 'Profile') }}
+        {{ nav('/lanes', 'Role lanes') }}
+        {{ nav('/sources', 'Sources') }}
+        {{ nav('/settings', 'Settings') }}
+      </nav>
+    </aside>
+    <main class="container" id="main" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
   <script src="{{ url_for('static', path='app.js') }}" defer></script>
 </body>
 </html>

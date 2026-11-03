@@ -61,3 +61,33 @@ def test_static_css_served(client: TestClient) -> None:
 
 def test_api_docs_disabled(client: TestClient) -> None:
     assert client.get("/docs").status_code == 404
+
+
+def test_no_inline_styles_or_scripts_anywhere() -> None:
+    """The CSP is default-src 'self': inline style/script would silently break in browsers."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).parents[2] / "src" / "careeros" / "web" / "templates"
+    for tpl in root.glob("*.html"):
+        text = tpl.read_text()
+        assert not re.search(r'\sstyle="', text), f"inline style in {tpl.name}"
+        assert not re.search(r"<script(?![^>]*\ssrc=)", text), f"inline script in {tpl.name}"
+        assert not re.search(r"\son[a-z]+=\"", text), f"inline handler in {tpl.name}"
+
+
+def test_sidebar_marks_current_page(client: TestClient) -> None:
+    html = client.get("/jobs").text
+    assert 'href="/jobs" class="on" aria-current="page"' in html
+    assert 'href="/" class=""' in html  # Overview not active on /jobs
+    assert 'class="skip" href="#main"' in html
+
+
+def test_static_font_and_icon_served(client: TestClient) -> None:
+    assert client.get("/static/fonts/plex-sans-400.woff2").status_code == 200
+    assert client.get("/static/favicon.svg").status_code == 200
+
+
+def test_system_strip_on_overview(client: TestClient) -> None:
+    html = client.get("/").text
+    assert 'data-testid="system-strip"' in html and "spent $0.00" in html
