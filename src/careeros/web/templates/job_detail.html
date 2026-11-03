@@ -166,8 +166,19 @@
 </section>
 {% endif %}
 
+{% if ai_summary %}
+<section class="card" data-testid="ai-summary">
+  <h2>AI summary <span class="pill pill-unverified">local model, may be wrong</span></h2>
+  <p>{{ ai_summary.summary }}</p>
+  {% if ai_summary.key_requirements %}<ul>{% for r in ai_summary.key_requirements %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+  <p class="muted">{{ ai_meta.provider }} · {{ ai_meta.model }}{% if ai_meta.cache_hit %} · cached{% endif %}. Not used for filters, scores or documents.</p>
+</section>
+{% endif %}
+{% if summary_error %}<div class="alert alert-warn" data-testid="summary-error">{{ summary_error }}</div>{% endif %}
+
 <section class="card">
   <h2>Description</h2>
+  <form method="post" action="/jobs/{{ j.id }}/summary" class="inline">{{ csrf() }}<button class="link" data-testid="summarize">Summarise with local model</button></form>
   <p class="muted">Shown as plain text from the source. Treated as untrusted content.</p>
   <div class="pre description">{{ j.description_text or 'No description provided.' }}</div>
 </section>

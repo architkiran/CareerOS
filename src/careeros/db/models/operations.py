@@ -83,3 +83,34 @@ class PipelineRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     counters_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     error_summary: Mapped[str | None] = mapped_column(Text)
+
+
+class ModelUsage(Base):
+    """One row per model gateway call (including cache hits and refusals). No prompt text."""
+
+    __tablename__ = "model_usage"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    task_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    estimated_cost: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    cache_hit: Mapped[bool] = mapped_column(nullable=False, default=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ok")
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, default=utcnow, index=True
+    )
+
+
+class ModelCache(Base):
+    __tablename__ = "model_cache"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(30), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    response_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

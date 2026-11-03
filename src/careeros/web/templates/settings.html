@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Settings · CareerOS{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<p class="muted">These come from your <code>.env</code> file. Edit it and restart <code>careeros serve</code> to change them.</p>
+
+<section class="card">
+  <h2>AI model</h2>
+  <dl class="facts">
+    <dt>Provider</dt><dd data-testid="model-provider">{{ s.model_provider }}{% if s.model_provider == 'ollama' %} · {{ s.ollama_model or 'no model set' }} at {{ s.ollama_base_url }}{% endif %}</dd>
+    <dt>Status</dt><dd>{{ 'enabled' if gateway_enabled else 'off' }}</dd>
+    <dt>Budget</dt><dd>${{ '%.2f'|format(s.model_daily_budget_usd) }}/day · ${{ '%.2f'|format(s.model_monthly_budget_usd) }}/month</dd>
+    <dt>Last 30 days</dt><dd data-testid="model-usage">{{ usage.calls }} calls · {{ usage.cache_hits }} cache hits · ${{ '%.2f'|format(usage.spent_30d) }} spent</dd>
+  </dl>
+  <p class="muted">Every core feature works with the model off. To try a free local model, install <a href="https://ollama.com" rel="noopener noreferrer" target="_blank">Ollama</a>, pull a small model, and set <code>MODEL_PROVIDER=ollama</code> and <code>OLLAMA_MODEL=&lt;name&gt;</code>. It's only used for optional job summaries and never decides filters, scores or what goes in your documents.</p>
+  {% if test_result %}<div class="alert alert-{{ 'ok' if test_result[0] == 'ok' else ('error' if test_result[0] == 'error' else 'warn') }}" data-testid="model-test">{{ test_result[1] }}</div>{% endif %}
+  <form method="post" action="/settings/model/test">{{ csrf() }}<button class="secondary">Test model connection</button></form>
+</section>
+
+<section class="card">
+  <h2>Backups</h2>
+  {% if last_backup %}<p data-testid="last-backup">Latest: <code>{{ last_backup[0].name }}</code> ({{ last_backup[1]|localtime }})</p>
+  {% else %}<p class="warnc" data-testid="no-backup">No backups yet in <code>{{ s.backup_dir }}</code>.</p>{% endif %}
+  <p class="muted">In a terminal: <code>careeros backup</code> writes a verified archive; <code>careeros backup --verify FILE</code> checks one; <code>careeros restore FILE --yes</code> restores it (your current data is moved aside, never deleted). Copy archives somewhere you own.</p>
+</section>
+
+<section class="card">
+  <h2>Runtime</h2>
+  <dl class="facts">
+    <dt>Listening on</dt><dd>{{ s.app_host }}:{{ s.app_port }}{% if not s.is_localhost_bound %} <span class="bad">network exposed</span>{% endif %}</dd>
+    <dt>Scheduler</dt><dd>{{ 'every %sh'|format(s.schedule_interval_hours|round(1)) if s.scheduler_enabled else 'off' }}</dd>
+    <dt>Timezone</dt><dd>{{ s.display_timezone }}</dd>
+    <dt>Data folder</dt><dd><code>{{ s.data_dir }}</code></dd>
+  </dl>
+</section>
+{% endblock %}
