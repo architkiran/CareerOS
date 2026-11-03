@@ -27,6 +27,9 @@ from careeros.web.routes import (
     sources,
     system,
 )
+from careeros.web.routes import (
+    settings as settings_routes,
+)
 from careeros.web.templating import STATIC_DIR, build_templates
 
 logger = logging.getLogger("careeros")
@@ -93,6 +96,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(applications.router)
     app.include_router(approvals.router)
     app.include_router(analytics.router)
+    app.include_router(settings_routes.router)
 
     if not settings.is_localhost_bound:
         logger.warning("Bound to %s, not localhost. Add authentication first.", settings.app_host)
@@ -102,6 +106,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 def _serve(settings: Settings, *, with_worker: bool = True) -> None:
     import uvicorn
 
+    if not settings.is_localhost_bound and not settings.allow_remote:
+        print(
+            f"Refusing to listen on {settings.app_host}: CareerOS has no login yet, so anyone on "
+            "the network could see your data. Use 127.0.0.1, or set ALLOW_REMOTE=true only behind "
+            "a private VPN you trust (see docs/REMOTE_ACCESS.md).",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     if not with_worker:
         settings = settings.model_copy(update={"worker_enabled": False})
     uvicorn.run(
@@ -232,6 +244,48 @@ def _ingest(settings: Settings, args: argparse.Namespace) -> int:
     return 1 if all(r.status == "failed" for r in results) else 0
 
 
+def _backup(settings: Settings, args: argparse.Namespace) -> int:
+    from careeros.modules.backup import service as backup
+
+    try:
+        if args.verify:
+            manifest = backup.verify_backup(Path(args.verify))
+            files = manifest.get("files", {})
+            print(f"OK: {len(files) if isinstance(files, dict) else 0} files verified.")
+            return 0
+        result = backup.create_backup(
+            settings.database_url,
+            settings.data_dir,
+            Path(args.dest) if args.dest else settings.backup_dir,
+        )
+    except backup.BackupError as exc:
+        print(f"Backup failed: {exc}", file=sys.stderr)
+        return 1
+    print(f"Backup written and verified: {result.path} ({result.files} files)")
+    print("Copy it somewhere you own (an external drive or your own cloud folder).")
+    return 0
+
+
+def _restore(settings: Settings, args: argparse.Namespace) -> int:
+    from careeros.modules.backup import service as backup
+
+    if not args.yes:
+        print(
+            "Restoring replaces your current database and documents. The current ones are "
+            "moved aside, not deleted. Stop `careeros serve` first, then re-run with --yes.",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        moved = backup.restore_backup(Path(args.archive), settings.database_url, settings.data_dir)
+    except backup.BackupError as exc:
+        print(f"Restore refused: {exc}", file=sys.stderr)
+        return 1
+    print("Restore complete." + (f" Previous database kept at {moved}" if moved else ""))
+    print("Run `careeros migrate` in case the backup is from an older version.")
+    return 0
+
+
 def run(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="careeros", description="CareerOS local server")
     sub = parser.add_subparsers(dest="command")
@@ -244,6 +298,12 @@ def run(argv: list[str] | None = None) -> None:
     sync = src_sub.add_parser("sync", help="Add sources from a TOML watchlist")
     sync.add_argument("--file", default="config/sources.toml")
     src_sub.add_parser("list", help="List configured sources")
+    bk = sub.add_parser("backup", help="Create a verified backup (or --verify one)")
+    bk.add_argument("--dest", help="Folder for the archive (default BACKUP_DIR)")
+    bk.add_argument("--verify", metavar="ARCHIVE", help="Only verify an existing backup")
+    rs = sub.add_parser("restore", help="Restore a verified backup")
+    rs.add_argument("archive")
+    rs.add_argument("--yes", action="store_true", help="Confirm replacing current data")
     ingest = sub.add_parser("ingest", help="Fetch jobs from enabled sources now")
     ingest.add_argument("--token", help="Only this board token")
     args = parser.parse_args(argv)
@@ -255,6 +315,10 @@ def run(argv: list[str] | None = None) -> None:
         raise SystemExit(_sources(settings, args))
     elif args.command == "ingest":
         raise SystemExit(_ingest(settings, args))
+    elif args.command == "backup":
+        raise SystemExit(_backup(settings, args))
+    elif args.command == "restore":
+        raise SystemExit(_restore(settings, args))
     elif args.command == "worker":
         raise SystemExit(_worker(settings))
     else:

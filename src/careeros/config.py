@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     model_monthly_budget_usd: float = Field(default=0.0, ge=0)
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = ""
+    model_timeout_seconds: float = Field(default=60, ge=1, le=600)
+    # Binding to a non-local address needs authentication that doesn't exist yet.
+    allow_remote: bool = False
+    backup_dir: Path = Path("./backups")
 
     @field_validator("database_url")
     @classmethod

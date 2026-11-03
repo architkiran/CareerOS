@@ -4,7 +4,14 @@ from careeros.db.models.applications import Application, ApplicationEvent, Docum
 from careeros.db.models.approvals import Approval, FollowUp, OutreachContact, OutreachDraft
 from careeros.db.models.jobs import Company, Job, JobSourceRecord, Source, SourceRun
 from careeros.db.models.matching import JobLaneMatch, MatchOverride
-from careeros.db.models.operations import ActivityEvent, PipelineRun, Setting, Task
+from careeros.db.models.operations import (
+    ActivityEvent,
+    ModelCache,
+    ModelUsage,
+    PipelineRun,
+    Setting,
+    Task,
+)
 from careeros.db.models.profile import (
     CandidateProfile,
     CandidateSkill,
@@ -37,6 +44,8 @@ __all__ = [
     "JobLaneMatch",
     "JobSourceRecord",
     "MatchOverride",
+    "ModelCache",
+    "ModelUsage",
     "ProfileFact",
     "Project",
     "ResearchItem",

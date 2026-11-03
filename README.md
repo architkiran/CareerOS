@@ -60,7 +60,7 @@ See `docs/` for detailed contracts.
 | 6. Application workspace and document generation | Done |
 | 7. Approvals, outreach drafts, follow-ups | Done |
 | 8. Analytics | Done |
-| 9+ | Not started |
+| 9. Model gateway, optional local AI, backups | Done |
 
 See `docs/ROADMAP.md`.
 
@@ -198,6 +198,13 @@ Approvals expire after 72 hours and can be used once. They're cancelled automati
 
 Every rate shows its count and a 95% range. Groups with fewer than 10 applications are marked *small sample*. A recommendation only appears when two groups each have enough data and their ranges don't overlap; otherwise it says there isn't enough data yet.
 
+## AI, backups and remote access (Phase 9)
+
+- **AI is off by default** and nothing depends on it. All model calls go through one gateway with $0 budget caps, a cache, timeouts and a usage log. Job text is fenced as untrusted, and replies must match a strict schema.
+- **Optional local model:** install [Ollama](https://ollama.com), pull a small model, then set `MODEL_PROVIDER=ollama` and `OLLAMA_MODEL=<name>` in `.env`. You'll get a *Summarise with local model* button on job pages. Summaries are labelled as possibly wrong and are never used for filters, scores or documents. `/settings` shows status and usage, and has a connection test.
+- **Backups:** `careeros backup` writes a verified `.tar.gz` (consistent database copy plus your documents, with SHA-256 hashes) to `./backups`. `careeros backup --verify FILE` checks an archive. `careeros restore FILE --yes` restores one after verifying it, and your current data is moved aside, not deleted. Keep copies on a drive you own.
+- **Remote access:** `careeros serve` refuses to listen on anything except localhost unless `ALLOW_REMOTE=true`. Read `docs/REMOTE_ACCESS.md` first.
+
 ## Code map
 
 | Path | Purpose |
@@ -231,6 +238,8 @@ Every rate shows its count and a 95% range. Groups with fewer than 10 applicatio
 | `src/careeros/modules/approvals/` | Approval gate, payload snapshots and hashes, follow-ups (migration `0009`) |
 | `src/careeros/modules/outreach/` | Draft-only outreach contacts and messages |
 | `src/careeros/modules/analytics/` | Funnel, conversion rates with Wilson intervals, cautious recommendations |
+| `src/careeros/modules/models/gateway.py` | Model gateway, Ollama adapter, usage and cache (migration `0010`) |
+| `src/careeros/modules/backup/` | Verified backup and safe restore |
 | `src/careeros/web/routes/events.py` | SSE stream and polling feed |
 | `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |
