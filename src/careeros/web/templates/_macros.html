@@ -1,0 +1,24 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endmacro %}
+
+{% macro alerts(errors=None, saved=None) %}
+{% if errors %}
+<div class="alert alert-error" role="alert" data-testid="form-errors">
+  <strong>Not saved.</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if saved %}<div class="alert alert-ok" role="status" data-testid="saved">Saved.</div>{% endif %}
+{% endmacro %}
+
+{% macro badge(status) %}<span class="pill pill-{{ status }}">{{ status }}</span>{% endmacro %}
+
+{% macro verify_controls(kind, item_id, status) %}
+<form method="post" action="/profile/{{ kind }}/{{ item_id }}/verify" class="inline">
+  {{ csrf() }}
+  <input type="hidden" name="status" value="{{ 'unverified' if status == 'verified' else 'verified' }}">
+  <button class="link">{{ 'Mark unverified' if status == 'verified' else 'Mark verified' }}</button>
+</form>
+<form method="post" action="/profile/{{ kind }}/{{ item_id }}/delete" class="inline">
+  {{ csrf() }}<button class="link danger">Delete</button>
+</form>
+{% endmacro %}

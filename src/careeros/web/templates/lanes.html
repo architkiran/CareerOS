@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, alerts with context %}
+{% block title %}Role lanes · CareerOS{% endblock %}
+{% macro lane_fields(rules, weights, name='', enabled=true) %}
+  <label>Name <input name="name" value="{{ name }}" required maxlength="100"></label>
+  <label class="check"><input type="checkbox" name="enabled" {% if enabled %}checked{% endif %}> Enabled</label>
+  <label class="wide">Title keywords <input name="title_keywords" value="{{ rules.title_keywords | join(', ') }}"></label>
+  <label class="wide">Exclude titles containing <input name="title_exclude" value="{{ rules.title_exclude | join(', ') }}"></label>
+  <label>Required skills <input name="required_skills" value="{{ rules.required_skills | join(', ') }}"></label>
+  <label>Preferred skills <input name="preferred_skills" value="{{ rules.preferred_skills | join(', ') }}"></label>
+  <label class="wide">Excluded terms <input name="excluded_terms" value="{{ rules.excluded_terms | join(', ') }}"></label>
+  <label>Preferred locations <input name="preferred_locations" value="{{ rules.preferred_locations | join(', ') }}"></label>
+  <label>Preferred companies <input name="preferred_companies" value="{{ rules.preferred_companies | join(', ') }}"></label>
+  <fieldset class="wide"><legend>Seniority allowed</legend>
+    {% for s in ['entry','junior','mid','senior','lead'] %}<label class="check"><input type="checkbox" name="seniority_allowed" value="{{ s }}" {% if s in rules.seniority_allowed %}checked{% endif %}> {{ s }}</label>{% endfor %}
+  </fieldset>
+  <fieldset class="wide"><legend>Employment types</legend>
+    {% for t in ['full_time','part_time','contract','internship','temporary'] %}<label class="check"><input type="checkbox" name="employment_types" value="{{ t }}" {% if t in rules.employment_types %}checked{% endif %}> {{ t }}</label>{% endfor %}
+  </fieldset>
+  <label class="check"><input type="checkbox" name="remote_ok" {% if rules.remote_ok %}checked{% endif %}> Remote OK</label>
+  <fieldset class="wide"><legend>Scoring weights (must total 100)</legend>
+    {% for k, v in weights.model_dump().items() %}<label class="w">{{ k.replace('_',' ') }} <input type="number" name="w_{{ k }}" value="{{ v }}" min="0" max="100"></label>{% endfor %}
+  </fieldset>
+{% endmacro %}
+{% block content %}
+<h1>Role lanes</h1>
+<p class="muted">Each lane is a separate target with its own title rules, skills, and scoring weights. Matching (a later phase) scores every job per lane.</p>
+{{ alerts(errors, saved) }}
+<form method="post" action="/lanes/defaults">{{ csrf() }}<button>Add default lanes</button> <span class="muted">Adds any of the six spec lanes that are missing. Never overwrites your edits.</span></form>
+
+{% if not lanes %}<p class="empty" data-testid="lanes-empty">No lanes yet. Add the defaults or create your own below.</p>{% endif %}
+{% for lane, rules, weights in lanes %}
+<details class="card" id="lane-{{ lane.id }}">
+  <summary><strong>{{ lane.name }}</strong> <span class="pill pill-{{ 'verified' if lane.enabled else 'unverified' }}">{{ 'enabled' if lane.enabled else 'disabled' }}</span></summary>
+  <form method="post" action="/lanes/{{ lane.id }}" class="grid">
+    {{ csrf() }}{{ lane_fields(rules, weights, lane.name, lane.enabled) }}
+    <div><button>Save lane</button></div>
+  </form>
+</details>
+{% endfor %}
+
+<details class="card"><summary><strong>Create a lane</strong></summary>
+  <form method="post" action="/lanes" class="grid">{{ csrf() }}{{ lane_fields(new_rules, new_weights) }}<div><button>Create lane</button></div></form>
+</details>
+{% endblock %}

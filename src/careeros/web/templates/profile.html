@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, alerts, badge, verify_controls with context %}
+{% block title %}Profile · CareerOS{% endblock %}
+{% block content %}
+<h1>Candidate profile</h1>
+<p class="muted">Only <strong>verified</strong> items will ever be used in documents or applications. Unverified items are drafts you still need to confirm.</p>
+{{ alerts(errors, saved) }}
+
+<section class="card summary" data-testid="profile-summary">
+  <span>{{ summary.verified }} verified</span> · <span>{{ summary.unverified }} unverified</span> ·
+  <span>{{ summary.lanes_enabled }} lanes enabled</span> ·
+  <a href="/profile/work-authorization">Work authorization: {{ 'confirmed' if summary.work_authorization_set else 'not confirmed' }}</a>
+  {% if summary.gaps %}<p class="muted">Next: {{ summary.gaps | join(' · ') }}</p>{% endif %}
+</section>
+
+<section class="card" id="basics">
+  <h2>Basics</h2>
+  <form method="post" action="/profile" class="grid">
+    {{ csrf() }}
+    <label>Name <input name="display_name" value="{{ basics.display_name }}" maxlength="200"></label>
+    <label>Email <input name="email" type="email" value="{{ basics.email or '' }}"></label>
+    <label>Phone <input name="phone" value="{{ basics.phone or '' }}" maxlength="50"></label>
+    <label>Current location <input name="current_location" value="{{ basics.current_location or '' }}"></label>
+    <label>Open to relocation
+      <select name="open_to_relocation">
+        <option value="" {% if basics.open_to_relocation is none %}selected{% endif %}>Not set</option>
+        <option value="yes" {% if basics.open_to_relocation == true %}selected{% endif %}>Yes</option>
+        <option value="no" {% if basics.open_to_relocation == false %}selected{% endif %}>No</option>
+      </select></label>
+    <label>Relocation locations <input name="relocation_locations" value="{{ basics.relocation_locations | join(', ') }}" placeholder="comma separated"></label>
+    <label>Graduation date <input name="graduation_date" type="date" value="{{ basics.graduation_date or '' }}"></label>
+    <label>Available from <input name="availability_date" type="date" value="{{ basics.availability_date or '' }}"></label>
+    <label>Salary floor (USD/yr) <input name="salary_floor" type="number" min="0" value="{{ basics.salary_floor or '' }}"></label>
+    <div><button>Save basics</button></div>
+  </form>
+</section>
+
+<section class="card" id="facts">
+  <h2>Facts</h2>
+  {% if not facts %}<p class="empty" data-testid="facts-empty">No facts yet. Add things like degrees, certifications, or achievements, with a note on where they come from.</p>{% endif %}
+  <ul class="items">
+    {% for f in facts %}
+    <li><span class="tag">{{ f.category }}</span> <strong>{{ f.fact_key }}</strong>: {{ f.fact_value }} {{ badge(f.verified_status) }}
+      {% if f.source_note %}<span class="muted">({{ f.source_note }})</span>{% endif %}
+      {{ verify_controls('facts', f.id, f.verified_status) }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/profile/facts" class="grid">
+    {{ csrf() }}
+    <label>Category <select name="category">
+      {% for c in ['education','employment','achievement','certification','contact','preference','other'] %}<option>{{ c }}</option>{% endfor %}
+    </select></label>
+    <label>Label <input name="fact_key" required maxlength="200" placeholder="e.g. Degree"></label>
+    <label class="wide">Value <input name="fact_value" required maxlength="5000"></label>
+    <label class="wide">Source note <input name="source_note" placeholder="Where can this be checked?"></label>
+    <label class="check"><input type="checkbox" name="verified"> I confirm this is accurate</label>
+    <div><button>Add fact</button></div>
+  </form>
+</section>
+
+<section class="card" id="skills">
+  <h2>Skills</h2>
+  {% if not skills %}<p class="empty">No skills yet.</p>{% endif %}
+  <ul class="items">
+    {% for s in skills %}
+    <li><strong>{{ s.name }}</strong>{% if s.proficiency %} · {{ s.proficiency }}{% endif %}{% if s.last_used_year %} · last used {{ s.last_used_year }}{% endif %} {{ badge(s.verified_status) }}
+      {{ verify_controls('skills', s.skill_id, s.verified_status) }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/profile/skills" class="grid">
+    {{ csrf() }}
+    <label>Skill <input name="name" required maxlength="100"></label>
+    <label>Proficiency <select name="proficiency"><option value="">Not set</option>
+      {% for p in ['beginner','intermediate','advanced','expert'] %}<option>{{ p }}</option>{% endfor %}</select></label>
+    <label>Last used (year) <input name="last_used_year" type="number" min="1950" max="2100"></label>
+    <label class="check"><input type="checkbox" name="verified"> Verified</label>
+    <div><button>Add skill</button></div>
+  </form>
+</section>
+
+<section class="card" id="experience">
+  <h2>Experience</h2>
+  {% if not experience %}<p class="empty">No experience entries yet.</p>{% endif %}
+  <ul class="items">
+    {% for e in experience %}
+    <li><strong>{{ e.title }}</strong>, {{ e.organization }}
+      <span class="muted">{{ e.start_date or '?' }} to {{ e.end_date or 'present' }}</span> {{ badge(e.verified_status) }}
+      {% if e.description %}<div class="muted pre">{{ e.description }}</div>{% endif %}
+      {{ verify_controls('experience', e.id, e.verified_status) }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/profile/experience" class="grid">
+    {{ csrf() }}
+    <label>Title <input name="title" required maxlength="200"></label>
+    <label>Organization <input name="organization" required maxlength="200"></label>
+    <label>Start <input name="start_date" type="date"></label>
+    <label>End <input name="end_date" type="date"></label>
+    <label class="wide">Description <textarea name="description" rows="3"></textarea></label>
+    <label class="check"><input type="checkbox" name="verified"> Verified (dates and title are exact)</label>
+    <div><button>Add experience</button></div>
+  </form>
+</section>
+
+<section class="card" id="projects">
+  <h2>Projects</h2>
+  {% if not projects %}<p class="empty">No projects yet.</p>{% endif %}
+  <ul class="items">
+    {% for p in projects %}
+    <li><strong>{{ p.name }}</strong> {{ badge(p.verified_status) }}
+      {% if p.technologies_json %}<span class="muted">{{ p.technologies_json | join(', ') }}</span>{% endif %}
+      {% if p.outcomes_json %}<ul>{% for o in p.outcomes_json %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+      {{ verify_controls('projects', p.id, p.verified_status) }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/profile/projects" class="grid">
+    {{ csrf() }}
+    <label>Name <input name="name" required maxlength="200"></label>
+    <label>Technologies <input name="technologies" placeholder="comma separated"></label>
+    <label class="wide">Description <textarea name="description" rows="2"></textarea></label>
+    <label class="wide">Outcomes (one per line, only things you can back up) <textarea name="outcomes" rows="3"></textarea></label>
+    <label class="wide">Evidence notes <input name="evidence_notes" placeholder="repo link, report, etc."></label>
+    <label class="check"><input type="checkbox" name="verified"> Verified</label>
+    <div><button>Add project</button></div>
+  </form>
+</section>
+
+<section class="card" id="import-export">
+  <h2>Import / export</h2>
+  {% if profile %}
+  <p><a href="/profile/export.json">Download profile JSON</a> · <a href="/profile/export.json?include_work_authorization=true">including work authorization</a></p>
+  {% endif %}
+  <form method="post" action="/profile/import" enctype="multipart/form-data" class="grid">
+    {{ csrf() }}
+    <label class="wide">Profile JSON <input type="file" name="file" accept="application/json,.json"></label>
+    <label class="check"><input type="checkbox" name="replace"> Replace existing profile (cannot be undone)</label>
+    <div><button>Import</button></div>
+  </form>
+</section>
+{% endblock %}

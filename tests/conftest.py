@@ -4,10 +4,12 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from careeros.config import Settings
 from careeros.db.migrations import upgrade_to_head
 from careeros.main import create_app
+from careeros.web.csrf import COOKIE_NAME as CSRF_COOKIE
 
 
 @pytest.fixture
@@ -40,3 +42,24 @@ def app(migrated_settings: Settings) -> Iterator[FastAPI]:
 def client(app: FastAPI) -> Iterator[TestClient]:
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def session(app: FastAPI) -> Iterator[Session]:
+    with app.state.session_factory() as s:
+        yield s
+
+
+def csrf_token(client: TestClient) -> str:
+    """Return the client's CSRF token, fetching a page first if needed."""
+    token = client.cookies.get(CSRF_COOKIE)
+    if not token:
+        client.get("/health")
+        token = client.cookies.get(CSRF_COOKIE)
+    assert token
+    return token
+
+
+def post_form(client: TestClient, url: str, data: dict[str, object] | None = None, **kw: object):  # type: ignore[no-untyped-def]
+    payload = {"csrf_token": csrf_token(client), **(data or {})}
+    return client.post(url, data=payload, follow_redirects=False, **kw)  # type: ignore[arg-type]

@@ -49,7 +49,13 @@ See `docs/` for detailed contracts.
 
 ## Status
 
-**Phase 0 (engineering foundation) is complete.** The app starts, serves a health endpoint and a dashboard shell, applies its first migration, and passes tests, lint, and type checks. Phase 1 (candidate profile) has not started. See `docs/ROADMAP.md`.
+| Phase | State |
+|---|---|
+| 0. Engineering foundation | Done |
+| 1. Candidate profile and role lanes | Done |
+| 2+ | Not started |
+
+See `docs/ROADMAP.md`.
 
 ## Setup (macOS)
 
@@ -92,7 +98,7 @@ The server binds to `127.0.0.1` only. Runtime AI is disabled and spend caps are 
 ## Test and check
 
 ```bash
-pytest                 # 33 tests: config, UTC handling, DB pragmas, migrations, health, dashboard, CLI
+pytest                 # full suite, no network
 ruff check .
 ruff format --check .
 mypy
@@ -100,7 +106,16 @@ mypy
 
 Tests use temporary SQLite files and make no network calls.
 
-## What Phase 0 contains
+## Using the profile (Phase 1)
+
+- **Profile** (`/profile`): basics, facts, skills, experience, projects. Every item is `verified` or `unverified`; only verified items will be used in anything that leaves the app.
+- **Role lanes** (`/lanes`): click *Add default lanes* for the six target families, then edit title keywords, skills, seniority, and weights (must total 100).
+- **Work authorization** (`/profile/work-authorization`): entered by you, never inferred, never written to logs or the activity feed, and excluded from exports unless you ask for it.
+- **Export / import**: download your profile as JSON; importing refuses to overwrite an existing profile unless you tick *replace*.
+
+All forms are CSRF-protected.
+
+## Code map
 
 | Path | Purpose |
 |---|---|
@@ -113,6 +128,10 @@ Tests use temporary SQLite files and make no network calls.
 | `migrations/` | Alembic environment and revision `0001` |
 | `src/careeros/modules/system/status.py` | Health checks shared by `/health` and the dashboard |
 | `src/careeros/web/` | Routes, Jinja templates (autoescaped), CSS, security headers |
+| `src/careeros/db/models/profile.py` | Profile, facts, skills, experience, projects, role lanes, work authorization (migration `0002`) |
+| `src/careeros/modules/profile/` | Validated schemas, default lanes, profile service, export/import |
+| `src/careeros/modules/events/` | Activity event recording (no sensitive values) |
+| `src/careeros/web/csrf.py` | Double-submit CSRF protection |
 | `tests/` | Unit and integration tests |
 
 Data lives in `./data` and generated files in `./exports`; both are created with owner-only permissions and are gitignored.
