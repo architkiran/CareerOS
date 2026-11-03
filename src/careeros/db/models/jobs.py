@@ -100,6 +100,12 @@ class Job(Base):
     closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     possible_duplicate_of_id: Mapped[str | None] = mapped_column(ForeignKey("job.id"))
+    # User triage, separate from the source-driven `status` (active/closed).
+    triage_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="new", server_default="new", index=True
+    )
+    triage_reason: Mapped[str | None] = mapped_column(Text)
+    triaged_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
 
 class JobSourceRecord(Base):

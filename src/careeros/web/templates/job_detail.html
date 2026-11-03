@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, alerts with context %}
+{% block title %}{{ d.job.title }} · CareerOS{% endblock %}
+{% block content %}
+{% set j = d.job %}
+<p><a href="/jobs">← Job inbox</a></p>
+<h1>{{ j.title }}</h1>
+<p class="muted">{{ d.company.canonical_name }}{% if j.location_text %} · {{ j.location_text }}{% endif %}{% if j.workplace_type %} · {{ j.workplace_type }}{% endif %}
+  · {{ (j.employment_type or 'employment type not stated').replace('_', ' ') }}
+  {% if j.status == 'closed' %} · <span class="bad">no longer listed since {{ j.closed_at|localtime }}</span>{% endif %}</p>
+{{ alerts(errors, request.query_params.get('saved')) }}
+
+<section class="card">
+  <h2>Triage <span class="pill pill-{{ j.triage_status }}" data-testid="triage-status">{{ j.triage_status }}</span></h2>
+  {% if j.triage_reason %}<p class="muted">Reason: {{ j.triage_reason }}</p>{% endif %}
+  <div class="actions">
+  {% for action, label in [('shortlist','Shortlist'),('save','Save for later'),('reviewed','Mark reviewed'),('reset','Reset to new')] %}
+    <form method="post" action="/jobs/{{ j.id }}/triage" class="inline">{{ csrf() }}<input type="hidden" name="action" value="{{ action }}"><button {% if action == 'reset' %}class="link"{% endif %}>{{ label }}</button></form>
+  {% endfor %}
+  </div>
+  <form method="post" action="/jobs/{{ j.id }}/triage" class="grid">
+    {{ csrf() }}<input type="hidden" name="action" value="reject">
+    <label class="wide">Reject with reason <input name="reason" maxlength="1000" placeholder="e.g. requires 5+ years, not full-time" required></label>
+    <div><button class="danger-btn">Reject</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Details</h2>
+  <dl class="facts">
+    <dt>Department</dt><dd>{{ j.department or 'not stated' }}</dd>
+    <dt>Salary</dt><dd>{% if j.salary_min or j.salary_max %}{{ j.salary_currency or '' }} {{ '{:,}'.format(j.salary_min) if j.salary_min else '?' }} to {{ '{:,}'.format(j.salary_max) if j.salary_max else '?' }}{% if j.salary_interval %} ({{ j.salary_interval }}){% endif %}{% else %}not disclosed{% endif %}</dd>
+    <dt>Posted</dt><dd>{{ j.posted_at|localtime if j.posted_at else 'not stated' }}</dd>
+    <dt>First seen</dt><dd>{{ j.first_seen_at|localtime }}</dd>
+    <dt>Last seen</dt><dd>{{ j.last_seen_at|localtime }}</dd>
+    <dt>Sponsorship</dt><dd class="muted">unknown (employer research comes in a later phase)</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Sources</h2>
+  <ul class="items" data-testid="sightings">
+  {% for s in d.sightings %}
+    <li><a href="{{ s.source_url }}" rel="noopener noreferrer nofollow" target="_blank">{{ s.source_name }} ({{ s.source_type }})</a>
+      <span class="muted">id {{ s.external_id }} · first seen {{ s.first_seen_at|localtime }} · last seen {{ s.last_seen_at|localtime }}</span></li>
+  {% endfor %}
+  </ul>
+</section>
+
+{% if d.possible_duplicate_of or d.possible_duplicates %}
+<section class="card" data-testid="duplicate-group">
+  <h2>Possible duplicates</h2>
+  <p class="muted">Same company, title and location, but a different description. Check whether these are the same role.</p>
+  <ul class="items">
+    {% if d.possible_duplicate_of %}<li>Original: <a href="/jobs/{{ d.possible_duplicate_of.id }}">{{ d.possible_duplicate_of.title }}</a></li>{% endif %}
+    {% for dup in d.possible_duplicates %}<li><a href="/jobs/{{ dup.id }}">{{ dup.title }}</a> <span class="muted">first seen {{ dup.first_seen_at|localtime }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Description</h2>
+  <p class="muted">Shown as plain text from the source. Treated as untrusted content.</p>
+  <div class="pre description">{{ j.description_text or 'No description provided.' }}</div>
+</section>
+{% endblock %}

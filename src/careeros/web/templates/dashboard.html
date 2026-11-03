@@ -1,13 +1,18 @@
 {% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
 {% block content %}
 <section class="status-header">
-  <h1>System status</h1>
+  <h1>Overview</h1>
   <span class="badge badge-{{ status.status }}" data-testid="overall-status">{{ status.status }}</span>
+  {% if ov %}<form method="post" action="/pipeline/run" class="push-right">{{ csrf() }}<button data-testid="run-discovery">Run discovery now</button></form>{% endif %}
 </section>
+{% if queued == '1' %}<div class="alert alert-ok" role="status">Queued. Progress will appear below as it happens.</div>{% elif queued == 'already' %}<div class="alert alert-warn" role="status">A discovery run is already queued or running.</div>{% endif %}
 
 {% for message in status.messages %}
 <div class="alert alert-{{ 'error' if status.status == 'error' else 'warn' }}">{{ message }}</div>
 {% endfor %}
+
+{% if ov %}<div data-live-stats>{% include "_overview_stats.html" %}</div>{% endif %}
 
 <section class="cards">
   <article class="card">
@@ -28,7 +33,7 @@
   <article class="card">
     <h2>AI and spend</h2>
     <p>Model provider: <strong>{{ status.model_provider }}</strong></p>
-    <p class="muted">Budget: ${{ '%.2f'|format(status.model_daily_budget_usd) }}/day · ${{ '%.2f'|format(status.model_monthly_budget_usd) }}/month</p>
+    <p class="muted">Budget: ${{ '%.2f'|format(status.model_daily_budget_usd) }}/day · ${{ '%.2f'|format(status.model_monthly_budget_usd) }}/month · Spent: $0.00</p>
   </article>
   <article class="card">
     <h2>Runtime</h2>
@@ -38,19 +43,18 @@
 </section>
 
 <section class="activity">
-  <h2>Recent activity</h2>
+  <h2>Recent activity <span class="muted" data-live-status>{% if status.schema.up_to_date %}Connecting…{% endif %}</span></h2>
   {% if events_error %}
     <div class="alert alert-error">{{ events_error }}</div>
   {% elif not status.schema.up_to_date %}
     <p class="muted">Activity will appear once migrations are applied.</p>
-  {% elif not events %}
-    <p class="empty" data-testid="activity-empty">No activity yet. Pipeline events will show up here once job discovery is built.</p>
   {% else %}
-    <ul class="events">
+    <ul class="events" data-live-feed data-cursor="{{ cursor }}">
       {% for e in events %}
       <li><time>{{ e.created_at|localtime }}</time> <code>{{ e.event_type }}</code> {{ e.message }}</li>
       {% endfor %}
     </ul>
+    {% if not events %}<p class="empty" data-testid="activity-empty" data-live-empty>No activity yet. Add sources and run discovery to see events here.</p>{% endif %}
   {% endif %}
 </section>
 {% endblock %}

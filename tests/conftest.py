@@ -21,6 +21,7 @@ def settings(tmp_path: Path) -> Settings:
         database_url=f"sqlite:///{data / 'test.db'}",
         data_dir=data,
         export_dir=tmp_path / "exports",
+        worker_enabled=False,
     )
 
 

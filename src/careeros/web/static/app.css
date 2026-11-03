@@ -49,3 +49,20 @@ details > summary { cursor:pointer; }
 .table { width:100%; border-collapse:collapse; font-size:14px; }
 .table th, .table td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
 .table th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
+.push-right { margin-left:auto; }
+a.card.stat { text-decoration:none; } a.card.stat:hover { border-color:var(--muted); }
+.big { font-size:28px; font-weight:700; margin:2px 0; }
+.filters { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0 16px; }
+.filters input[name=q] { min-width:260px; flex:1; }
+.pill-new { color:var(--muted); } .pill-shortlisted, .pill-saved { color:var(--ok); border-color:var(--ok); }
+.pill-rejected { color:var(--bad); border-color:var(--bad); } .pill-reviewed { color:var(--fg); }
+.actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.danger-btn { background:var(--bad); border-color:var(--bad); }
+dl.facts { display:grid; grid-template-columns:140px 1fr; gap:6px 12px; margin:0; }
+dl.facts dt { color:var(--muted); } dl.facts dd { margin:0; }
+.description { max-height:600px; overflow:auto; font-size:14px; }
+.pager { display:flex; gap:16px; justify-content:center; }
+.link-sm { font-size:13px; color:var(--muted); }
+.events li.fresh { animation: fresh 2s ease-out; }
+@keyframes fresh { from { background:color-mix(in srgb, var(--ok) 18%, transparent); } to { background:transparent; } }
+@media (max-width: 700px) { .table thead { display:none; } .table td { display:block; border:none; padding:2px 0; } .table tr { display:block; border-bottom:1px solid var(--line); padding:8px 0; } }
