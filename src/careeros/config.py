@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     display_timezone: str = "America/New_York"
 
     scheduler_enabled: bool = False
+    schedule_interval_hours: float = Field(default=24, ge=1, le=24 * 7)
+    worker_enabled: bool = True  # run the task worker inside `careeros serve`
+    worker_poll_seconds: float = Field(default=2.0, ge=0.1, le=60)
+    sse_heartbeat_seconds: float = Field(default=15.0, ge=1, le=120)
 
     # Runtime AI is disabled by default and spend caps default to $0 (ADR 0002).
     model_provider: ModelProvider = "disabled"

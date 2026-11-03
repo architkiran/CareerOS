@@ -5,6 +5,8 @@
 <h1>Sources</h1>
 <p class="muted">Public ATS job boards only (Greenhouse, Lever, Ashby). Each source is fetched politely with a per-domain delay; one that returns repeated 403/429 is disabled automatically.</p>
 {{ alerts(errors, saved) }}
+{% if request.query_params.get('queued') == '1' %}<div class="alert alert-ok" role="status">Fetch queued. Watch progress on the Overview.</div>
+{% elif request.query_params.get('queued') == 'already' %}<div class="alert alert-warn" role="status">That source is already queued or running.</div>{% endif %}
 {% if not rows %}
 <p class="empty" data-testid="sources-empty">No sources yet. Add one below, or copy <code>config/sources.example.toml</code> to <code>config/sources.toml</code> and run <code>careeros sources sync</code>.</p>
 {% else %}
@@ -22,7 +24,9 @@
     <td>{% if s.last_error %}<span class="bad">{{ s.last_error }}</span>{% elif s.enabled %}<span class="ok">enabled</span>{% else %}<span class="muted">disabled</span>{% endif %}</td>
     <td><form method="post" action="/sources/{{ s.id }}/toggle">{{ csrf() }}
       {% if not s.enabled %}<input type="hidden" name="enabled" value="on">{% endif %}
-      <button class="link">{{ 'Disable' if s.enabled else 'Enable' }}</button></form></td>
+      <button class="link">{{ 'Disable' if s.enabled else 'Enable' }}</button></form>
+      {% if s.enabled %}<form method="post" action="/sources/{{ s.id }}/run">{{ csrf() }}<button class="link">Run now</button></form>{% endif %}
+      <a class="link-sm" href="/jobs?source_id={{ s.id }}&status=all">Jobs</a></td>
   </tr>
   {% endfor %}
   </tbody>
@@ -37,5 +41,5 @@
   <label>Delay between requests (s) <input name="rate_limit_seconds" type="number" step="0.5" min="0.5" max="60" value="2"></label>
   <div><button>Add source</button></div>
 </form></details>
-<p class="muted">To fetch now, run <code>careeros ingest</code> in your terminal. Scheduled and in-app runs come in Phase 3.</p>
+<p class="muted">Use <em>Run now</em>, the Overview's <em>Run discovery now</em>, or <code>careeros ingest</code> in a terminal.</p>
 {% endblock %}

@@ -54,7 +54,8 @@ See `docs/` for detailed contracts.
 | 0. Engineering foundation | Done |
 | 1. Candidate profile and role lanes | Done |
 | 2. Source ingestion (Greenhouse, Lever, Ashby) | Done |
-| 3+ | Not started |
+| 3. Job inbox, task queue, live dashboard | Done |
+| 4+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -128,6 +129,18 @@ Each run normalizes postings, deduplicates them (same source id, then canonical 
 
 Only explicit fields are stored: employment type and salary stay empty when the source doesn't state them.
 
+## Dashboard and background work (Phase 3)
+
+`careeros serve` runs the dashboard **and** a background worker in one process. Use `careeros serve --no-worker` plus `careeros worker` if you want them separate.
+
+- **Overview** (`/`): new jobs today, active and shortlisted counts, possible duplicates, last discovery run, source health, task queue depth, failed tasks with a *Retry* button, and a live activity feed (Server-Sent Events, with a polling fallback).
+- **Run discovery now** queues a run; clicking twice doesn't queue twice. Each source also has *Run now* on `/sources`.
+- **Job inbox** (`/jobs`): search and filter by triage state, source, workplace, date, active/closed, and possible duplicates. Rejected jobs are hidden unless you filter for them.
+- **Job detail**: every source sighting with links, salary only when disclosed, plain-text description, duplicate group, and triage (shortlist, save, mark reviewed, reject with a required reason, reset).
+- **Schedule**: set `SCHEDULER_ENABLED=true` (and optionally `SCHEDULE_INTERVAL_HOURS`) in `.env`. When the Mac sleeps, runs pause; the Overview says so when a run is overdue instead of pretending.
+
+Failed tasks retry with exponential backoff and are dead-lettered after their last attempt.
+
 ## Code map
 
 | Path | Purpose |
@@ -151,6 +164,11 @@ Only explicit fields are stored: employment type and salary stay empty when the 
 | `src/careeros/modules/sources/registry.py` | Source registry and TOML watchlist |
 | `src/careeros/modules/ingestion/service.py` | Normalize, dedupe, persist, close/reopen, run bookkeeping |
 | `config/sources.example.toml` | Example watchlist |
+| `src/careeros/modules/scheduler/queue.py` | SQLite task queue: leases, idempotency keys, backoff, dead-lettering |
+| `src/careeros/modules/scheduler/worker.py` | Task handlers, local scheduler, worker thread |
+| `src/careeros/modules/jobs/service.py` | Inbox queries, job detail, triage |
+| `src/careeros/web/routes/events.py` | SSE stream and polling feed |
+| `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |
 
 Data lives in `./data` and generated files in `./exports`; both are created with owner-only permissions and are gitignored.

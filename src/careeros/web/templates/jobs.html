@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Jobs · CareerOS{% endblock %}
+{% block content %}
+<h1>Job inbox <span class="muted">{{ total }} {{ 'job' if total == 1 else 'jobs' }}</span></h1>
+<form method="get" action="/jobs" class="filters">
+  <input name="q" value="{{ filters.q or '' }}" placeholder="Search title, company, description" maxlength="200">
+  <select name="triage"><option value="">Not rejected</option>
+    {% for t in triage_statuses %}<option value="{{ t }}" {% if filters.triage == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+  <select name="status">{% for s in ['active','closed','all'] %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+  <select name="source_id"><option value="">All sources</option>
+    {% for s in sources %}<option value="{{ s.id }}" {% if filters.source_id == s.id %}selected{% endif %}>{{ s.display_name }} ({{ s.source_type }})</option>{% endfor %}</select>
+  <select name="workplace"><option value="">Any workplace</option>
+    {% for w in ['remote','hybrid','onsite'] %}<option value="{{ w }}" {% if filters.workplace == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select>
+  <select name="days"><option value="">Any time</option>
+    {% for d, label in [(1,'Last 24h'),(7,'Last 7 days'),(30,'Last 30 days')] %}<option value="{{ d }}" {% if filters.days == d %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <label class="check"><input type="checkbox" name="dupes" value="true" {% if filters.possible_duplicates %}checked{% endif %}> Possible duplicates</label>
+  <button>Filter</button> <a href="/jobs">Clear</a>
+</form>
+
+{% if not rows %}
+  {% if any_jobs %}<p class="empty" data-testid="jobs-no-match">No jobs match these filters.</p>
+  {% else %}<p class="empty" data-testid="jobs-empty">No jobs yet. Add sources on the <a href="/sources">Sources</a> page and run discovery from the <a href="/">Overview</a>.</p>{% endif %}
+{% else %}
+<table class="table">
+  <thead><tr><th>Role</th><th>Company</th><th>Location</th><th>Type</th><th>First seen</th><th>Triage</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr data-testid="job-row">
+    <td><a href="/jobs/{{ r.job.id }}"><strong>{{ r.job.title }}</strong></a>
+      {% if r.job.possible_duplicate_of_id %}<span class="pill pill-unverified">possible duplicate</span>{% endif %}
+      {% if r.job.status == 'closed' %}<span class="pill">closed</span>{% endif %}
+      <br><span class="muted">{{ r.sources | join(', ') }}</span></td>
+    <td>{{ r.company }}</td>
+    <td>{{ r.job.location_text or '' }}{% if r.job.workplace_type %} <span class="muted">· {{ r.job.workplace_type }}</span>{% endif %}</td>
+    <td>{{ (r.job.employment_type or 'not stated').replace('_', ' ') }}</td>
+    <td>{{ r.job.first_seen_at|localtime }}</td>
+    <td><span class="pill pill-{{ r.job.triage_status }}">{{ r.job.triage_status }}</span></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if pages > 1 %}
+<p class="pager">{% if page > 1 %}<a href="/jobs?{{ query }}&page={{ page - 1 }}">← Previous</a>{% endif %}
+  Page {{ page }} of {{ pages }}
+  {% if page < pages %}<a href="/jobs?{{ query }}&page={{ page + 1 }}">Next →</a>{% endif %}</p>
+{% endif %}
+{% endif %}
+{% endblock %}

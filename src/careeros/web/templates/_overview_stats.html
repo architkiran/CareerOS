@@ -1,0 +1,40 @@
+<section class="cards">
+  <a class="card stat" href="/jobs?days=1"><h2>New today</h2><p class="big" data-testid="stat-new-today">{{ ov.jobs.new_today }}</p></a>
+  <a class="card stat" href="/jobs"><h2>Active jobs</h2><p class="big">{{ ov.jobs.active }}</p><p class="muted">{{ ov.jobs.untriaged }} untriaged</p></a>
+  <a class="card stat" href="/jobs?triage=shortlisted"><h2>Shortlisted</h2><p class="big" data-testid="stat-shortlisted">{{ ov.jobs.shortlisted }}</p><p class="muted">{{ ov.jobs.saved }} saved</p></a>
+  <a class="card stat" href="/jobs?dupes=true"><h2>Possible duplicates</h2><p class="big">{{ ov.jobs.possible_duplicates }}</p><p class="muted">to review</p></a>
+</section>
+<section class="cards">
+  <article class="card">
+    <h2>Discovery</h2>
+    {% if ov.running %}<p class="warnc" data-testid="run-in-progress">Run in progress…</p>{% endif %}
+    {% if ov.last_run %}
+      <p>Last run: <span class="pill pill-{{ 'verified' if ov.last_run.status == 'success' else 'unverified' }}">{{ ov.last_run.status }}</span> {{ ov.last_run.started_at|localtime }}</p>
+      {% if ov.last_run.counters_json %}<p class="muted">{{ ov.last_run.counters_json.get('fetched', 0) }} fetched · {{ ov.last_run.counters_json.get('new', 0) }} new · {{ ov.last_run.counters_json.get('duplicates', 0) }} dup · {{ ov.last_run.counters_json.get('closed', 0) }} closed</p>{% endif %}
+    {% else %}<p class="muted">No discovery runs yet.</p>{% endif %}
+    <p class="muted">Last success: {{ ov.last_success.finished_at|localtime if ov.last_success else 'never' }}</p>
+    <p class="muted">Schedule: {% if ov.scheduler_enabled %}every {{ ov.schedule_interval_hours|round(1) }}h{% else %}off (set SCHEDULER_ENABLED=true){% endif %}</p>
+    {% if ov.schedule_overdue %}<p class="bad" data-testid="schedule-overdue">Scheduled run overdue. Your Mac may have been asleep.</p>{% endif %}
+  </article>
+  <article class="card">
+    <h2>Sources</h2>
+    <p>{{ ov.sources.enabled }} of {{ ov.sources.total }} enabled</p>
+    {% if ov.sources.failing %}<p class="bad"><a href="/sources">{{ ov.sources.failing }} with errors</a></p>{% else %}<p class="muted">No source errors</p>{% endif %}
+  </article>
+  <article class="card">
+    <h2>Task queue</h2>
+    <p>{{ ov.queue.queued }} queued · {{ ov.queue.running }} running</p>
+    <p class="{{ 'bad' if ov.queue.dead else 'muted' }}" data-testid="dead-count">{{ ov.queue.dead }} failed permanently</p>
+    {% if ov.queue.oldest_queued_at %}<p class="muted">Oldest queued: {{ ov.queue.oldest_queued_at|localtime }}</p>{% endif %}
+    {% if not ov.worker_enabled %}<p class="warnc">Worker is off in this process. Run <code>careeros worker</code>.</p>{% endif %}
+  </article>
+</section>
+{% if ov.dead_tasks %}
+<section class="card">
+  <h2>Failed tasks</h2>
+  <ul class="items">{% for t in ov.dead_tasks %}
+    <li><code>{{ t.task_type }}</code> <span class="muted">{{ t.finished_at|localtime }}, {{ t.attempts }} attempts</span><br><span class="bad">{{ t.last_error }}</span>
+      <form method="post" action="/tasks/{{ t.id }}/retry" class="inline"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><button class="link">Retry</button></form></li>
+  {% endfor %}</ul>
+</section>
+{% endif %}
