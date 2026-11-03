@@ -13,12 +13,14 @@ from careeros.db.models.profile import (
     Skill,
     WorkAuthorizationProfile,
 )
+from careeros.db.models.research import Evidence, ResearchItem
 
 __all__ = [
     "ActivityEvent",
     "CandidateProfile",
     "CandidateSkill",
     "Company",
+    "Evidence",
     "Experience",
     "Job",
     "PipelineRun",
@@ -27,6 +29,7 @@ __all__ = [
     "MatchOverride",
     "ProfileFact",
     "Project",
+    "ResearchItem",
     "RoleLane",
     "Setting",
     "Skill",

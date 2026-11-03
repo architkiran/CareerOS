@@ -443,6 +443,23 @@ def _first(patterns: list[re.Pattern[str]], text: str) -> re.Match[str] | None:
     return None
 
 
+def authorization_claims(text: str) -> list[tuple[str, str]]:
+    """Explicit work-authorization statements in a text, as (claim_type, quoted excerpt)."""
+    low = text.lower()
+    found: list[tuple[str, str]] = []
+    for claim, patterns in (
+        ("no_sponsorship", _RESTRICT),
+        ("citizenship_required", _CITIZEN),
+        ("sponsorship_offered", _SPONSOR_OK),
+    ):
+        m = _first(patterns, low)
+        if m:
+            found.append((claim, excerpt(text, m)))
+    if any(c == "no_sponsorship" for c, _ in found):
+        found = [f for f in found if f[0] != "sponsorship_offered"]  # "will not sponsor" wins
+    return found
+
+
 def work_authorization_filter(job: JobInput, profile: ProfileInput) -> FilterResult:
     """Reads only what the posting says. Never claims eligibility as fact."""
     text = job.description
@@ -480,6 +497,29 @@ def work_authorization_filter(job: JobInput, profile: ProfileInput) -> FilterRes
             "work_authorization",
             "pass",
             "Posting doesn't mention sponsorship, and your confirmed status doesn't need it.",
+        )
+    policy = job.employer_policy
+    if policy == "no_sponsorship":
+        decision: Decision = "fail" if need == "yes" else "unknown"
+        return FilterResult(
+            "work_authorization",
+            decision,
+            "Your accepted employer evidence says they don't sponsor.",
+            job.employer_policy_note,
+        )
+    if policy == "sponsorship_offered":
+        return FilterResult(
+            "work_authorization",
+            "pass",
+            "Your accepted employer evidence says they sponsor. Confirm for this role.",
+            job.employer_policy_note,
+        )
+    if policy == "case_by_case":
+        return FilterResult(
+            "work_authorization",
+            "unknown",
+            "Employer evidence says sponsorship is case by case.",
+            job.employer_policy_note,
         )
     ok = _first(_SPONSOR_OK, low)
     if ok:

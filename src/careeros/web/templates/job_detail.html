@@ -84,8 +84,59 @@
     <dt>Posted</dt><dd>{{ j.posted_at|localtime if j.posted_at else 'not stated' }}</dd>
     <dt>First seen</dt><dd>{{ j.first_seen_at|localtime }}</dd>
     <dt>Last seen</dt><dd>{{ j.last_seen_at|localtime }}</dd>
-    <dt>Sponsorship</dt><dd class="muted">unknown (employer research comes in a later phase)</dd>
+    <dt>Sponsorship</dt><dd><a href="#research">{{ policy.label }}</a>{% if policy.confidence %} <span class="muted">({{ policy.confidence }} confidence)</span>{% endif %}</dd>
   </dl>
+</section>
+
+<section class="card" id="research">
+  <h2>Employer evidence <span class="pill pill-policy-{{ policy.status }}" data-testid="policy-status">{{ policy.label }}</span></h2>
+  <p class="muted">Only evidence you've accepted from the posting, the company's own pages or government data decides this. Third-party sites are leads. CareerOS doesn't give legal advice.</p>
+  {% if policy.conflict %}<p class="alert alert-warn" data-testid="policy-conflict">Your accepted evidence conflicts, so the policy stays unknown. Reject the outdated item.</p>{% endif %}
+  {% if policy.stale %}<p class="alert alert-warn">All supporting evidence is over 6 months old. Recheck the source.</p>{% endif %}
+  {% if policy.citizenship_required %}<p class="alert alert-warn">Accepted evidence says this employer requires citizenship or clearance.</p>{% endif %}
+  {% if not research_item %}
+    <p class="empty">No research yet. Shortlisting starts it automatically, or start it now.</p>
+    <form method="post" action="/jobs/{{ j.id }}/research">{{ csrf() }}<button>Start research</button></form>
+  {% else %}
+    <p>Status: <strong data-testid="research-status">{{ research_item.status.replace('_',' ') }}</strong>{% if research_item.summary %} · <span class="muted">{{ research_item.summary }}</span>{% endif %}</p>
+    {% if not evidence %}<p class="empty" data-testid="evidence-empty">No evidence yet.</p>{% endif %}
+    <ul class="items" data-testid="evidence-list">
+    {% for e in evidence %}
+      <li><span class="pill pill-review-{{ e.reviewer_status }}">{{ e.reviewer_status }}</span>
+        <strong>{{ claim_labels[e.claim_type] }}</strong> · {{ e.claim_text }}
+        <br><span class="muted">{{ e.source_kind.replace('_',' ') }}{% if e.source_kind == 'third_party' %} (lead only){% endif %} · {{ e.confidence }} confidence · retrieved {{ age_days(e) }} days ago{% if e.source_date %} · source dated {{ e.source_date }}{% endif %}{% if e.job_id %} · this job only{% else %} · company-wide{% endif %}</span>
+        <br><a href="{{ e.source_url }}" rel="noopener noreferrer nofollow" target="_blank">{{ e.source_title or e.source_url }}</a>
+        {% if e.short_excerpt %}<br><span class="quote muted">“{{ e.short_excerpt }}”</span>{% endif %}
+        <div class="actions">
+        {% for dec, label in [('accepted','Accept'),('rejected','Reject'),('pending','Reset')] if dec != e.reviewer_status %}
+          <form method="post" action="/evidence/{{ e.id }}/review" class="inline">{{ csrf() }}<input type="hidden" name="decision" value="{{ dec }}"><button class="link">{{ label }}</button></form>
+        {% endfor %}
+        </div></li>
+    {% endfor %}
+    </ul>
+    <details><summary><strong>Add evidence</strong></summary>
+    <form method="post" action="/research/{{ research_item.id }}/evidence" class="grid">
+      {{ csrf() }}
+      <label>Claim <select name="claim_type">{% for k, v in claim_labels.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+      <label>Source type <select name="source_kind">
+        <option value="official_company">Company careers / immigration page</option><option value="official_posting">This job posting</option>
+        <option value="government">Government data</option><option value="third_party">Third party (lead only)</option></select></label>
+      <label>Confidence <select name="confidence"><option>medium</option><option>high</option><option>low</option></select></label>
+      <label class="wide">What the source says <input name="claim_text" required maxlength="1000"></label>
+      <label class="wide">Source URL <input name="source_url" type="url" required maxlength="1000" placeholder="https://"></label>
+      <label>Source title <input name="source_title" maxlength="300"></label>
+      <label>Source date <input name="source_date" type="date"></label>
+      <label class="wide">Short quote <textarea name="short_excerpt" rows="2" maxlength="600"></textarea></label>
+      <label class="check"><input type="checkbox" name="checked"> I opened this source and it says this</label>
+      <div><button>Add evidence</button></div>
+    </form></details>
+    {% if research_item.status != 'done' %}
+    <form method="post" action="/research/{{ research_item.id }}/complete" class="grid">{{ csrf() }}
+      <label class="wide">Summary (optional) <input name="summary" maxlength="2000"></label><div><button class="secondary">Mark research done</button></div></form>
+    {% else %}
+    <form method="post" action="/research/{{ research_item.id }}/reopen">{{ csrf() }}<button class="link">Reopen research</button></form>
+    {% endif %}
+  {% endif %}
 </section>
 
 <section class="card">

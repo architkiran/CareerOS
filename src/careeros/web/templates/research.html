@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Research · CareerOS{% endblock %}
+{% block content %}
+<h1>Employer research</h1>
+<p class="muted">Shortlisted jobs land here. Review what each posting says, add evidence from the company's own pages, and mark research done. Unknown is a valid answer.</p>
+<p class="filters">{% for s, label in [('', 'All'), ('open','Open'), ('in_progress','In progress'), ('done','Done')] %}
+  <a href="/research{{ '?status=' ~ s if s }}" class="{{ 'active' if (status or '') == s }}">{{ label }}</a>{% endfor %}</p>
+{% if not rows %}
+<p class="empty" data-testid="research-empty">Nothing to research{% if status %} with this status{% endif %}. Shortlist a job from the <a href="/jobs">inbox</a> to start.</p>
+{% else %}
+<table class="table"><thead><tr><th>Job</th><th>Company</th><th>Status</th><th>Policy</th><th>To review</th></tr></thead><tbody>
+{% for r in rows %}
+<tr data-testid="research-row">
+  <td>{% if r.job %}<a href="/jobs/{{ r.job.id }}#research">{{ r.job.title }}</a>{% else %}Company-wide{% endif %}</td>
+  <td>{{ r.company.canonical_name }}</td>
+  <td>{{ r.item.status.replace('_',' ') }}</td>
+  <td><span class="pill pill-policy-{{ r.policy.status }}">{{ r.policy.label }}</span>{% if r.policy.conflict %} <span class="bad">conflict</span>{% endif %}</td>
+  <td>{{ r.pending or '' }}</td>
+</tr>{% endfor %}
+</tbody></table>
+{% endif %}
+{% endblock %}

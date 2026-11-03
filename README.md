@@ -56,7 +56,8 @@ See `docs/` for detailed contracts.
 | 2. Source ingestion (Greenhouse, Lever, Ashby) | Done |
 | 3. Job inbox, task queue, live dashboard | Done |
 | 4. Deterministic matching | Done |
-| 5+ | Not started |
+| 5. Employer research and work-authorization evidence | Done |
+| 6+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -154,6 +155,15 @@ Every active job is scored for every enabled role lane. Rescoring is automatic a
 
 Details and rationale: `docs/adr/0007-deterministic-matching-v1.md`.
 
+## Employer research (Phase 5)
+
+Shortlisting a job opens research for it (or click *Start research* on any job). CareerOS scans the posting for sponsorship or citizenship statements and adds each as quoted evidence for you to review. Add your own evidence from the company's careers or immigration page with a link, date, source type and confidence.
+
+- Only **accepted** evidence from the posting, the company's own pages, or government data sets the employer policy (*Sponsorship offered*, *No sponsorship*, *Case by case*, or *Unknown*). Third-party sites are shown as leads.
+- Job-specific evidence beats company-wide evidence; conflicting accepted evidence leaves the policy unknown and says so; evidence older than six months is flagged.
+- When a posting is silent, matching uses this policy, so research turns "needs review" into a real pass or fail.
+- `/research` lists everything in progress. CareerOS gives no legal advice; application answers about authorization always come from you.
+
 ## Code map
 
 | Path | Purpose |
@@ -181,6 +191,7 @@ Details and rationale: `docs/adr/0007-deterministic-matching-v1.md`.
 | `src/careeros/modules/scheduler/worker.py` | Task handlers, local scheduler, worker thread |
 | `src/careeros/modules/jobs/service.py` | Inbox queries, job detail, triage |
 | `src/careeros/modules/matching/` | Seniority inference, hard filters, scoring (pure functions), persistence and overrides (migration `0005`) |
+| `src/careeros/modules/research/` | Evidence capture, review and employer policy (migration `0007`) |
 | `src/careeros/web/routes/events.py` | SSE stream and polling feed |
 | `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |

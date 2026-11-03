@@ -204,6 +204,10 @@ def triage(session: Session, job_id: str, action: TriageAction, reason: str | No
     job.triage_status = _ACTION_TO_STATUS[action]
     job.triage_reason = reason if action == "reject" else None
     job.triaged_at = utcnow() if action != "reset" else None
+    if action == "shortlist":
+        from careeros.modules.research.service import open_research
+
+        open_research(session, job.id)
     record_event(
         session,
         "job.triaged",

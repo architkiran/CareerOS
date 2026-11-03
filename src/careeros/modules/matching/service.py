@@ -78,8 +78,16 @@ def build_lane_input(lane: RoleLane) -> LaneInput:
     )
 
 
-def build_job_input(job: Job, company: str) -> JobInput:
+def build_job_input(job: Job, company: str, session: Session | None = None) -> JobInput:
+    policy, note = "unknown", None
+    if session is not None:
+        from careeros.modules.research.service import employer_policy
+
+        summary = employer_policy(session, job.company_id, job.id)
+        policy, note = summary.status, summary.note
     return JobInput(
+        employer_policy=policy,
+        employer_policy_note=note,
         title=job.title,
         company=company,
         location_text=job.location_text,
@@ -126,7 +134,7 @@ def score_jobs(session: Session, job_ids: list[str] | None = None) -> ScoreSumma
             m.role_lane_id: m
             for m in session.scalars(select(JobLaneMatch).where(JobLaneMatch.job_id == job.id))
         }
-        job_input = build_job_input(job, company)
+        job_input = build_job_input(job, company, session)
         best: str | None = None
         for lane, lane_input in lanes:
             mi = MatchInput(job=job_input, lane=lane_input, profile=profile)
