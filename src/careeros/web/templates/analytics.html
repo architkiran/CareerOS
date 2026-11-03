@@ -19,7 +19,7 @@
 <div class="funnel" data-testid="funnel">
 {% for s in a.funnel %}
 <div class="funnel-row"><span class="funnel-label">{{ s.label }}</span>
-  <span class="funnel-bar"><span style="width: {{ [((s.count / top) * 100)|round(1), 0.5]|max }}%"></span></span>
+  <span class="funnel-bar"><span class="v{{ ((s.count / top) * 100)|round|int }}"></span></span>
   <span class="funnel-count">{{ s.count }}</span>
   <span class="muted funnel-rate">{% if s.from_previous %}{{ pct(s.from_previous) }} of previous{% endif %}</span></div>
 {% endfor %}
