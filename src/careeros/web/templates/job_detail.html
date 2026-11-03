@@ -25,6 +25,57 @@
   </form>
 </section>
 
+<section class="card" id="matching">
+  <h2>Match</h2>
+  {% if not matches %}
+    <p class="empty" data-testid="no-matches">Not scored yet. Enable role lanes on the <a href="/lanes">Role lanes</a> page; scoring runs automatically.</p>
+  {% else %}
+  <p class="muted">Deterministic scoring ({{ matches[0].match.algorithm_version }}). Only verified profile items count. Unknown information counts as neutral (half weight), never as zero or as a match.</p>
+  {% for v in matches %}
+  {% set m = v.match %}{% set b = m.score_breakdown_json %}
+  <details class="lane" id="lane-{{ v.lane_id }}" {% if loop.first %}open{% endif %} data-testid="lane-match">
+    <summary><strong>{{ v.lane_name }}</strong>
+      <span class="score">{{ v.effective_score }}</span>/100
+      <span class="pill pill-elig-{{ v.effective_eligibility }}">{{ {'pass':'passes filters','unknown':'needs review','fail':'filtered out'}[v.effective_eligibility] }}</span>
+      {% if not m.classified %}<span class="muted">title not in this lane</span>{% endif %}
+      {% if v.override %}<span class="pill">overridden</span>{% endif %}
+      <span class="muted">{{ m.completeness }}% complete</span></summary>
+    <p>{{ m.explanation }}</p>
+    {% if v.override %}<p class="alert alert-warn">Your override: {% if v.override.eligibility %}eligibility <strong>{{ v.override.eligibility }}</strong>{% endif %}{% if v.override.score is not none %} score <strong>{{ v.override.score }}</strong>{% endif %} (computed: {{ m.eligibility }}, {{ m.score }}). Reason: {{ v.override.reason }}</p>{% endif %}
+
+    <h3>Hard filters</h3>
+    <table class="table" data-testid="filters-table"><tbody>
+    {% for f in m.hard_filter_results_json %}
+      <tr><td><span class="pill pill-elig-{{ f.decision }}">{{ f.decision }}</span></td><td>{{ f.name.replace('_',' ') }}</td>
+        <td>{{ f.reason }}{% if f.evidence %}<br><span class="muted quote">“{{ f.evidence }}”</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody></table>
+
+    <h3>Score breakdown</h3>
+    <table class="table" data-testid="score-table"><thead><tr><th>Dimension</th><th>Weight</th><th>Points</th><th>Why</th></tr></thead><tbody>
+    {% for d in b.dimensions %}
+      <tr><td>{{ d.label }}</td><td>{{ d.weight }}</td><td>{{ d.points }}{% if d.neutral %} <span class="muted">(unknown, neutral)</span>{% endif %}</td><td>{{ d.explanation }}</td></tr>
+    {% endfor %}
+    </tbody></table>
+    <p><strong>Matched skills:</strong> {{ b.matched_skills | join(', ') or 'none' }}<br>
+       <strong>Missing skills:</strong> {{ b.missing_skills | join(', ') or 'none' }}<br>
+       <strong>Seniority (inferred):</strong> {{ b.seniority.level or 'unknown' }}{% if b.seniority.confidence %}, {{ b.seniority.confidence }} confidence{% endif %} · {{ b.seniority.rationale }}</p>
+    {% if b.risks %}<p><strong>Risks and unknowns:</strong></p><ul>{% for r in b.risks %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+    {% for n in b.notes %}<p class="muted">{{ n }}</p>{% endfor %}
+
+    <form method="post" action="/jobs/{{ j.id }}/override" class="grid">
+      {{ csrf() }}<input type="hidden" name="lane_id" value="{{ v.lane_id }}">
+      <label>Override eligibility <select name="eligibility"><option value="">Keep computed</option><option value="pass">pass</option><option value="fail">fail</option></select></label>
+      <label>Override score <input type="number" name="score" min="0" max="100"></label>
+      <label class="wide">Reason (required) <input name="reason" maxlength="1000" required></label>
+      <div><button>Save override</button></div>
+    </form>
+    {% if v.override %}<form method="post" action="/jobs/{{ j.id }}/override/clear">{{ csrf() }}<input type="hidden" name="lane_id" value="{{ v.lane_id }}"><button class="link">Remove override</button></form>{% endif %}
+  </details>
+  {% endfor %}
+  {% endif %}
+</section>
+
 <section class="card">
   <h2>Details</h2>
   <dl class="facts">

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from careeros.config import Settings
 from careeros.db.models import PipelineRun, Source, Task
 from careeros.modules.jobs.service import JobCounts, job_counts
+from careeros.modules.matching.service import MatchCounts, match_counts
 from careeros.modules.scheduler import queue
 from careeros.modules.scheduler.worker import last_discovery, schedule_overdue
 
@@ -22,6 +23,7 @@ class SourceHealth:
 @dataclass
 class Overview:
     jobs: JobCounts
+    matching: MatchCounts
     sources: SourceHealth
     queue: queue.QueueStats
     dead_tasks: list[Task]
@@ -48,6 +50,7 @@ def build_overview(session: Session, settings: Settings) -> Overview:
     stats = queue.queue_stats(session)
     return Overview(
         jobs=job_counts(session, settings.display_timezone),
+        matching=match_counts(session),
         sources=SourceHealth(total, enabled, failing),
         queue=stats,
         dead_tasks=queue.dead_tasks(session, 5),

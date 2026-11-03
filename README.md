@@ -55,7 +55,8 @@ See `docs/` for detailed contracts.
 | 1. Candidate profile and role lanes | Done |
 | 2. Source ingestion (Greenhouse, Lever, Ashby) | Done |
 | 3. Job inbox, task queue, live dashboard | Done |
-| 4+ | Not started |
+| 4. Deterministic matching | Done |
+| 5+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -141,6 +142,18 @@ Only explicit fields are stored: employment type and salary stay empty when the 
 
 Failed tasks retry with exponential backoff and are dead-lettered after their last attempt.
 
+## Matching (Phase 4)
+
+Every active job is scored for every enabled role lane. Rescoring is automatic after discovery and after profile or lane edits, and there's a *Rescore* button on the Overview.
+
+- **Hard filters** return pass, fail or unknown with a reason and evidence: posting still listed, employment type, excluded title terms, lane exclusions, inferred seniority, location vs your preferences, and what the posting says about sponsorship compared with your *confirmed* work-authorization answers. Unknown is shown for review, never silently passed or failed.
+- **Score (0-100)** uses the lane's seven weights. Missing information (for example undisclosed salary) counts as neutral, and each score shows how complete its information was.
+- **Only verified profile items** count toward skills and experience.
+- **Overrides**: on a job's page you can override eligibility or score for a lane, with a reason. Overrides survive rescoring.
+- The inbox hides filtered-out jobs by default and can filter by lane, eligibility and minimum score, or sort by best score.
+
+Details and rationale: `docs/adr/0007-deterministic-matching-v1.md`.
+
 ## Code map
 
 | Path | Purpose |
@@ -167,6 +180,7 @@ Failed tasks retry with exponential backoff and are dead-lettered after their la
 | `src/careeros/modules/scheduler/queue.py` | SQLite task queue: leases, idempotency keys, backoff, dead-lettering |
 | `src/careeros/modules/scheduler/worker.py` | Task handlers, local scheduler, worker thread |
 | `src/careeros/modules/jobs/service.py` | Inbox queries, job detail, triage |
+| `src/careeros/modules/matching/` | Seniority inference, hard filters, scoring (pure functions), persistence and overrides (migration `0005`) |
 | `src/careeros/web/routes/events.py` | SSE stream and polling feed |
 | `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |

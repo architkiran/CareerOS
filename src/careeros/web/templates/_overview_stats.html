@@ -2,6 +2,7 @@
   <a class="card stat" href="/jobs?days=1"><h2>New today</h2><p class="big" data-testid="stat-new-today">{{ ov.jobs.new_today }}</p></a>
   <a class="card stat" href="/jobs"><h2>Active jobs</h2><p class="big">{{ ov.jobs.active }}</p><p class="muted">{{ ov.jobs.untriaged }} untriaged</p></a>
   <a class="card stat" href="/jobs?triage=shortlisted"><h2>Shortlisted</h2><p class="big" data-testid="stat-shortlisted">{{ ov.jobs.shortlisted }}</p><p class="muted">{{ ov.jobs.saved }} saved</p></a>
+  <a class="card stat" href="/jobs?eligibility=pass&sort=score"><h2>Passing filters</h2><p class="big" data-testid="stat-passing">{{ ov.matching.passing }}</p><p class="muted">{{ ov.matching.needs_review }} need review · {{ ov.matching.filtered_out }} filtered out</p></a>
   <a class="card stat" href="/jobs?dupes=true"><h2>Possible duplicates</h2><p class="big">{{ ov.jobs.possible_duplicates }}</p><p class="muted">to review</p></a>
 </section>
 <section class="cards">

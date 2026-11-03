@@ -1,6 +1,7 @@
 """ORM models. Import every model here so Alembic autogenerate sees it."""
 
 from careeros.db.models.jobs import Company, Job, JobSourceRecord, Source, SourceRun
+from careeros.db.models.matching import JobLaneMatch, MatchOverride
 from careeros.db.models.operations import ActivityEvent, PipelineRun, Setting, Task
 from careeros.db.models.profile import (
     CandidateProfile,
@@ -21,7 +22,9 @@ __all__ = [
     "Experience",
     "Job",
     "PipelineRun",
+    "JobLaneMatch",
     "JobSourceRecord",
+    "MatchOverride",
     "ProfileFact",
     "Project",
     "RoleLane",

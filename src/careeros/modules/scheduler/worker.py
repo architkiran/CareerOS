@@ -80,6 +80,8 @@ def _discovery(
             entity_id=run_id,
             metadata=counters,
         )
+        if counters["new"] or counters["updated"] or counters["closed"]:
+            enqueue_rescore(session, "new jobs")
         session.commit()
 
 
@@ -98,10 +100,37 @@ def handle_ingest_source(
     _discovery(factory, [source_id], "manual", fetcher_factory)
 
 
+def handle_match_all(
+    factory: sessionmaker[Session], payload: dict[str, Any], fetcher_factory: Callable[[], Fetcher]
+) -> None:
+    from careeros.modules.matching.service import score_jobs
+
+    with factory() as session:
+        score_jobs(session)
+        session.commit()
+
+
 HANDLERS: dict[str, Handler] = {
     "ingest.all": handle_ingest_all,
     "ingest.source": handle_ingest_source,
+    "match.all": handle_match_all,
 }
+
+
+def enqueue_rescore(session: Session, reason: str) -> tuple[Any, bool]:
+    """Queue a rescoring pass. Unchanged job/lane/profile inputs are skipped, so this is cheap."""
+    task, created = queue.enqueue(
+        session, "match.all", {"reason": reason}, idempotency_key="match.all", priority=50
+    )
+    if created:
+        record_event(
+            session,
+            "task.queued",
+            f"Rescoring queued ({reason})",
+            entity_type="task",
+            entity_id=task.id,
+        )
+    return task, created
 
 
 def enqueue_discovery(session: Session, trigger: str = "manual") -> tuple[Any, bool]:
