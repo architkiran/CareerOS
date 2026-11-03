@@ -327,8 +327,33 @@ def test_watchlist_sync_is_idempotent(factory: sessionmaker[Session], tmp_path) 
     with factory() as s:
         assert registry.sync_watchlist(s, entries) == registry.SyncResult(2, 0)
         s.commit()
-        assert registry.sync_watchlist(s, entries) == registry.SyncResult(0, 2)
+        assert registry.sync_watchlist(s, entries) == registry.SyncResult(0, 2, 0)
         assert [x.enabled for x in registry.list_sources(s)] == [True, False]
+
+
+def test_watchlist_sync_disables_but_never_reenables(
+    factory: sessionmaker[Session], tmp_path
+) -> None:  # type: ignore[no-untyped-def]
+    path = tmp_path / "sources.toml"
+    path.write_text(
+        '[[source]]\ntype="lever"\ntoken="plaid"\nname="Plaid"\n'
+        '[[source]]\ntype="ashby"\ntoken="ramp"\nname="Ramp"\n'
+    )
+    with factory() as s:
+        registry.sync_watchlist(s, registry.load_watchlist(path))
+        ramp = next(x for x in registry.list_sources(s) if x.board_token == "ramp")
+        registry.set_source_enabled(s, ramp.id, False)  # user disabled it in the dashboard
+        s.commit()
+        path.write_text(
+            '[[source]]\ntype="lever"\ntoken="plaid"\nname="Plaid"\nenabled=false\n'
+            '[[source]]\ntype="ashby"\ntoken="ramp"\nname="Ramp"\n'
+        )
+        result = registry.sync_watchlist(s, registry.load_watchlist(path))
+        s.commit()
+        assert result == registry.SyncResult(0, 2, 1)
+        states = {x.board_token: x.enabled for x in registry.list_sources(s)}
+        assert states == {"plaid": False, "ramp": False}  # ramp stays as the user left it
+        assert registry.sync_watchlist(s, registry.load_watchlist(path)).disabled == 0
 
 
 def test_watchlist_rejects_bad_entries(tmp_path) -> None:  # type: ignore[no-untyped-def]

@@ -105,6 +105,8 @@ That's it. The container restarts by itself after crashes, reboots and Docker De
 
 **What it does on start:** if your database needs migrations, it first writes a verified backup to `backups/`, then migrates. A new database is created if none exists.
 
+**Choosing companies:** edit `config/sources.toml` (start from `config/sources.example.toml`, which lists 17 verified fintech and Boston-area boards) and run `docker compose up -d`. On every start the container adds new sources and disables any marked `enabled = false`. It never re-enables a source you turned off in the dashboard.
+
 **Everyday commands** (run CareerOS commands *inside* the container, never `careeros` on the Mac at the same time):
 ```bash
 docker compose exec careeros careeros sources sync     # after editing config/sources.toml
