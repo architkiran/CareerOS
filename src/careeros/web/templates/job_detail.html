@@ -11,6 +11,12 @@
 {{ alerts(errors, request.query_params.get('saved')) }}
 
 <section class="card">
+  <h2>Application</h2>
+  {% if application %}<p><a href="/applications/{{ application.id }}" data-testid="open-application">Open application</a> · <span class="pill pill-app-{{ application.status }}">{{ application.status }}</span></p>
+  {% else %}<form method="post" action="/jobs/{{ j.id }}/application">{{ csrf() }}<button data-testid="start-application">Start application</button></form>{% endif %}
+</section>
+
+<section class="card">
   <h2>Triage <span class="pill pill-{{ j.triage_status }}" data-testid="triage-status">{{ j.triage_status }}</span></h2>
   {% if j.triage_reason %}<p class="muted">Reason: {{ j.triage_reason }}</p>{% endif %}
   <div class="actions">

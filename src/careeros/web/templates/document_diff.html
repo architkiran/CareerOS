@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Changes · CareerOS{% endblock %}
+{% block content %}
+<p><a href="/applications/{{ doc.application_id }}#documents">← Application</a></p>
+<h1>{{ labels[doc.document_type] }}: changes in v{{ doc.version }}</h1>
+{% if not lines %}<p class="empty">No differences.</p>{% else %}
+<pre class="diff" data-testid="diff">{% for l in lines %}<span class="{{ 'add' if l.startswith('+') and not l.startswith('+++') else ('del' if l.startswith('-') and not l.startswith('---') else '') }}">{{ l }}</span>
+{% endfor %}</pre>{% endif %}
+{% endblock %}
