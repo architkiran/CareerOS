@@ -1,0 +1,25 @@
+# CareerOS source watchlist.
+# Copy to config/sources.toml (gitignored) and edit, then run:
+#   careeros sources sync
+#   careeros ingest
+#
+# Only public ATS job-board APIs are supported: greenhouse, lever, ashby.
+# `token` is the board name in the company's public jobs URL, for example
+#   boards.greenhouse.io/<token>, jobs.lever.co/<token>, jobs.ashbyhq.com/<token>
+# Tokens below are examples; a wrong token shows up as a 404 on the Sources page.
+
+[[source]]
+type = "greenhouse"
+token = "stripe"
+name = "Stripe"
+
+[[source]]
+type = "lever"
+token = "plaid"
+name = "Plaid"
+
+[[source]]
+type = "ashby"
+token = "ramp"
+name = "Ramp"
+rate_limit_seconds = 3

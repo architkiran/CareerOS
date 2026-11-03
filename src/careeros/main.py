@@ -2,7 +2,10 @@
 
 import argparse
 import logging
+import sys
+import tomllib
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +15,7 @@ from careeros.common.logging import configure_logging
 from careeros.config import Settings, get_settings
 from careeros.db.session import create_sqlite_engine, make_session_factory
 from careeros.web.csrf import csrf_middleware
-from careeros.web.routes import profile, system
+from careeros.web.routes import profile, sources, system
 from careeros.web.templating import STATIC_DIR, build_templates
 
 logger = logging.getLogger("careeros")
@@ -50,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(system.router)
     app.include_router(profile.router)
+    app.include_router(sources.router)
 
     if not settings.is_localhost_bound:
         logger.warning("Bound to %s, not localhost. Add authentication first.", settings.app_host)
@@ -71,15 +75,114 @@ def _migrate(settings: Settings) -> None:
     print("Database is at the latest migration.")
 
 
+def _require_current_schema(settings: Settings) -> bool:
+    from careeros.db.migrations import current_revision, head_revision
+    from careeros.db.session import create_sqlite_engine
+
+    engine = create_sqlite_engine(settings.database_url)
+    try:
+        ok = current_revision(engine) == head_revision(settings.database_url)
+    finally:
+        engine.dispose()
+    if not ok:
+        print("Database migrations are pending. Run: careeros migrate", file=sys.stderr)
+    return ok
+
+
+def _session_factory(settings: Settings):  # type: ignore[no-untyped-def]
+    from careeros.db.session import create_sqlite_engine
+
+    return make_session_factory(create_sqlite_engine(settings.database_url))
+
+
+def _sources(settings: Settings, args: argparse.Namespace) -> int:
+    from careeros.modules.sources import registry
+
+    if not _require_current_schema(settings):
+        return 1
+    factory = _session_factory(settings)
+    with factory() as session:
+        if args.sources_command == "sync":
+            path = Path(args.file)
+            if not path.exists():
+                print(
+                    f"Watchlist not found: {path}. Copy config/sources.example.toml first.",
+                    file=sys.stderr,
+                )
+                return 1
+            try:
+                entries = registry.load_watchlist(path)
+            except (ValueError, tomllib.TOMLDecodeError) as exc:
+                print(f"Invalid watchlist: {exc}", file=sys.stderr)
+                return 1
+            result = registry.sync_watchlist(session, entries)
+            session.commit()
+            print(f"Sources: {result.added} added, {result.existing} already configured.")
+        else:
+            for src in registry.list_sources(session):
+                state = "enabled" if src.enabled else "disabled"
+                print(f"{src.source_type:<11} {src.board_token:<24} {state:<9} {src.display_name}")
+    return 0
+
+
+def _ingest(settings: Settings, args: argparse.Namespace) -> int:
+    from sqlalchemy import select
+
+    from careeros.db.models import Source
+    from careeros.modules.ingestion.service import run_all
+    from careeros.modules.sources.http import Fetcher
+
+    if not _require_current_schema(settings):
+        return 1
+    factory = _session_factory(settings)
+    ids = None
+    if args.token:
+        with factory() as session:
+            ids = list(session.scalars(select(Source.id).where(Source.board_token == args.token)))
+        if not ids:
+            print(f"No source with token {args.token!r}.", file=sys.stderr)
+            return 1
+    fetcher = Fetcher()
+    try:
+        results = run_all(factory, fetcher, source_ids=ids)
+    finally:
+        fetcher.close()
+    if not results:
+        print("No enabled sources. Run: careeros sources sync")
+        return 0
+    for r in results:
+        if r.status == "failed":
+            print(f"FAILED  {r.source_name}: {r.error}")
+        else:
+            print(
+                f"{r.status.upper():<7} {r.source_name}: {r.fetched} fetched, {r.new} new, "
+                f"{r.updated} updated, {r.duplicates} duplicate, {r.invalid} invalid, "
+                f"{r.closed} closed"
+            )
+    return 1 if all(r.status == "failed" for r in results) else 0
+
+
 def run(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="careeros", description="CareerOS local server")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("serve", help="Run the dashboard (default)")
     sub.add_parser("migrate", help="Apply database migrations")
+    src = sub.add_parser("sources", help="Manage the source watchlist")
+    src_sub = src.add_subparsers(dest="sources_command", required=True)
+    sync = src_sub.add_parser("sync", help="Add sources from a TOML watchlist")
+    sync.add_argument("--file", default="config/sources.toml")
+    src_sub.add_parser("list", help="List configured sources")
+    ingest = sub.add_parser("ingest", help="Fetch jobs from enabled sources now")
+    ingest.add_argument("--token", help="Only this board token")
     args = parser.parse_args(argv)
     settings = get_settings()
+    configure_logging(settings.log_level)
     if args.command == "migrate":
         _migrate(settings)
+    elif args.command == "sources":
+        raise SystemExit(_sources(settings, args))
+    elif args.command == "ingest":
+        raise SystemExit(_ingest(settings, args))
     else:
         _serve(settings)
 

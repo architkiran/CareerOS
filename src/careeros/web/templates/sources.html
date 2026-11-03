@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, alerts with context %}
+{% block title %}Sources · CareerOS{% endblock %}
+{% block content %}
+<h1>Sources</h1>
+<p class="muted">Public ATS job boards only (Greenhouse, Lever, Ashby). Each source is fetched politely with a per-domain delay; one that returns repeated 403/429 is disabled automatically.</p>
+{{ alerts(errors, saved) }}
+{% if not rows %}
+<p class="empty" data-testid="sources-empty">No sources yet. Add one below, or copy <code>config/sources.example.toml</code> to <code>config/sources.toml</code> and run <code>careeros sources sync</code>.</p>
+{% else %}
+<table class="table">
+  <thead><tr><th>Source</th><th>Type</th><th>Last run</th><th>Last success</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for s, run in rows %}
+  <tr data-testid="source-row">
+    <td><strong>{{ s.display_name }}</strong><br><span class="muted">{{ s.board_token }}</span></td>
+    <td>{{ s.source_type }}</td>
+    <td>{% if run %}<span class="pill pill-{{ 'verified' if run.status == 'success' else 'unverified' }}">{{ run.status }}</span>
+        <span class="muted">{{ run.fetched_count }} fetched · {{ run.new_count }} new · {{ run.duplicate_count }} dup · {{ run.invalid_count }} invalid · {{ run.closed_count }} closed</span>
+        {% else %}<span class="muted">never run</span>{% endif %}</td>
+    <td>{{ s.last_success_at|localtime }}</td>
+    <td>{% if s.last_error %}<span class="bad">{{ s.last_error }}</span>{% elif s.enabled %}<span class="ok">enabled</span>{% else %}<span class="muted">disabled</span>{% endif %}</td>
+    <td><form method="post" action="/sources/{{ s.id }}/toggle">{{ csrf() }}
+      {% if not s.enabled %}<input type="hidden" name="enabled" value="on">{% endif %}
+      <button class="link">{{ 'Disable' if s.enabled else 'Enable' }}</button></form></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<details class="card"><summary><strong>Add a source</strong></summary>
+<form method="post" action="/sources" class="grid">
+  {{ csrf() }}
+  <label>Type <select name="type"><option>greenhouse</option><option>lever</option><option>ashby</option></select></label>
+  <label>Board token <input name="token" required maxlength="100" placeholder="e.g. stripe"></label>
+  <label>Company name <input name="name" required maxlength="200"></label>
+  <label>Delay between requests (s) <input name="rate_limit_seconds" type="number" step="0.5" min="0.5" max="60" value="2"></label>
+  <div><button>Add source</button></div>
+</form></details>
+<p class="muted">To fetch now, run <code>careeros ingest</code> in your terminal. Scheduled and in-app runs come in Phase 3.</p>
+{% endblock %}
