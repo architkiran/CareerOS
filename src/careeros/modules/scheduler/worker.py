@@ -106,7 +106,7 @@ def handle_match_all(
     from careeros.modules.matching.service import score_jobs
 
     with factory() as session:
-        score_jobs(session)
+        score_jobs(session, commit_every=25)
         session.commit()
 
 

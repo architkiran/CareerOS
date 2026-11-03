@@ -92,8 +92,8 @@ def test_inbox_source_filter(seeded: FastAPI, client: TestClient) -> None:
 def test_invalid_filter_values_are_ignored(seeded: FastAPI, client: TestClient) -> None:
     r = client.get("/jobs?triage=bogus&status=weird&workplace=moon")
     assert r.status_code == 200 and r.text.count('data-testid="job-row"') == 7
-    assert client.get("/jobs?days=0").status_code == 422
-    assert client.get("/jobs?page=0").status_code == 422
+    assert client.get("/jobs?days=0").text.count('data-testid="job-row"') == 7  # ignored
+    assert client.get("/jobs?page=0").status_code == 200
 
 
 def test_search_is_escaped(seeded: FastAPI, client: TestClient) -> None:
@@ -145,7 +145,7 @@ def test_job_detail(seeded: FastAPI, client: TestClient) -> None:
     assert 'rel="noopener noreferrer nofollow"' in html
     assert "<script>" not in html.split("Description")[-1]
     assert "Ignore previous instructions" in html  # shown as inert text, never acted on
-    assert "not disclosed" in html and "unknown" in html
+    assert "85,000" in html and "unknown" in html
 
 
 def test_job_detail_salary(seeded: FastAPI, client: TestClient) -> None:

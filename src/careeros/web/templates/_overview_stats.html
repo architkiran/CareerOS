@@ -2,7 +2,8 @@
   <a class="card stat" href="/jobs?days=1"><h2>New today</h2><p class="big" data-testid="stat-new-today">{{ ov.jobs.new_today }}</p></a>
   <a class="card stat" href="/jobs"><h2>Active jobs</h2><p class="big">{{ ov.jobs.active }}</p><p class="muted">{{ ov.jobs.untriaged }} untriaged</p></a>
   <a class="card stat" href="/jobs?triage=shortlisted"><h2>Shortlisted</h2><p class="big" data-testid="stat-shortlisted">{{ ov.jobs.shortlisted }}</p><p class="muted">{{ ov.jobs.saved }} saved</p></a>
-  <a class="card stat" href="/jobs?eligibility=pass&sort=score"><h2>Passing filters</h2><p class="big" data-testid="stat-passing">{{ ov.matching.passing }}</p><p class="muted">{{ ov.matching.needs_review }} need review · {{ ov.matching.filtered_out }} filtered out</p></a>
+  <a class="card stat" href="/jobs?eligibility=pass&sort=score"><h2>Passing filters</h2><p class="big" data-testid="stat-passing">{{ ov.matching.passing }}</p><p class="muted">{{ ov.matching.needs_review }} need review · {{ ov.matching.filtered_out }} filtered out</p>
+    {% if ov.matching.top_blocker %}<p class="muted" data-testid="top-blocker">Most often unknown: {{ ov.matching.top_blocker[0] }} ({{ ov.matching.top_blocker[1] }}){% if ov.matching.top_blocker[0] == 'work authorization' %}. Add employer evidence in Research.{% endif %}</p>{% endif %}</a>
 </section>
 <section class="cards cards-3" aria-label="Waiting on you">
   <a class="card stat" href="/approvals"><h2>Approvals waiting</h2><p class="big" data-testid="stat-approvals">{{ ov.approvals_waiting }}</p><p class="muted">need your decision or confirmation</p></a>

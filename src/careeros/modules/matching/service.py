@@ -78,9 +78,17 @@ def build_lane_input(lane: RoleLane) -> LaneInput:
     )
 
 
-def build_job_input(job: Job, company: str, session: Session | None = None) -> JobInput:
+def build_job_input(
+    job: Job,
+    company: str,
+    session: Session | None = None,
+    *,
+    companies_with_evidence: set[str] | None = None,
+) -> JobInput:
     policy, note = "unknown", None
-    if session is not None:
+    if session is not None and (
+        companies_with_evidence is None or job.company_id in companies_with_evidence
+    ):
         from careeros.modules.research.service import employer_policy
 
         summary = employer_policy(session, job.company_id, job.id)
@@ -111,34 +119,57 @@ class ScoreSummary:
     failing: int = 0
 
 
-def score_jobs(session: Session, job_ids: list[str] | None = None) -> ScoreSummary:
-    """Score jobs (all, or the given ids) for every enabled lane. Skips unchanged inputs."""
+def score_jobs(
+    session: Session, job_ids: list[str] | None = None, *, commit_every: int | None = None
+) -> ScoreSummary:
+    """Score jobs (all, or the given ids) for every enabled lane. Skips unchanged inputs.
+
+    With `commit_every`, results are committed in batches of that many jobs so the database
+    write lock is never held for long (the dashboard stays responsive during big rescores).
+    """
+    from careeros.db.models import Evidence
+
     lanes = [
         (lane, build_lane_input(lane))
         for lane in profile_service.list_lanes(session, enabled_only=True)
     ]
     enabled_ids = [lane.id for lane, _ in lanes]
     profile = build_profile_input(session)
+    with_evidence = set(
+        session.scalars(
+            select(Evidence.company_id).where(Evidence.reviewer_status == "accepted").distinct()
+        )
+    )
+
+    stale = delete(JobLaneMatch).where(JobLaneMatch.role_lane_id.not_in(enabled_ids))
+    if job_ids is not None:
+        stale = stale.where(JobLaneMatch.job_id.in_(job_ids))
+    session.execute(stale)
+    if commit_every:
+        session.commit()
+
     stmt = select(Job, Company.canonical_name).join(Company, Company.id == Job.company_id)
     if job_ids is not None:
         stmt = stmt.where(Job.id.in_(job_ids))
+    rows = session.execute(stmt.order_by(Job.id)).all()
+
+    existing: dict[str, dict[str, JobLaneMatch]] = {}
+    match_stmt = select(JobLaneMatch)
+    if job_ids is not None:
+        match_stmt = match_stmt.where(JobLaneMatch.job_id.in_(job_ids))
+    for m in session.scalars(match_stmt):
+        existing.setdefault(m.job_id, {})[m.role_lane_id] = m
+
+    rank = {"pass": 0, "unknown": 1, "fail": 2}
     summary = ScoreSummary()
-    for job, company in session.execute(stmt).all():
+    for n, (job, company) in enumerate(rows, start=1):
         summary.jobs += 1
-        session.execute(
-            delete(JobLaneMatch).where(
-                JobLaneMatch.job_id == job.id, JobLaneMatch.role_lane_id.not_in(enabled_ids)
-            )
-        )
-        existing = {
-            m.role_lane_id: m
-            for m in session.scalars(select(JobLaneMatch).where(JobLaneMatch.job_id == job.id))
-        }
-        job_input = build_job_input(job, company, session)
+        current_rows = existing.get(job.id, {})
+        job_input = build_job_input(job, company, session, companies_with_evidence=with_evidence)
         best: str | None = None
         for lane, lane_input in lanes:
             mi = MatchInput(job=job_input, lane=lane_input, profile=profile)
-            current = existing.get(lane.id)
+            current = current_rows.get(lane.id)
             if (
                 current is not None
                 and current.input_hash == mi.input_hash()
@@ -164,16 +195,16 @@ def score_jobs(session: Session, job_ids: list[str] | None = None) -> ScoreSumma
                     session.add(row)
                 summary.scored += 1
                 eligibility, classified = result.eligibility, result.classified
-            if classified:
-                rank = {"pass": 0, "unknown": 1, "fail": 2}[eligibility]
-                if best is None or rank < {"pass": 0, "unknown": 1, "fail": 2}[best]:
-                    best = eligibility
+            if classified and (best is None or rank[eligibility] < rank[best]):
+                best = eligibility
         if best == "pass":
             summary.passing += 1
         elif best == "unknown":
             summary.needs_review += 1
         elif best == "fail":
             summary.failing += 1
+        if commit_every and n % commit_every == 0:
+            session.commit()
     session.flush()
     if summary.scored:
         record_event(
@@ -281,6 +312,8 @@ class MatchCounts:
     needs_review: int
     filtered_out: int
     unscored: int
+    # Which hard filter most often leaves jobs at "needs review", e.g. ("work authorization", 61).
+    top_blocker: tuple[str, int] | None = None
 
 
 def match_counts(session: Session) -> MatchCounts:
@@ -291,6 +324,7 @@ def match_counts(session: Session) -> MatchCounts:
     )
     best = best_matches(session, ids)
     c = MatchCounts(0, 0, 0, 0)
+    blockers: dict[str, int] = {}
     for job_id in ids:
         view = best.get(job_id)
         if view is None or not view.match.classified:
@@ -299,8 +333,14 @@ def match_counts(session: Session) -> MatchCounts:
             c.passing += 1
         elif view.effective_eligibility == "unknown":
             c.needs_review += 1
+            for f in view.match.hard_filter_results_json:
+                if f.get("decision") == "unknown":
+                    blockers[f["name"]] = blockers.get(f["name"], 0) + 1
         else:
             c.filtered_out += 1
+    if blockers:
+        name, n = max(blockers.items(), key=lambda kv: kv[1])
+        c.top_blocker = (name.replace("_", " "), n)
     return c
 
 

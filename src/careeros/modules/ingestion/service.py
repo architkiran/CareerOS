@@ -58,8 +58,13 @@ def dedupe_key(company_id: str, title: str, location: str | None) -> str:
     return sha256(f"{company_id}|{normalize_key(title)}|{normalize_key(location)}")
 
 
+# Bump when an adapter extracts more from the same raw payload, so stored jobs are re-normalised
+# on the next run (they count as "updated") instead of keeping stale parsed fields.
+NORMALIZER_VERSION = "2"
+
+
 def _raw_hash(raw: dict[str, Any]) -> str:
-    return sha256(json.dumps(raw, sort_keys=True, default=str))
+    return sha256(NORMALIZER_VERSION + json.dumps(raw, sort_keys=True, default=str))
 
 
 def _apply(job: Job, nj: NormalizedJob, company_id: str) -> None:
@@ -265,7 +270,9 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
     seen: set[str] = set()
     errors: list[str] = []
     company_name = source.display_name
-    for raw in raw_items:
+    for i, raw in enumerate(raw_items, start=1):
+        if i % 100 == 0:
+            session.commit()  # keep write transactions short so the dashboard stays responsive
         raw_id = raw.get("id")
         if raw_id is not None:
             seen.add(str(raw_id))

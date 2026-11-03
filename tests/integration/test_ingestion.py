@@ -436,3 +436,28 @@ def test_cross_source_url_duplicate_still_merges(
     results = ingest.run_all(factory, fetcher)
     assert sorted(r.duplicates for r in results) == [0, 3]
     assert _count(factory, Job) == 3
+
+
+@respx.mock
+def test_parser_upgrade_renormalises_stored_jobs(
+    factory: sessionmaker[Session], fetcher: Fetcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _add(factory, "greenhouse", "examplepay", "ExamplePay")
+    respx.get(GH_URL).mock(
+        return_value=httpx.Response(200, json=load_fixture("greenhouse_jobs.json"))
+    )
+    ingest.run_all(factory, fetcher)
+    with factory() as s:
+        job = s.scalars(select(Job).where(Job.title == "Data Analyst")).one()
+        job.employment_type = None  # as stored by an older parser
+        s.commit()
+    [same] = ingest.run_all(factory, fetcher)
+    assert same.updated == 0  # same payload, same parser: nothing to do
+    monkeypatch.setattr(ingest, "NORMALIZER_VERSION", "test-next")
+    [upgraded] = ingest.run_all(factory, fetcher)
+    assert upgraded.updated == 3 and upgraded.new == 0
+    with factory() as s:
+        assert (
+            s.scalars(select(Job).where(Job.title == "Data Analyst")).one().employment_type
+            == "full_time"
+        )

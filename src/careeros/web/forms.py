@@ -36,3 +36,14 @@ def tri_state(form: FormData, key: str) -> bool | None:
 
 def multi(form: FormData, key: str) -> list[str]:
     return [v for v in form.getlist(key) if isinstance(v, str) and v]
+
+
+def bounded_int(value: str | None, low: int, high: int) -> int | None:
+    """Parse an optional integer query/form value; blank, junk or out-of-range means None."""
+    if value is None or not value.strip():
+        return None
+    try:
+        n = int(value.strip())
+    except ValueError:
+        return None
+    return n if low <= n <= high else None

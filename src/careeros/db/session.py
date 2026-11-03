@@ -12,7 +12,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
-BUSY_TIMEOUT_MS = 5000
+BUSY_TIMEOUT_MS = 15000
 
 
 def _apply_sqlite_pragmas(dbapi_connection: Any, _record: Any) -> None:

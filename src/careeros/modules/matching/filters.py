@@ -6,6 +6,7 @@ turned into a pass or a fail.
 
 import re
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from typing import Any, Literal
 
 from careeros.modules.matching.inputs import JobInput, LaneInput, ProfileInput
@@ -45,14 +46,15 @@ _EMPLOYMENT_PHRASES: dict[str, re.Pattern[str]] = {
 }
 
 
-def _employment_from_description(text: str) -> tuple[set[str], dict[str, re.Match[str]]]:
+@lru_cache(maxsize=16_384)
+def _employment_from_description(text: str) -> tuple[frozenset[str], dict[str, re.Match[str]]]:
     low = text.lower()
     found: dict[str, re.Match[str]] = {}
     for kind, pattern in _EMPLOYMENT_PHRASES.items():
         m = pattern.search(low)
         if m:
             found[kind] = m
-    return set(found), found
+    return frozenset(found), found
 
 
 def employment_filter(job: JobInput, lane: LaneInput) -> FilterResult:
@@ -436,6 +438,12 @@ _SPONSOR_OK = [
 
 
 def _first(patterns: list[re.Pattern[str]], text: str) -> re.Match[str] | None:
+    return _first_cached(tuple(patterns), text)
+
+
+@lru_cache(maxsize=16_384)
+def _first_cached(patterns: tuple[re.Pattern[str], ...], text: str) -> re.Match[str] | None:
+    # Cached per description: each lane runs the same sponsorship checks on the same text.
     for p in patterns:
         m = p.search(text)
         if m:
