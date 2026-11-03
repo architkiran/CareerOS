@@ -57,7 +57,8 @@ See `docs/` for detailed contracts.
 | 3. Job inbox, task queue, live dashboard | Done |
 | 4. Deterministic matching | Done |
 | 5. Employer research and work-authorization evidence | Done |
-| 6+ | Not started |
+| 6. Application workspace and document generation | Done |
+| 7+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -164,6 +165,15 @@ Shortlisting a job opens research for it (or click *Start research* on any job).
 - When a posting is silent, matching uses this policy, so research turns "needs review" into a real pass or fail.
 - `/research` lists everything in progress. CareerOS gives no legal advice; application answers about authorization always come from you.
 
+## Applications and documents (Phase 6)
+
+On any job, click **Start application**. The workspace (`/applications/<id>`) generates a resume and a cover letter from templates for the job's best lane. No AI is involved.
+
+- **Verified items only.** Every line is mapped to the profile items behind it (see *Claim map*).
+- **QA checks.** These errors block a version: a line with no backing item, a number that isn't in the backing item, a leadership claim the profile doesn't make, a skill that isn't verified, or dates that contradict each other. These are warnings you acknowledge: missing or future dates, and unverified items that were left out.
+- **Versions are immutable.** Regenerating after a profile change creates v2, v3 and so on, with a diff. Files are `.docx` in `data/documents/` (owner-only permissions), each checked against its stored hash on download.
+- **Tracker.** `/applications` lists everything. Statuses after submission (response, screen, interview, offer, rejected, withdrawn) are set by you. *Submitted* is only recorded through the approval step (Phase 7).
+
 ## Code map
 
 | Path | Purpose |
@@ -192,6 +202,8 @@ Shortlisting a job opens research for it (or click *Start research* on any job).
 | `src/careeros/modules/jobs/service.py` | Inbox queries, job detail, triage |
 | `src/careeros/modules/matching/` | Seniority inference, hard filters, scoring (pure functions), persistence and overrides (migration `0005`) |
 | `src/careeros/modules/research/` | Evidence capture, review and employer policy (migration `0007`) |
+| `src/careeros/modules/documents/` | Content builder, QA checks, DOCX rendering, versions and diff (migration `0008`) |
+| `src/careeros/modules/applications/` | Application tracker and status rules |
 | `src/careeros/web/routes/events.py` | SSE stream and polling feed |
 | `src/careeros/web/static/app.js` | Live feed client (ADR 0006) |
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |

@@ -82,3 +82,10 @@ button.secondary { background:none; color:var(--fg); }
 .pill-review-accepted { color:var(--ok); border-color:var(--ok); } .pill-review-rejected { color:var(--bad); border-color:var(--bad); }
 .pill-review-pending { color:var(--warn); border-color:var(--warn); }
 .filters a.active { font-weight:700; text-decoration:none; }
+.doc { border-top:1px solid var(--line); padding-top:10px; margin-top:10px; }
+.findings { margin:6px 0; padding-left:18px; }
+.pill-doc-ready, .pill-app-offer, .pill-app-interview, .pill-app-screen { color:var(--ok); border-color:var(--ok); }
+.pill-doc-needs_ack, .pill-app-ready, .pill-app-submitted, .pill-app-response { color:var(--warn); border-color:var(--warn); }
+.pill-doc-blocked, .pill-app-rejected { color:var(--bad); border-color:var(--bad); }
+pre.diff { background:var(--card); border:1px solid var(--line); padding:12px; border-radius:8px; overflow:auto; font-size:13px; }
+pre.diff .add { color:var(--ok); } pre.diff .del { color:var(--bad); }

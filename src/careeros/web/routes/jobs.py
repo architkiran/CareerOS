@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
+from careeros.modules.applications import service as apps_service
 from careeros.modules.jobs import service as jobs
 from careeros.modules.matching import service as matching
 from careeros.modules.profile import service as profile_service
@@ -127,6 +128,7 @@ def _detail_ctx(session: Session, detail: Any) -> dict[str, Any]:
         "evidence": research.evidence_for(session, job.company_id, job.id),
         "claim_labels": research.CLAIM_LABELS,
         "age_days": research.evidence_age_days,
+        "application": apps_service.get_for_job(session, job.id),
     }
 
 

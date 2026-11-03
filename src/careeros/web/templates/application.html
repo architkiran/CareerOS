@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, alerts with context %}
+{% block title %}{{ job.title }} application · CareerOS{% endblock %}
+{% block content %}
+<p><a href="/applications">← Applications</a> · <a href="/jobs/{{ job.id }}">Job details</a></p>
+<h1>{{ job.title }} <span class="muted">{{ company.canonical_name }}</span></h1>
+<p>Status: <span class="pill pill-app-{{ a.status }}" data-testid="app-status">{{ a.status }}</span> · Lane: {{ lane.name if lane else 'none matched' }}</p>
+{{ alerts(errors) }}
+
+<section class="card" id="documents">
+  <h2>Documents</h2>
+  <p class="muted">Built from verified profile items only, with templates (no AI). Every line links to the profile items behind it. Errors block a version; warnings need your acknowledgment.</p>
+  <div class="actions">
+    {% for t in ['resume', 'cover_letter'] %}
+    <form method="post" action="/applications/{{ a.id }}/documents" class="inline">{{ csrf() }}<input type="hidden" name="document_type" value="{{ t }}"><button>{{ 'Regenerate' if docs[t] else 'Generate' }} {{ labels[t].lower() }}</button></form>
+    {% endfor %}
+  </div>
+  {% for t in ['resume', 'cover_letter'] %}{% set d = docs[t] %}
+  {% if d %}
+  <article class="doc" data-testid="doc-{{ t }}">
+    <h3>{{ labels[t] }} v{{ d.version }} <span class="pill pill-doc-{{ d.status }}" data-testid="doc-status-{{ t }}">{{ d.status.replace('_', ' ') }}</span></h3>
+    <p class="muted">Generated {{ d.generated_at|localtime }} · template: {{ d.base_template_id }} · {{ d.content_hash[:12] }}</p>
+    {% set fs = findings[d.id] %}
+    {% if fs %}<ul class="findings">{% for f in fs %}<li class="{{ 'bad' if f.severity == 'error' else 'warnc' }}"><strong>{{ f.severity }}</strong> {{ f.message }}{% if f.claim %} <span class="muted">“{{ f.claim }}”</span>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="ok">All checks passed.</p>{% endif %}
+    <div class="actions">
+      {% if d.status == 'needs_ack' %}<form method="post" action="/documents/{{ d.id }}/acknowledge" class="inline">{{ csrf() }}<button>Acknowledge warnings</button></form>{% endif %}
+      <a href="/documents/{{ d.id }}/download">Download .docx</a>
+      {% if d.version > 1 %}<a href="/documents/{{ d.id }}/diff">Changes from v{{ d.version - 1 }}</a>{% endif %}
+    </div>
+    <details><summary>Claim map ({{ claims[d.id]|length }} lines)</summary>
+      <table class="table"><thead><tr><th>Section</th><th>Line</th><th>Backed by</th></tr></thead><tbody>
+      {% for c in claims[d.id] %}<tr><td>{{ c.section }}</td><td>{{ c.claim_text }}{% if c.warning %}<br><span class="bad">{{ c.warning }}</span>{% endif %}</td>
+        <td class="muted">{{ c.supporting_profile_fact_ids_json | map('replace', ':', ' ') | join(', ') }}</td></tr>{% endfor %}
+      </tbody></table></details>
+  </article>
+  {% endif %}{% endfor %}
+  {% if not docs.history %}<p class="empty" data-testid="docs-empty">No documents yet.</p>{% endif %}
+  {% if docs.history|length > 2 %}
+  <details><summary>All versions</summary><ul>{% for d in docs.history %}<li>{{ labels[d.document_type] }} v{{ d.version }} · {{ d.status.replace('_',' ') }} · {{ d.generated_at|localtime }} · <a href="/documents/{{ d.id }}/download">download</a></li>{% endfor %}</ul></details>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Status</h2>
+  {% if next_statuses %}
+  <form method="post" action="/applications/{{ a.id }}/status" class="grid">{{ csrf() }}
+    <label>Move to <select name="status">{% for s in next_statuses %}<option>{{ s }}</option>{% endfor %}</select></label>
+    <label class="wide">Note <input name="notes" maxlength="1000"></label><div><button class="secondary">Update</button></div></form>
+  {% endif %}
+  {% if a.status in ('preparing', 'ready') %}<p class="muted">Submission is recorded from the approval step, once you've reviewed the exact package and submitted it yourself.</p>{% endif %}
+  <h3>History</h3>
+  <ul class="items" data-testid="app-history">{% for e in history %}<li><time>{{ e.occurred_at|localtime }}</time> <code>{{ e.event_type }}</code> {{ e.notes or '' }} <span class="muted">({{ e.source }})</span></li>{% endfor %}</ul>
+  <form method="post" action="/applications/{{ a.id }}/notes" class="grid">{{ csrf() }}
+    <label class="wide">Notes <textarea name="notes" rows="3" maxlength="5000">{{ a.notes or '' }}</textarea></label><div><button class="secondary">Save notes</button></div></form>
+</section>
+{% endblock %}
