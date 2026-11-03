@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, alerts with context %}
+{% block title %}Work authorization · CareerOS{% endblock %}
+{% block content %}
+<h1>Work authorization</h1>
+<p class="muted">You enter this yourself. CareerOS never infers or decides eligibility, and it is never written to logs or the activity feed. Any application answer about authorization or sponsorship will still ask you to confirm it directly.</p>
+{{ alerts(errors, saved) }}
+<section class="card">
+  <p>Status: <strong data-testid="wa-confirmed">{{ 'Confirmed ' ~ (verified_at|localtime) if verified_at else 'Not confirmed' }}</strong></p>
+  <form method="post" action="/profile/work-authorization" class="grid">
+    {{ csrf() }}
+    <label class="wide">Your status, in your words <input name="status_text" value="{{ wa.status_text or '' }}" maxlength="200"></label>
+    {% for field, label in [('requires_sponsorship_now','Need sponsorship now?'),('requires_sponsorship_future','Will need sponsorship in future?')] %}
+    <label>{{ label }} <select name="{{ field }}">
+      {% for v in ['unknown','yes','no'] %}<option value="{{ v }}" {% if wa[field] == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select></label>
+    {% endfor %}
+    <label>Authorized until <input name="authorized_until" type="date" value="{{ wa.authorized_until or '' }}"></label>
+    <label class="wide">Constraints <textarea name="constraints" rows="2">{{ wa.constraints or '' }}</textarea></label>
+    <label class="wide">Notes <textarea name="notes" rows="2">{{ wa.notes or '' }}</textarea></label>
+    <label class="check"><input type="checkbox" name="confirmed" {% if wa.confirmed %}checked{% endif %}> I confirm this is accurate as of today</label>
+    <div><button>Save</button> <a href="/profile">Back to profile</a></div>
+  </form>
+</section>
+{% endblock %}
