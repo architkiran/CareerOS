@@ -13,3 +13,6 @@ DATA_MODEL.md allows UUID or ULID string IDs and requires UTC timestamps and saf
 
 ## Consequences
 No extra dependencies. UUID4 is not time-sortable, so ordering uses `created_at` columns. Users must run one explicit command after upgrades, which avoids surprise schema changes to their database.
+
+## Amendment: Docker (2026-11-03)
+The `careeros serve` process itself still never migrates. The Docker entrypoint (`docker/entrypoint.sh`) is the explicit step: when migrations are pending it runs `careeros backup` (verified) and only then `careeros migrate`, so an always-on install upgrades itself with a guaranteed rollback point.

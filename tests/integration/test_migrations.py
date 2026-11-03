@@ -117,3 +117,22 @@ def test_0006_noop_on_clean_data(migrated_settings: Settings) -> None:
             == 0
         )
     engine.dispose()
+
+
+def test_migrations_dir_resolution(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import pytest as _pytest
+
+    from careeros.db import migrations as m
+
+    real = m.migrations_dir()
+    assert (real / "env.py").is_file()
+    monkeypatch.setenv("CAREEROS_MIGRATIONS_DIR", str(real))
+    assert m.migrations_dir() == real
+    # Installed (non-editable) layout: source checkout path absent, fall back to ./migrations.
+    monkeypatch.delenv("CAREEROS_MIGRATIONS_DIR")
+    monkeypatch.setattr(m, "PROJECT_ROOT", tmp_path / "site-packages")
+    monkeypatch.chdir(real.parent)
+    assert m.migrations_dir() == real.parent / "migrations"
+    monkeypatch.chdir(tmp_path)
+    with _pytest.raises(FileNotFoundError, match="CAREEROS_MIGRATIONS_DIR"):
+        m.migrations_dir()

@@ -1,0 +1,35 @@
+# Run:   docker compose up -d --build
+# Open:  http://127.0.0.1:8000
+# It restarts by itself after crashes, reboots and Docker Desktop restarts.
+services:
+  careeros:
+    build: .
+    image: careeros:local
+    container_name: careeros
+    restart: unless-stopped
+    # Published to 127.0.0.1 ONLY. Don't change this to "8000:8000": CareerOS has no login,
+    # and that would expose your data to everyone on your network.
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # These override .env so the container always uses its own paths and safe binding.
+      CONTAINER: "true"
+      APP_HOST: "0.0.0.0"
+      APP_PORT: "8000"
+      DATABASE_URL: "sqlite:////app/data/careeros.db"
+      DATA_DIR: "/app/data"
+      EXPORT_DIR: "/app/exports"
+      BACKUP_DIR: "/app/backups"
+      ALLOW_REMOTE: "false"
+      SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
+      DISPLAY_TIMEZONE: "${DISPLAY_TIMEZONE:-America/New_York}"
+      # Local Ollama on your Mac, if you enable it in .env
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL_DOCKER:-http://host.docker.internal:11434}"
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./backups:/app/backups
+      - ./config:/app/config:ro

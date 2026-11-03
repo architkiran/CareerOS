@@ -63,3 +63,34 @@ def test_private_dirs_created_with_owner_only_permissions(tmp_path: Path) -> Non
     for path in (s.data_dir, s.export_dir):
         assert path.is_dir()
         assert stat.S_IMODE(path.stat().st_mode) == 0o700
+
+
+def test_private_dirs_tolerate_foreign_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def deny(self: Path, mode: int) -> None:
+        raise PermissionError("not owner")
+
+    s = make(data_dir=tmp_path / "d", export_dir=tmp_path / "e")
+    monkeypatch.setattr(Path, "chmod", deny)
+    s.ensure_private_dirs()  # writable, so only a warning
+    assert "Couldn't restrict permissions" in caplog.text
+
+
+def test_private_dirs_fail_when_not_writable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def deny(self: Path, mode: int) -> None:
+        raise PermissionError("not owner")
+
+    s = make(data_dir=tmp_path / "d", export_dir=tmp_path / "e")
+    monkeypatch.setattr(Path, "chmod", deny)
+    monkeypatch.setattr("careeros.common.fs.os.access", lambda *_a: False)
+    with pytest.raises(PermissionError):
+        s.ensure_private_dirs()
+
+
+def test_container_mode_counts_as_local_only_for_wildcard() -> None:
+    assert make(container=True, app_host="0.0.0.0").is_localhost_bound  # noqa: S104
+    assert not make(container=False, app_host="0.0.0.0").is_localhost_bound  # noqa: S104
+    assert not make(container=True, app_host="192.168.1.5").is_localhost_bound

@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 from sqlalchemy.engine import make_url
 
 from careeros import __version__
+from careeros.common.fs import private_dir
 
 PRIVATE_DIRS = ("documents", "approvals", "outreach")
 DB_NAME = "careeros.db"
@@ -57,8 +58,7 @@ def create_backup(
     src = db_path(database_url)
     if not src.exists():
         raise BackupError(f"Database not found at {src}")
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_dir.chmod(0o700)
+    private_dir(dest_dir)
     stamp = (now or datetime.now(UTC)).strftime("%Y%m%d-%H%M%S")
     archive = dest_dir / f"careeros-backup-{stamp}.tar.gz"
     with tempfile.TemporaryDirectory() as tmp:
@@ -170,7 +170,7 @@ def restore_backup(
                 if dst.exists():
                     dst.rename(dst.with_name(f"{name}.before-restore-{stamp}"))
                 shutil.copytree(src, dst)
-                dst.chmod(0o700)
+                private_dir(dst)
     return moved
 
 

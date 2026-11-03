@@ -7,6 +7,8 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from careeros.common.fs import private_dir
+
 ModelProvider = Literal["disabled", "ollama"]
 
 
@@ -37,6 +39,9 @@ class Settings(BaseSettings):
     model_timeout_seconds: float = Field(default=60, ge=1, le=600)
     # Binding to a non-local address needs authentication that doesn't exist yet.
     allow_remote: bool = False
+    # Set only by the provided Docker image: the app listens on 0.0.0.0 *inside* the container,
+    # and docker-compose publishes the port to 127.0.0.1 on the host, so it stays local.
+    container: bool = False
     backup_dir: Path = Path("./backups")
 
     @field_validator("database_url")
@@ -57,13 +62,18 @@ class Settings(BaseSettings):
 
     @property
     def is_localhost_bound(self) -> bool:
+        if self.container and self.app_host in {"0.0.0.0", "::"}:  # noqa: S104
+            return True  # reachable only through the host's 127.0.0.1 port mapping
         return self.app_host in {"127.0.0.1", "localhost", "::1"}
 
     def ensure_private_dirs(self) -> None:
-        """Create data/export directories readable only by the current user."""
+        """Create data/export directories readable only by the current user.
+
+        Tightening permissions is best-effort: a folder mounted into a container may belong
+        to another user, which is fine as long as we can write to it.
+        """
         for path in (self.data_dir, self.export_dir):
-            path.mkdir(parents=True, exist_ok=True)
-            path.chmod(0o700)
+            private_dir(path)
 
 
 @lru_cache
