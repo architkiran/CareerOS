@@ -117,13 +117,25 @@ def upsert_job(
     desc_hash = sha256(normalize_space(nj.description_text).lower())
     key = dedupe_key(company.id, nj.title, nj.location_text)
 
-    # 2. canonical URL, 3. company + title + location + same description
-    match = session.scalars(select(Job).where(Job.canonical_url == canonical)).first()
+    # 2. canonical URL, 3. company + title + location + same description.
+    # A job already listed by *this* source under another id is a different posting
+    # on the same board, never a cross-source duplicate.
+    def other_source_only(candidate: Job) -> bool:
+        return not session.scalars(
+            select(JobSourceRecord.id).where(
+                JobSourceRecord.job_id == candidate.id, JobSourceRecord.source_id == source.id
+            )
+        ).first()
+
+    url_hits = list(session.scalars(select(Job).where(Job.canonical_url == canonical)))
+    match = next((c for c in url_hits if other_source_only(c)), None)
     possible: Job | None = None
     if match is None:
         candidates = list(session.scalars(select(Job).where(Job.dedupe_key == key)))
-        match = next((c for c in candidates if c.description_hash == desc_hash), None)
-        possible = candidates[0] if candidates and match is None else None
+        same_desc = [c for c in candidates if c.description_hash == desc_hash]
+        match = next((c for c in same_desc if other_source_only(c)), None)
+        if match is None and (candidates or url_hits):
+            possible = (candidates or url_hits)[0]
 
     outcome: Outcome
     if match is not None:

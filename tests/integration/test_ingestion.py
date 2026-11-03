@@ -345,3 +345,69 @@ def test_duplicate_source_rejected(factory: sessionmaker[Session]) -> None:
     _add(factory, "lever", "acme", "Acme")
     with factory() as s, pytest.raises(registry.DuplicateSourceError):
         registry.add_source(s, registry.SourceIn(type="lever", token="acme", name="Acme again"))
+
+
+def _hosted_board(n: int) -> dict:  # type: ignore[type-arg]
+    """A company-hosted Greenhouse board: every URL differs only by gh_jid."""
+    return {
+        "jobs": [
+            {
+                "id": 5_000_000 + i,
+                "title": f"Role {i}",
+                "absolute_url": f"https://examplepay.com/jobs/search?gh_jid={5_000_000 + i}",
+                "location": {"name": "New York, NY"},
+                "content": f"<p>Role {i}</p>",
+            }
+            for i in range(n)
+        ]
+    }
+
+
+@respx.mock
+def test_company_hosted_urls_are_separate_jobs(
+    factory: sessionmaker[Session], fetcher: Fetcher
+) -> None:
+    _add(factory, "greenhouse", "examplepay", "ExamplePay")
+    respx.get(GH_URL).mock(return_value=httpx.Response(200, json=_hosted_board(25)))
+    [r] = ingest.run_all(factory, fetcher)
+    assert (r.fetched, r.new, r.duplicates) == (25, 25, 0)
+    assert _count(factory, Job) == 25
+
+
+@respx.mock
+def test_same_board_never_merges_its_own_postings(
+    factory: sessionmaker[Session], fetcher: Fetcher
+) -> None:
+    """Even identical URL, title, location and text from one board stay separate jobs."""
+    _add(factory, "greenhouse", "examplepay", "ExamplePay")
+    twin = {
+        "title": "Data Analyst",
+        "absolute_url": "https://examplepay.com/careers",
+        "location": {"name": "NYC"},
+        "content": "<p>Same</p>",
+    }
+    respx.get(GH_URL).mock(
+        return_value=httpx.Response(200, json={"jobs": [twin | {"id": 1}, twin | {"id": 2}]})
+    )
+    [r] = ingest.run_all(factory, fetcher)
+    assert (r.new, r.duplicates) == (2, 0)
+    flagged = [j for j in _jobs(factory) if j.possible_duplicate_of_id]
+    assert len(flagged) == 1  # surfaced for review instead of silently merged
+
+
+@respx.mock
+def test_cross_source_url_duplicate_still_merges(
+    factory: sessionmaker[Session], fetcher: Fetcher
+) -> None:
+    _add(factory, "greenhouse", "examplepay", "ExamplePay")
+    _add(factory, "greenhouse", "examplepay2", "ExamplePay")
+    respx.get(GH_URL).mock(return_value=httpx.Response(200, json=_hosted_board(3)))
+    mirror = _hosted_board(3)
+    for j in mirror["jobs"]:
+        j["id"] += 1  # different ids, same URLs on a second board
+    respx.get(GH_URL.replace("examplepay", "examplepay2")).mock(
+        return_value=httpx.Response(200, json=mirror)
+    )
+    results = ingest.run_all(factory, fetcher)
+    assert sorted(r.duplicates for r in results) == [0, 3]
+    assert _count(factory, Job) == 3

@@ -23,7 +23,9 @@ _BLOCK_TAGS = {
     "section",
 }
 _SKIP_TAGS = {"script", "style", "noscript", "template"}
-_TRACKING_PARAMS = {"gh_src", "gh_jid", "lever-source", "lever-origin", "source", "ref", "src"}
+# Only parameters known to be pure tracking. Anything else may identify the job:
+# company-hosted Greenhouse pages, for example, differ only by `gh_jid`.
+_TRACKING_PARAMS = {"gh_src", "lever-source", "lever-origin"}
 
 
 class _TextExtractor(HTMLParser):
