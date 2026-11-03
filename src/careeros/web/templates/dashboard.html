@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="status-header">
+  <h1>System status</h1>
+  <span class="badge badge-{{ status.status }}" data-testid="overall-status">{{ status.status }}</span>
+</section>
+
+{% for message in status.messages %}
+<div class="alert alert-{{ 'error' if status.status == 'error' else 'warn' }}">{{ message }}</div>
+{% endfor %}
+
+<section class="cards">
+  <article class="card">
+    <h2>Database</h2>
+    {% if status.database.ok %}
+      <p class="ok">Connected</p>
+      <p class="muted">Journal mode: {{ status.database.journal_mode }} · Foreign keys: {{ 'on' if status.database.foreign_keys else 'off' }}</p>
+    {% else %}
+      <p class="bad">Unavailable</p>
+      <p class="muted">{{ status.database.error }}</p>
+    {% endif %}
+  </article>
+  <article class="card">
+    <h2>Schema</h2>
+    <p class="{{ 'ok' if status.schema.up_to_date else 'warnc' }}">{{ 'Up to date' if status.schema.up_to_date else 'Migrations pending' }}</p>
+    <p class="muted">Current: {{ status.schema.current_revision or 'none' }} · Head: {{ status.schema.head_revision or 'unknown' }}</p>
+  </article>
+  <article class="card">
+    <h2>AI and spend</h2>
+    <p>Model provider: <strong>{{ status.model_provider }}</strong></p>
+    <p class="muted">Budget: ${{ '%.2f'|format(status.model_daily_budget_usd) }}/day · ${{ '%.2f'|format(status.model_monthly_budget_usd) }}/month</p>
+  </article>
+  <article class="card">
+    <h2>Runtime</h2>
+    <p>Scheduler: <strong>{{ 'enabled' if status.scheduler_enabled else 'disabled' }}</strong></p>
+    <p class="muted">v{{ status.version }} · {{ status.environment }} · {{ 'localhost only' if status.localhost_only else 'network exposed' }}</p>
+  </article>
+</section>
+
+<section class="activity">
+  <h2>Recent activity</h2>
+  {% if events_error %}
+    <div class="alert alert-error">{{ events_error }}</div>
+  {% elif not status.schema.up_to_date %}
+    <p class="muted">Activity will appear once migrations are applied.</p>
+  {% elif not events %}
+    <p class="empty" data-testid="activity-empty">No activity yet. Pipeline events will show up here once job discovery is built.</p>
+  {% else %}
+    <ul class="events">
+      {% for e in events %}
+      <li><time>{{ e.created_at|localtime }}</time> <code>{{ e.event_type }}</code> {{ e.message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+{% endblock %}
