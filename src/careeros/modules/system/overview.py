@@ -5,8 +5,10 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from careeros.common.clock import utcnow
 from careeros.config import Settings
-from careeros.db.models import PipelineRun, Source, Task
+from careeros.db.models import Approval, PipelineRun, Source, Task
+from careeros.modules.approvals.service import open_follow_ups
 from careeros.modules.jobs.service import JobCounts, job_counts
 from careeros.modules.matching.service import MatchCounts, match_counts
 from careeros.modules.scheduler import queue
@@ -34,6 +36,9 @@ class Overview:
     schedule_interval_hours: float
     schedule_overdue: bool
     worker_enabled: bool
+    approvals_waiting: int = 0
+    follow_ups_due: int = 0
+    follow_ups_overdue: int = 0
 
 
 def build_overview(session: Session, settings: Settings) -> Overview:
@@ -48,6 +53,7 @@ def build_overview(session: Session, settings: Settings) -> Overview:
         or 0
     )
     stats = queue.queue_stats(session)
+    due = open_follow_ups(session, due_within_days=3)
     return Overview(
         jobs=job_counts(session, settings.display_timezone),
         matching=match_counts(session),
@@ -61,5 +67,15 @@ def build_overview(session: Session, settings: Settings) -> Overview:
         schedule_interval_hours=settings.schedule_interval_hours,
         schedule_overdue=settings.scheduler_enabled
         and schedule_overdue(session, settings.schedule_interval_hours),
+        approvals_waiting=int(
+            session.scalar(
+                select(func.count())
+                .select_from(Approval)
+                .where(Approval.status.in_(("pending", "approved")), Approval.expires_at > utcnow())
+            )
+            or 0
+        ),
+        follow_ups_due=len(due),
+        follow_ups_overdue=sum(1 for r in due if r.overdue),
         worker_enabled=settings.worker_enabled,
     )

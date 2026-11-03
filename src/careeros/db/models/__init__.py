@@ -1,6 +1,7 @@
 """ORM models. Import every model here so Alembic autogenerate sees it."""
 
 from careeros.db.models.applications import Application, ApplicationEvent, Document, DocumentClaim
+from careeros.db.models.approvals import Approval, FollowUp, OutreachContact, OutreachDraft
 from careeros.db.models.jobs import Company, Job, JobSourceRecord, Source, SourceRun
 from careeros.db.models.matching import JobLaneMatch, MatchOverride
 from careeros.db.models.operations import ActivityEvent, PipelineRun, Setting, Task
@@ -17,6 +18,10 @@ from careeros.db.models.profile import (
 from careeros.db.models.research import Evidence, ResearchItem
 
 __all__ = [
+    "Approval",
+    "FollowUp",
+    "OutreachContact",
+    "OutreachDraft",
     "Application",
     "ApplicationEvent",
     "Document",

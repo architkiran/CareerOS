@@ -41,6 +41,60 @@
   {% endif %}
 </section>
 
+<section class="card" id="submit">
+  <h2>Submit</h2>
+  {% set resume = docs.resume %}
+  {% if a.status in ('preparing', 'ready') %}
+    {% if resume and resume.status == 'ready' %}
+    <form method="post" action="/applications/{{ a.id }}/approval" class="grid">{{ csrf() }}
+      <label class="check wide"><input type="checkbox" name="include_cover_letter" {% if docs.cover_letter and docs.cover_letter.status == 'ready' %}checked{% endif %}> Include the cover letter</label>
+      <div><button data-testid="request-approval">Review package and request approval</button></div></form>
+    {% else %}<p class="muted" data-testid="submit-blocked">Generate a resume and get it to <em>ready</em> first.</p>{% endif %}
+  {% elif a.submitted_at %}<p>Submitted {{ a.submitted_at|localtime }}.</p>{% endif %}
+  {% if approvals %}<ul class="items">{% for ap in approvals %}<li><a href="/approvals/{{ ap.id }}">Approval</a> <span class="pill pill-approval-{{ ap.status }}">{{ ap.status }}</span> <span class="muted">{{ ap.requested_at|localtime }}</span></li>{% endfor %}</ul>{% endif %}
+</section>
+
+<section class="card" id="follow-ups">
+  <h2>Follow-ups</h2>
+  {% if not follow_ups %}<p class="empty">None open.</p>{% endif %}
+  <ul class="items">{% for r in follow_ups %}<li>{{ r.follow_up.due_at|localtime }}{% if r.overdue %} <span class="bad">overdue</span>{% endif %} · {{ r.follow_up.action_type.replace('_',' ') }}{% if r.follow_up.notes %} · <span class="muted">{{ r.follow_up.notes }}</span>{% endif %}
+    {% for s in ['done', 'skipped'] %}<form method="post" action="/follow-ups/{{ r.follow_up.id }}/close" class="inline">{{ csrf() }}<input type="hidden" name="status" value="{{ s }}"><button class="link">{{ 'Done' if s == 'done' else 'Skip' }}</button></form>{% endfor %}</li>{% endfor %}</ul>
+  <form method="post" action="/applications/{{ a.id }}/follow-ups" class="grid">{{ csrf() }}
+    <label>Due <input type="date" name="due" required></label>
+    <label>What <select name="action_type"><option value="follow_up">Follow up</option><option value="check_status">Check status</option><option value="thank_you">Thank-you note</option><option value="prepare_interview">Prepare for interview</option></select></label>
+    <label class="wide">Note <input name="notes" maxlength="1000"></label><div><button class="secondary">Add follow-up</button></div></form>
+</section>
+
+<section class="card" id="outreach">
+  <h2>Outreach drafts</h2>
+  <p class="muted">Drafts only. CareerOS never sends messages and never automates LinkedIn. Copy the text and send it yourself after approving it.</p>
+  {% for d, c, body in drafts %}
+  <article class="doc" data-testid="draft">
+    <p><strong>{{ c.name }}</strong>{% if c.role %}, {{ c.role }}{% endif %} · {{ d.channel }} · {{ d.recipient }} <span class="pill">{{ d.status }}</span></p>
+    {% if d.status != 'sent' %}
+    <form method="post" action="/outreach/{{ d.id }}/edit" class="grid">{{ csrf() }}
+      <input type="hidden" name="channel" value="{{ d.channel }}">
+      <label>Recipient <input name="recipient" value="{{ d.recipient }}" required maxlength="300"></label>
+      <label>Subject <input name="subject" value="{{ d.subject or '' }}" maxlength="300"></label>
+      <label class="wide">Message <textarea name="body" rows="5" required maxlength="10000">{{ body }}</textarea></label>
+      <div class="actions"><button class="secondary">Save changes</button></div></form>
+    <form method="post" action="/outreach/{{ d.id }}/approval">{{ csrf() }}<button>Request approval to send</button></form>
+    {% else %}<pre class="message">{{ body }}</pre>{% endif %}
+  </article>
+  {% endfor %}
+  <details><summary><strong>New draft</strong></summary>
+  <form method="post" action="/applications/{{ a.id }}/outreach" class="grid">{{ csrf() }}
+    <label>Contact name <input name="name" required maxlength="200"></label>
+    <label>Their role <input name="role" maxlength="200"></label>
+    <label>Public profile URL <input name="public_profile_url" type="url" maxlength="1000"></label>
+    <label>Where you found them <input name="source_url" type="url" maxlength="1000"></label>
+    <label>Channel <select name="channel"><option>email</option><option>linkedin</option><option>other</option></select></label>
+    <label>Recipient (email or handle) <input name="recipient" required maxlength="300"></label>
+    <label class="wide">Subject <input name="subject" maxlength="300"></label>
+    <label class="wide">Message <textarea name="body" rows="5" required maxlength="10000"></textarea></label>
+    <div><button>Save draft</button></div></form></details>
+</section>
+
 <section class="card">
   <h2>Status</h2>
   {% if next_statuses %}
