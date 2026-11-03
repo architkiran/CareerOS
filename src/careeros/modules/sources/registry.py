@@ -98,6 +98,7 @@ def last_run(session: Session, source_id: str) -> SourceRun | None:
 class SyncResult:
     added: int
     existing: int
+    disabled: int = 0
 
 
 def load_watchlist(path: Path) -> list[SourceIn]:
@@ -110,12 +111,20 @@ def load_watchlist(path: Path) -> list[SourceIn]:
 
 
 def sync_watchlist(session: Session, entries: list[SourceIn]) -> SyncResult:
-    """Add missing sources. Existing ones are left alone so UI changes are kept."""
-    added = existing = 0
+    """Add missing sources, and disable existing ones the file marks `enabled = false`.
+
+    Never re-enables a source and never changes anything else, so choices made in the
+    dashboard are kept. Safe to run on every start.
+    """
+    added = existing = disabled = 0
     for entry in entries:
-        if find_source(session, entry.type, entry.token):
-            existing += 1
-        else:
+        source = find_source(session, entry.type, entry.token)
+        if source is None:
             add_source(session, entry)
             added += 1
-    return SyncResult(added, existing)
+            continue
+        existing += 1
+        if not entry.enabled and source.enabled:
+            set_source_enabled(session, source.id, False)
+            disabled += 1
+    return SyncResult(added, existing, disabled)

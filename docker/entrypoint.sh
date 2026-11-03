@@ -36,6 +36,13 @@ PY
     *)
       echo "CareerOS: database is up to date." ;;
   esac
+  if [ -r /app/config/sources.toml ]; then
+    careeros sources sync --file /app/config/sources.toml || echo "CareerOS: watchlist sync failed; check config/sources.toml"
+  elif [ -d /app/config ] && ! ls /app/config >/dev/null 2>&1; then
+    echo "CareerOS: can't read the config folder; make config/ readable to sync sources.toml"
+  else
+    echo "CareerOS: no config/sources.toml; skipping watchlist sync"
+  fi
   exec careeros serve
 fi
 

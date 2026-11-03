@@ -1,25 +1,112 @@
 # CareerOS source watchlist.
-# Copy to config/sources.toml (gitignored) and edit, then run:
-#   careeros sources sync
-#   careeros ingest
 #
-# Only public ATS job-board APIs are supported: greenhouse, lever, ashby.
-# `token` is the board name in the company's public jobs URL, for example
-#   boards.greenhouse.io/<token>, jobs.lever.co/<token>, jobs.ashbyhq.com/<token>
-# Tokens below are examples; a wrong token shows up as a 404 on the Sources page.
+# Docker: copy to config/sources.toml and restart (`docker compose up -d`); it syncs on start.
+# Without Docker: `careeros sources sync`, then `careeros ingest`.
+#
+# Only public ATS job-board APIs: greenhouse, lever, ashby. `token` is the board name in the
+# public jobs URL: boards.greenhouse.io/<token>, jobs.lever.co/<token>, jobs.ashbyhq.com/<token>.
+# Sync adds missing sources and disables ones marked `enabled = false`; it never re-enables
+# a source you turned off in the dashboard.
+#
+# Every board below was checked against its public API on 2026-11-03. Boards move: a 404 on
+# the Sources page means the company changed providers.
+#
+# Not here because they don't publish a public Greenhouse/Lever/Ashby board (they use Workday
+# or their own sites, which CareerOS doesn't scrape): State Street, Fidelity, Wellington,
+# McKinsey, KPMG, Deloitte, Bain, Bloomberg, Wise, Amazon, Microsoft, Google, Meta.
 
+# ---- fintech / payments
 [[source]]
 type = "greenhouse"
 token = "stripe"
 name = "Stripe"
 
 [[source]]
-type = "lever"
-token = "plaid"
-name = "Plaid"
+type = "greenhouse"
+token = "toast"
+name = "Toast"
+
+[[source]]
+type = "greenhouse"
+token = "block"
+name = "Block"
+
+[[source]]
+type = "greenhouse"
+token = "robinhood"
+name = "Robinhood"
+
+[[source]]
+type = "greenhouse"
+token = "brex"
+name = "Brex"
+
+[[source]]
+type = "greenhouse"
+token = "affirm"
+name = "Affirm"
+
+[[source]]
+type = "greenhouse"
+token = "sofi"
+name = "SoFi"
+
+[[source]]
+type = "greenhouse"
+token = "coinbase"
+name = "Coinbase"
+
+[[source]]
+type = "greenhouse"
+token = "chime"
+name = "Chime"
+
+[[source]]
+type = "greenhouse"
+token = "betterment"
+name = "Betterment"
+
+[[source]]
+type = "greenhouse"
+token = "carta"
+name = "Carta"
+
+[[source]]
+type = "greenhouse"
+token = "addepar1"
+name = "Addepar"
 
 [[source]]
 type = "ashby"
 token = "ramp"
 name = "Ramp"
 rate_limit_seconds = 3
+
+[[source]]
+type = "ashby"
+token = "plaid"
+name = "Plaid"
+rate_limit_seconds = 3
+
+# Plaid's old Lever board is gone (404). Keep this entry so sync turns it off.
+[[source]]
+type = "lever"
+token = "plaid"
+name = "Plaid (old Lever board)"
+enabled = false
+
+# ---- Boston-area tech with data roles
+[[source]]
+type = "greenhouse"
+token = "klaviyo"
+name = "Klaviyo"
+
+[[source]]
+type = "greenhouse"
+token = "hubspotjobs"
+name = "HubSpot"
+
+[[source]]
+type = "greenhouse"
+token = "datadog"
+name = "Datadog"

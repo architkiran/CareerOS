@@ -199,7 +199,10 @@ def _sources(settings: Settings, args: argparse.Namespace) -> int:
                 return 1
             result = registry.sync_watchlist(session, entries)
             session.commit()
-            print(f"Sources: {result.added} added, {result.existing} already configured.")
+            print(
+                f"Sources: {result.added} added, {result.existing} already configured"
+                + (f", {result.disabled} disabled." if result.disabled else ".")
+            )
         else:
             for src in registry.list_sources(session):
                 state = "enabled" if src.enabled else "disabled"
