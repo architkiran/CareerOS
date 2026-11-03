@@ -46,3 +46,6 @@ form.inline { display:inline; }
 .tag { font-size:11px; text-transform:uppercase; color:var(--muted); }
 .pre { white-space:pre-wrap; }
 details > summary { cursor:pointer; }
+.table { width:100%; border-collapse:collapse; font-size:14px; }
+.table th, .table td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+.table th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }

@@ -1,0 +1,49 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "7f3c9a10-1111-4222-8333-444455556666",
+      "title": "Product Analyst",
+      "department": "Product",
+      "team": "Growth",
+      "employmentType": "FullTime",
+      "location": "San Francisco, CA",
+      "secondaryLocations": [],
+      "publishedAt": "2026-10-25T16:00:00.000+00:00",
+      "isListed": true,
+      "isRemote": false,
+      "workplaceType": "OnSite",
+      "jobUrl": "https://jobs.ashbyhq.com/examplecard/7f3c9a10-1111-4222-8333-444455556666",
+      "applyUrl": "https://jobs.ashbyhq.com/examplecard/7f3c9a10-1111-4222-8333-444455556666/application",
+      "descriptionHtml": "<p>Analyze product usage.</p>",
+      "descriptionPlain": "Analyze product usage.",
+      "compensation": {
+        "compensationTierSummary": "$110K - $140K • Offers Equity",
+        "summaryComponents": [
+          {"compensationType": "Salary", "interval": "1 YEAR", "currencyCode": "USD", "minValue": 110000, "maxValue": 140000},
+          {"compensationType": "EquityPercentage", "interval": "NONE", "minValue": 0.01, "maxValue": 0.05}
+        ]
+      }
+    },
+    {
+      "id": "7f3c9a10-1111-4222-8333-444455557777",
+      "title": "Hidden Role",
+      "employmentType": "FullTime",
+      "location": "Remote",
+      "isListed": false,
+      "isRemote": true,
+      "jobUrl": "https://jobs.ashbyhq.com/examplecard/7f3c9a10-1111-4222-8333-444455557777",
+      "descriptionPlain": "Unlisted."
+    },
+    {
+      "id": "7f3c9a10-1111-4222-8333-444455558888",
+      "title": "Analytics Engineer",
+      "employmentType": "Intern",
+      "location": "Remote",
+      "isListed": true,
+      "isRemote": true,
+      "jobUrl": "https://jobs.ashbyhq.com/examplecard/7f3c9a10-1111-4222-8333-444455558888",
+      "descriptionHtml": "<p>Internship.</p>"
+    }
+  ]
+}

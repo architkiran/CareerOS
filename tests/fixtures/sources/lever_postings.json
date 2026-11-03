@@ -1,0 +1,32 @@
+[
+  {
+    "id": "a1b2c3d4-0000-4000-8000-000000000001",
+    "text": "Business Operations Analyst",
+    "hostedUrl": "https://jobs.lever.co/examplebank/a1b2c3d4-0000-4000-8000-000000000001",
+    "applyUrl": "https://jobs.lever.co/examplebank/a1b2c3d4-0000-4000-8000-000000000001/apply",
+    "createdAt": 1761321600000,
+    "workplaceType": "hybrid",
+    "country": "US",
+    "categories": {
+      "commitment": "Full-time",
+      "location": "Boston, MA",
+      "team": "Operations",
+      "allLocations": ["Boston, MA"]
+    },
+    "descriptionPlain": "Join our operations team.",
+    "description": "<div>Join our operations team.</div>",
+    "lists": [{"text": "Requirements", "content": "<li>SQL</li><li>Excel</li>"}],
+    "additionalPlain": "Benefits include health insurance.",
+    "salaryRange": {"min": 85000, "max": 105000, "currency": "USD", "interval": "per-year-salary"}
+  },
+  {
+    "id": "a1b2c3d4-0000-4000-8000-000000000002",
+    "text": "Financial Analyst (Contract)",
+    "hostedUrl": "https://jobs.lever.co/examplebank/a1b2c3d4-0000-4000-8000-000000000002",
+    "createdAt": 1761408000000,
+    "workplaceType": "remote",
+    "categories": {"commitment": "Contract", "location": "Remote - US", "team": "Finance"},
+    "descriptionPlain": "Six month contract.",
+    "lists": []
+  }
+]

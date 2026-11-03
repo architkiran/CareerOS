@@ -53,7 +53,8 @@ See `docs/` for detailed contracts.
 |---|---|
 | 0. Engineering foundation | Done |
 | 1. Candidate profile and role lanes | Done |
-| 2+ | Not started |
+| 2. Source ingestion (Greenhouse, Lever, Ashby) | Done |
+| 3+ | Not started |
 
 See `docs/ROADMAP.md`.
 
@@ -115,6 +116,18 @@ Tests use temporary SQLite files and make no network calls.
 
 All forms are CSRF-protected.
 
+## Fetching jobs (Phase 2)
+
+```bash
+cp config/sources.example.toml config/sources.toml   # edit the company list
+careeros sources sync                                 # add them to the database
+careeros ingest                                       # fetch now (or --token <board>)
+```
+
+Each run normalizes postings, deduplicates them (same source id, then canonical URL, then company + title + location + description), keeps every source record and its raw payload, closes jobs a board no longer lists, and reopens them if they come back. `/sources` shows each source's last run, counts, and errors. A wrong board token shows as a 404; a source that returns 403/429 three times is disabled until you re-enable it.
+
+Only explicit fields are stored: employment type and salary stay empty when the source doesn't state them.
+
 ## Code map
 
 | Path | Purpose |
@@ -132,6 +145,12 @@ All forms are CSRF-protected.
 | `src/careeros/modules/profile/` | Validated schemas, default lanes, profile service, export/import |
 | `src/careeros/modules/events/` | Activity event recording (no sensitive values) |
 | `src/careeros/web/csrf.py` | Double-submit CSRF protection |
-| `tests/` | Unit and integration tests |
+| `src/careeros/db/models/jobs.py` | Company, source, source run, job, job source record (migration `0003`) |
+| `src/careeros/modules/sources/http.py` | Fetcher: timeouts, retries with backoff, Retry-After, per-domain rate limit, size cap |
+| `src/careeros/modules/sources/adapters/` | Greenhouse, Lever, Ashby parsers (no network or DB code) |
+| `src/careeros/modules/sources/registry.py` | Source registry and TOML watchlist |
+| `src/careeros/modules/ingestion/service.py` | Normalize, dedupe, persist, close/reopen, run bookkeeping |
+| `config/sources.example.toml` | Example watchlist |
+| `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |
 
 Data lives in `./data` and generated files in `./exports`; both are created with owner-only permissions and are gitignored.
