@@ -15,8 +15,8 @@ A local-first, cost-minimal personal career operating system. CareerOS discovers
 ## CareerOS 2.0: first operational slice
 
 **Mission Control** is available at `/mission-control`; the existing Overview stays at `/`.
-Run a career review to coordinate five real, deterministic specialists: discovery,
-matching, posting-evidence research, analytics and verification. Results come from
+Run a career review to coordinate six real, deterministic specialists: discovery,
+matching, career intelligence, posting-evidence research, analytics and verification. Results come from
 persisted work, not demo data. `/agents` lists capabilities and gaps; each agent has
 its own history and permission description. Mission detail shows dependency links,
 results, warnings, retry timing and every execution attempt.
@@ -44,8 +44,9 @@ career review until resumed or cancelled.
 The audit, implementation limits and next stages are in
 [the CareerOS 2.0 audit](docs/CAREEROS_2_AUDIT.md) and
 [orchestration architecture](docs/AGENT_ORCHESTRATION.md).
-This slice does not implement market intelligence, interview coaching or exact
-master-resume template preservation. Existing generic document generation remains
+Career intelligence now explores evidence-backed themes within configured feeds;
+broader web/industry research, interview coaching and exact master-resume template
+preservation remain future milestones. Existing generic document generation remains
 available, with its verified-fact and QA gates.
 
 ## First run
@@ -328,3 +329,12 @@ private-artifact path rebasing (including an explicitly provided legacy Docker
 storage alias). It refuses an existing destination and never changes the source.
 Copied pending work is cancelled in the copy to avoid replaying another worker's
 actions. The source's historical records and confirmed verification labels remain.
+
+
+## Career intelligence
+
+`/market-intelligence` shows role themes grounded in saved public postings and
+verified skill overlap. Briefings retain source links, observed/source dates,
+eligibility uncertainty and coverage limits. Daily comparisons require matching
+coverage and candidate inputs; a single snapshot never establishes a hiring trend.
+See [the implementation and source policy](docs/MARKET_INTELLIGENCE.md).

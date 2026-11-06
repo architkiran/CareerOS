@@ -15,6 +15,8 @@ from careeros.modules.agents.registry import AGENTS, BY_KEY, PLANNED
 from careeros.modules.backup.service import latest_backup
 from careeros.modules.events.service import latest_events
 from careeros.modules.jobs.service import JobFilters, list_jobs
+from careeros.modules.market.contracts import MarketReport
+from careeros.modules.market.service import latest_brief
 from careeros.modules.models.gateway import usage_summary
 from careeros.modules.profile.service import profile_summary
 from careeros.modules.system.overview import build_overview
@@ -59,7 +61,10 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         if isinstance(scheduled, str)
         else None
     )
+    market = latest_brief(session)
     ctx["mc"] = {
+        "market_brief": market,
+        "market_report": MarketReport.model_validate(market.report_json) if market else None,
         "mission": current,
         "missions": missions,
         "runs": runs,

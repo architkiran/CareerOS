@@ -13,7 +13,7 @@ from careeros.common.clock import utcnow
 from careeros.db.models import ActivityEvent, AgentAttempt, AgentRun, Mission, Task
 from careeros.modules.agents import service
 from careeros.modules.agents.contracts import AgentOutput
-from careeros.modules.agents.registry import TASK_TYPE
+from careeros.modules.agents.registry import AGENTS, TASK_TYPE
 from careeros.modules.scheduler import queue
 from careeros.modules.scheduler.worker import Worker
 from careeros.modules.sources import registry
@@ -47,9 +47,10 @@ def test_mission_deduplicates_and_handoffs_survive_restart(factory: sessionmaker
             "blocked",
             "blocked",
             "blocked",
+            "blocked",
         ]
         session.commit()
-    for n in range(5):
+    for n in range(len(AGENTS)):
         # A fresh worker simulates restart between every persisted handoff.
         assert worker(factory).run_once()
         with factory() as session:
@@ -60,9 +61,9 @@ def test_mission_deduplicates_and_handoffs_survive_restart(factory: sessionmaker
         mission = session.get(Mission, mission_id)
         assert mission and mission.status == "degraded"  # missing setup is honest, not green
         assert mission.started_at and mission.finished_at
-        assert len(session.scalars(select(AgentAttempt)).all()) == 5
+        assert len(session.scalars(select(AgentAttempt)).all()) == len(AGENTS)
         assert all(a.status == "succeeded" for a in session.scalars(select(AgentAttempt)))
-        assert len(session.scalars(select(Task)).all()) == 5
+        assert len(session.scalars(select(Task)).all()) == len(AGENTS)
         assert service.runs_for(session, mission_id)[0].result_json["warnings"]
         assert "mission.handoff" in session.scalars(select(ActivityEvent.event_type)).all()
 
@@ -86,14 +87,17 @@ def test_real_discovery_matching_pipeline(
         return_value=httpx.Response(200, json=load_fixture("greenhouse_jobs.json"))
     )
     mission_id = start(factory)
-    for _ in range(5):
+    for _ in range(len(AGENTS)):
         assert worker(factory).run_once()
     with factory() as session:
         runs = service.runs_for(session, mission_id)
         assert runs[0].result_json["metrics"]["new_jobs"] == 3
         assert runs[1].result_json["metrics"]["jobs"] == 3
         assert runs[1].result_json["metrics"]["scored"] > 0
-        assert runs[3].result_json["metrics"]["discovered"] == 3
+        assert (
+            next(r for r in runs if r.agent_key == "analytics").result_json["metrics"]["discovered"]
+            == 3
+        )
         assert all(r.status == "succeeded" for r in runs)
     populated = client.get("/mission-control")
     assert populated.status_code == 200
@@ -122,7 +126,7 @@ def test_source_failure_blocks_handoff_and_manual_retry_keeps_attempts(
         mission = session.get(Mission, mission_id)
         assert mission and mission.status == "failed"
         runs = service.runs_for(session, mission_id)
-        assert [r.status for r in runs] == ["failed", "blocked", "blocked", "blocked", "blocked"]
+        assert [r.status for r in runs] == ["failed"] + ["blocked"] * (len(AGENTS) - 1)
         assert "All configured feeds failed" in (runs[0].last_error or "")
         run_id = runs[0].id
         service.retry_run(session, run_id)
@@ -263,7 +267,7 @@ def test_concurrent_mission_start_creates_one_graph(factory: sessionmaker[Sessio
     assert ids[0] == ids[1]
     with factory() as session:
         assert len(session.scalars(select(Mission)).all()) == 1
-        assert len(session.scalars(select(AgentRun)).all()) == 5
+        assert len(session.scalars(select(AgentRun)).all()) == len(AGENTS)
         assert len(session.scalars(select(Task)).all()) == 1
 
 
@@ -330,9 +334,47 @@ def test_healthy_review_succeeds_and_preserves_verified_profile(
     raw["jobs"] = raw["jobs"][:1]
     respx.get(GH_URL).mock(return_value=httpx.Response(200, json=raw))
     mission_id = start(factory)
-    for _ in range(5):
+    for _ in range(len(AGENTS)):
         assert worker(factory).run_once()
     with factory() as session:
         assert session.get(Mission, mission_id).status == "succeeded"
         assert profile.export_profile(session).model_dump(exclude={"exported_at"}) == before
         assert all(not r.result_json["warnings"] for r in service.runs_for(session, mission_id))
+
+
+def test_version_one_mission_keeps_its_original_graph_after_registry_upgrade(
+    factory: sessionmaker[Session],
+) -> None:
+    from sqlalchemy import delete, or_
+
+    from careeros.db.models import AgentDependency
+
+    mission_id = start(factory)
+    with factory() as session:
+        mission = session.get(Mission, mission_id)
+        assert mission
+        mission.version = "1"
+        runs = {run.agent_key: run for run in service.runs_for(session, mission_id)}
+        market = runs["market"]
+        session.execute(
+            delete(AgentDependency).where(
+                or_(
+                    AgentDependency.run_id == market.id,
+                    AgentDependency.depends_on_id == market.id,
+                )
+            )
+        )
+        session.add(AgentDependency(run_id=runs["research"].id, depends_on_id=runs["matching"].id))
+        session.delete(market)
+        session.commit()
+    for _ in range(5):
+        assert worker(factory).run_once()
+    with factory() as session:
+        assert [r.agent_key for r in service.runs_for(session, mission_id)] == [
+            "discovery",
+            "matching",
+            "research",
+            "analytics",
+            "verification",
+        ]
+        assert all(r.status == "succeeded" for r in service.runs_for(session, mission_id))

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from careeros.common.clock import utcnow
 from careeros.db.models import AgentRun, Approval, Job, Mission, Source
 from careeros.modules.agents.contracts import AgentExecutionError, AgentOutput, AgentTaskInput
-from careeros.modules.agents.registry import VERSION
+from careeros.modules.agents.registry import SUPPORTED_VERSIONS
 from careeros.modules.analytics.service import compute
 from careeros.modules.ingestion.service import run_all
 from careeros.modules.matching.service import score_jobs
@@ -28,7 +28,7 @@ def execute(
         if run is None or run.status != "running":
             raise AgentExecutionError("Agent run is not running.")
         mission = session.get(Mission, run.mission_id)
-        if mission is None or mission.version != VERSION:
+        if mission is None or mission.version not in SUPPORTED_VERSIONS:
             raise AgentExecutionError("Unsupported workflow version; upgrade before continuing.")
         if mission.status == "cancelled":
             raise AgentExecutionError("Mission cancelled before this step started.")
@@ -68,6 +68,24 @@ def execute(
 
 
 def _local_step(session: Session, key: str) -> AgentOutput:
+    if key == "market":
+        from careeros.modules.market.contracts import MarketReport
+        from careeros.modules.market.service import generate_brief
+
+        brief = generate_brief(session)
+        report = MarketReport.model_validate(brief.report_json)
+        return AgentOutput(
+            summary=f"Found {len(report.findings)} evidence-backed role themes "
+            f"across {report.recent_active_jobs} recently observed jobs.",
+            metrics={
+                "role_themes": len(report.findings),
+                "recent_active_jobs": report.recent_active_jobs,
+                "fresh_sources": len(report.fresh_source_ids),
+            },
+            warnings=[
+                w for w in report.warnings if not w.startswith("No evidence-backed role themes")
+            ],
+        )
     if key == "matching":
         result = score_jobs(session, commit_every=25)
         profile = profile_summary(session)

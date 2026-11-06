@@ -107,3 +107,11 @@ Add market research with a small, explicit permitted-source list, source dates,
 confidence and evidence-backed transferable-role suggestions. Resume-template work
 must separately add editable master import, allowed edit regions and rendered
 layout comparisons before making an exact-format preservation claim.
+
+
+## Version 2: career intelligence
+
+New missions add an evidence-backed market step between matching and research.
+The registry supports both version 1 and version 2; persisted version-1 edges
+continue unchanged. Market reports use only configured public-feed postings and
+verified skills. Full details and limits are in `MARKET_INTELLIGENCE.md`.

@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 
 WORKFLOW = "career-review"
-VERSION = "1"
+VERSION = "2"
+SUPPORTED_VERSIONS = frozenset({"1", "2"})
 TASK_TYPE = "agent.execute"
 
 
@@ -20,6 +21,11 @@ class AgentSpec:
         return {
             "discovery": ("Read configured public ATS feeds", "Normalize and persist jobs"),
             "matching": ("Read verified profile and lanes", "Write explainable job scores"),
+            "market": (
+                "Read saved public postings",
+                "Read verified skills",
+                "Write cited market briefs",
+            ),
             "research": ("Read shortlisted postings", "Open pending evidence reviews"),
             "analytics": ("Read application events", "Compute aggregate conversion metrics"),
             "verification": ("Read source health", "Read profile readiness and approval counts"),
@@ -36,11 +42,18 @@ AGENTS = (
         ("discovery",),
     ),
     AgentSpec(
+        "market",
+        "Career intelligence",
+        "Find evidence-backed role themes in your tracked market.",
+        "/market-intelligence",
+        ("matching",),
+    ),
+    AgentSpec(
         "research",
         "Employer research",
         "Extract posting evidence for your shortlist; review stays human.",
         "/research",
-        ("matching",),
+        ("market",),
     ),
     AgentSpec(
         "analytics",
@@ -61,7 +74,6 @@ BY_KEY = {agent.key: agent for agent in AGENTS}
 
 # These are product gaps, not runnable placeholders.
 PLANNED = (
-    ("Market intelligence", "Emerging roles and niche research"),
     ("Resume specialist", "Exact master resume format preservation"),
     ("Application preparation", "Coordinated document preparation and approval handoff"),
     ("Recruiter intelligence", "Evidence-backed recruiter discovery and networking drafts"),

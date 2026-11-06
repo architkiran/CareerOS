@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Agents · CareerOS{% endblock %}
 {% block content %}
-<header class="mc-header"><div><p class="eyebrow">Specialists with clear boundaries</p><h1>Your career team</h1><p class="muted">Five executable agents, coordinated in one career review.</p></div><a href="/mission-control">Mission Control ↗</a></header>
+<header class="mc-header"><div><p class="eyebrow">Specialists with clear boundaries</p><h1>Your career team</h1><p class="muted">Six executable agents, coordinated in one career review.</p></div><a href="/mission-control">Mission Control ↗</a></header>
 {% if mc %}<div class="mc-agent-grid">{% for spec, run in mc.cards %}<article class="mc-panel"><span class="agent-number">{{ '%02d'|format(loop.index) }}</span><h2><a href="/agents/{{ spec.key }}">{{ spec.name }}</a></h2><p>{{ spec.description }}</p><p class="muted">{{ run.status if run else 'Ready for your first review' }}</p></article>{% endfor %}</div>{% else %}<p class="empty">Apply database migrations to view agent state.</p>{% endif %}
 <section class="mc-panel"><h2>Next capabilities</h2><p class="muted">Planned work; these are not running agents.</p><ul class="items">{% for name, description in planned %}<li><strong>{{ name }}</strong> <span class="muted">{{ description }}</span></li>{% endfor %}</ul></section>
 {% endblock %}

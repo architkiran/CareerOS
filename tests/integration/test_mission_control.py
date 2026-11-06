@@ -7,6 +7,7 @@ from careeros.config import Settings
 from careeros.db.models import AgentRun, Mission, Task
 from careeros.main import create_app
 from careeros.modules.agents import service
+from careeros.modules.agents.registry import AGENTS
 from careeros.modules.scheduler.worker import Worker
 from tests.conftest import post_form
 
@@ -39,13 +40,13 @@ def test_start_controls_history_and_live_partial(app: FastAPI, client: TestClien
     assert not Worker(app.state.session_factory).run_once()
     assert "paused" in client.get(path).text
     assert post_form(client, path + "/resume").status_code == 303
-    for _ in range(5):
+    for _ in range(len(AGENTS)):
         assert Worker(app.state.session_factory).run_once()
     html = client.get(path).text
     assert "Attempt 1" in html and "degraded" in html
     assert "No enabled sources." in html
     partial = client.get("/partials/mission-control")
-    assert "5 of 5 steps complete" in partial.text
+    assert "6 of 6 steps complete" in partial.text
     assert "Recent" in partial.text
     assert "Updated the career funnel" in client.get("/agents/analytics").text
     assert post_form(client, path + "/cancel").status_code == 409
