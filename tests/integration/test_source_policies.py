@@ -64,7 +64,7 @@ def test_policy_forms_and_target_coverage(session: Session, client: TestClient) 
         == 303
     )
     page = client.get("/sources").text
-    assert "1 of 2 target employers" in page and "official careers-page research needed" in page
+    assert "preferred employers · 1/2" in page and "Official careers research needed" in page
     assert post_form(client, "/sources/missing/policy", {}).status_code == 404
 
 

@@ -1,51 +1,8 @@
-{% extends "base.html" %}
-{% from "_macros.html" import csrf, alerts with context %}
-{% block title %}Sources · CareerOS{% endblock %}
-{% block content %}
-<header class="mc-header"><div><p class="eyebrow">Opportunity discovery</p><h1>Sources &amp; coverage</h1></div><form method="post" action="/sources/audit">{{ csrf() }}<button>Review source coverage with agent</button></form></header>
-{% if proposals %}<section class="mc-panel"><h2>Recommended public feeds</h2><p class="muted">Reviewed API sources that are not connected yet. Connecting is local and reversible.</p>{% for proposal in proposals %}<article class="mc-opportunity"><div><h3>{{ proposal.name }}</h3><p>{{ proposal.scope }}</p><a href="{{ proposal.url }}" target="_blank" rel="noopener noreferrer">Inspect source ↗</a></div><form method="post" action="/sources/connect/{{ proposal.key }}">{{ csrf() }}<button class="secondary">Connect feed</button></form></article>{% endfor %}</section>{% endif %}
-{% if coverage_report %}<p class="muted">Last source audit: {{ coverage_report.generated_at }} · {{ coverage_report.scope }}</p>{% endif %}
-<p class="muted">Public ATS job boards only (Greenhouse, Lever, Ashby, SmartRecruiters US). Each source is fetched politely with a per-domain delay; one that returns repeated 403/429 is disabled automatically.</p>
-{{ alerts(errors, saved) }}
-{% if request.query_params.get('queued') == '1' %}<div class="alert alert-ok" role="status">Fetch queued. Watch progress on the Overview.</div>
-{% elif request.query_params.get('queued') == 'already' %}<div class="alert alert-warn" role="status">That source is already queued or running.</div>{% endif %}
-{% if not rows %}
-<p class="empty" data-testid="sources-empty">No sources yet. Add one below, or copy <code>config/sources.example.toml</code> to <code>config/sources.toml</code> and run <code>careeros sources sync</code>.</p>
-{% else %}
-<table class="table">
-  <thead><tr><th>Source</th><th>Type</th><th>Last run</th><th>Last success</th><th>Status</th><th></th></tr></thead>
-  <tbody>
-  {% for s, run in rows %}
-  <tr data-testid="source-row">
-    <td><strong>{{ s.display_name }}</strong><br><span class="muted">{{ s.board_token }}</span></td>
-    <td>{{ s.source_type }}</td>
-    <td>{% if run %}<span class="pill pill-{{ 'verified' if run.status == 'success' else 'unverified' }}">{{ run.status }}</span>
-        <span class="muted">{{ run.fetched_count }} fetched · {{ run.new_count }} new · {{ run.duplicate_count }} dup · {{ run.invalid_count }} invalid · {{ run.closed_count }} closed</span>
-        {% else %}<span class="muted">never run</span>{% endif %}</td>
-    <td>{{ s.last_success_at|localtime }}</td>
-    <td>{% if s.last_error %}<span class="bad">{{ s.last_error }}</span>{% elif s.enabled %}<span class="ok">enabled</span>{% else %}<span class="muted">disabled</span>{% endif %}</td>
-    <td><form method="post" action="/sources/{{ s.id }}/toggle">{{ csrf() }}
-      {% if not s.enabled %}<input type="hidden" name="enabled" value="on">{% endif %}
-      <button class="link">{{ 'Disable' if s.enabled else 'Enable' }}</button></form>
-      {% if s.enabled %}<form method="post" action="/sources/{{ s.id }}/run">{{ csrf() }}<button class="link">Run now</button></form>{% endif %}
-      <a class="link-sm" href="/jobs?source_id={{ s.id }}&status=all">Jobs</a>
-      <details><summary>Refresh policy</summary><form method="post" action="/sources/{{ s.id }}/policy" class="grid">{{ csrf() }}<label>Minimum scheduled gap (minutes)<input name="refresh_interval_minutes" type="number" min="15" max="10080" value="{{ policies[s.id].refresh_interval_minutes or '' }}" placeholder="Inherit review cadence"></label><label>Request delay (seconds)<input name="rate_limit_seconds" type="number" min="0.5" max="60" step="0.5" value="{{ policies[s.id].rate_limit_seconds }}"></label><button class="secondary">Save policy</button></form></details></td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-<details class="card"><summary><strong>Add a source</strong></summary>
-<form method="post" action="/sources" class="grid">
-  {{ csrf() }}
-  <label>Type <select name="type"><option>greenhouse</option><option>lever</option><option>ashby</option><option>smartrecruiters</option></select></label>
-  <label>Board token <input name="token" required maxlength="100" placeholder="e.g. stripe"></label>
-  <label>Company name <input name="name" required maxlength="200"></label>
-  <label>Delay between requests (s) <input name="rate_limit_seconds" type="number" step="0.5" min="0.5" max="60" value="2"></label>
-  <label>Minimum scheduled gap (minutes)<input name="refresh_interval_minutes" type="number" min="15" max="10080" placeholder="Inherit review cadence"></label>
-  <div><button>Add source</button></div>
-</form></details>
-<p class="muted">Scheduled career reviews support a global cadence as short as 15 minutes. Optional source gaps limit how frequently a feed is checked during those reviews; they do not create a faster schedule. Manual runs bypass the gap and still honor request delays. Scheduling pauses when the computer sleeps.</p>
-{% if coverage %}<section class="card"><h2>Target-company coverage</h2><p>{{ covered_targets }} of {{ coverage|length }} target employers have an enabled feed with a matching company name.</p><ul class="items">{% for target, names in coverage %}<li><strong>{{ target }}</strong> <span class="muted">{{ 'Configured public feed' if names else 'No matching feed; official careers-page research needed' }}</span></li>{% endfor %}</ul><p class="muted">Feed coverage is independent of sponsorship evidence. A preferred-employer label is not a verified sponsorship policy.</p></section>{% endif %}
-<p class="muted">Use <em>Run now</em>, the Overview's <em>Run discovery now</em>, or <code>careeros ingest</code> in a terminal.</p>
+{% extends "base.html" %}{% from "_macros.html" import csrf,alerts with context %}{% block title %}Discovery · CareerOS{% endblock %}{% block content %}
+<header class="focus-header"><div><p class="eyebrow">Look beyond the obvious</p><h1>Where opportunities come from.</h1><p>Company career sites, public job boards, and roles you find yourself. Together in one inbox.</p></div><form method="post" action="/sources/audit">{{ csrf() }}<button>Review coverage</button></form></header>{{ alerts(errors,saved) }}{% if request.query_params.get('queued')=='1' %}<p class="alert alert-ok" role="status">Fetch queued. Your worker will check this source.</p>{% elif request.query_params.get('queued')=='already' %}<p class="alert">A check is already queued.</p>{% endif %}
+<div class="discovery-grid"><section class="discovery-card"><p class="eyebrow">Automatic</p><h2>Company careers</h2><p>Follow employers directly through the public hiring feeds used by their career sites. Greenhouse, Lever, Ashby and SmartRecruiters are the technology behind those feeds.</p><a href="#employers">Your connected employers ↓</a></section><section class="discovery-card"><p class="eyebrow">Automatic · Public APIs</p><h2>More job boards</h2><p>Remote roles from Remotive and Jobicy add employers outside your watchlist. Provider attribution and refresh limits are preserved.</p><a href="#recommendations">Explore available connections ↓</a></section><section class="discovery-card"><p class="eyebrow">User-assisted</p><h2>LinkedIn &amp; Handshake</h2><p>Browse with your own accounts, then bring a posting here for matching and PDF tailoring. No password sharing or automated scraping.</p><a href="/opportunities/import">Add a job you found →</a></section></div>
+{% if proposals %}<section class="focus-section" id="recommendations"><div class="section-heading"><h2>Expand your search</h2><span class="section-note">Reviewed public sources</span></div>{% for proposal in proposals %}<article class="opportunity-card"><div class="company-monogram">{{ proposal.name[:1] }}</div><div class="opportunity-copy"><h3>{{ proposal.name }}</h3><p>{{ proposal.scope }}</p><a href="{{ proposal.url }}" target="_blank" rel="noopener noreferrer">About this source ↗</a></div><form method="post" action="/sources/connect/{{ proposal.key }}">{{ csrf() }}<button class="secondary">Connect</button></form></article>{% endfor %}</section>{% endif %}
+<section class="focus-section" id="employers"><div class="section-heading"><h2>Connected employers &amp; boards</h2><a href="/jobs?view=all">Browse their jobs →</a></div>{% for s,run in rows if s.source_type!='manual' %}<article class="next-step" data-testid="source-row"><span class="company-monogram">{{ s.display_name[:1] }}</span><div><strong>{{ s.display_name }}</strong><p>{{ 'Public job board' if s.source_type in ['remotive','jobicy'] else 'Company career feed' }} · {{ 'Connected' if s.enabled else 'Paused' }}{% if s.last_success_at %} · Last checked {{ s.last_success_at|localtime }}{% else %} · Not checked yet{% endif %}</p>{% if s.last_error %}<p class="bad">Check failed: {{ s.last_error }}</p>{% endif %}</div>{% if s.enabled %}<form method="post" action="/sources/{{ s.id }}/run">{{ csrf() }}<button class="secondary">Check now</button></form>{% endif %}<details><summary>Manage</summary><form method="post" action="/sources/{{ s.id }}/toggle">{{ csrf() }}{% if not s.enabled %}<input type="hidden" name="enabled" value="on">{% endif %}<button class="link">{{ 'Pause' if s.enabled else 'Reconnect' }}</button></form><p class="muted">Provider: {{ s.source_type }} · {{ s.board_token }}</p><form method="post" action="/sources/{{ s.id }}/policy">{{ csrf() }}<label>Minimum refresh gap (minutes)<input name="refresh_interval_minutes" type="number" min="15" max="10080" value="{{ policies[s.id].refresh_interval_minutes or '' }}"></label><input type="hidden" name="rate_limit_seconds" value="{{ policies[s.id].rate_limit_seconds }}"><button class="secondary">Save</button></form></details></article>{% else %}<p class="quiet-empty" data-testid="sources-empty">No employers connected. Choose a source above to start.</p>{% endfor %}</section>
+<details class="card"><summary>Advanced: connect another public employer feed</summary><form method="post" action="/sources" class="grid">{{ csrf() }}<label>Provider<select name="type">{% for name in ['greenhouse','lever','ashby','smartrecruiters','remotive','jobicy'] %}<option>{{ name }}</option>{% endfor %}</select></label><label>Public board identifier<input name="token" required maxlength="100"></label><label>Display name<input name="name" required maxlength="200"></label><button>Connect feed</button></form></details>
+{% if coverage %}<details class="card"><summary>Coverage of your preferred employers · {{ covered_targets }}/{{ coverage|length }}</summary><p class="muted">A missing feed does not mean an employer has no openings. Check its official careers site and import relevant postings.</p><ul>{% for target,names in coverage %}<li>{{ target }} — {{ 'Connected' if names else 'Official careers research needed' }}</li>{% endfor %}</ul></details>{% endif %}<p class="muted">Public board listings retain the original Remotive or Jobicy URL. Remotive is delayed by 24 hours; refresh limits apply even to manual checks. No paid APIs or account scraping.</p>
 {% endblock %}

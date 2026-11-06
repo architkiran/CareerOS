@@ -1,17 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Applications · CareerOS{% endblock %}
-{% block content %}
-<h1>Applications</h1>
-<p class="filters"><a href="/applications" class="{{ 'active' if not status }}">All</a>{% for s in statuses %} <a href="/applications?status={{ s }}" class="{{ 'active' if status == s }}">{{ s }}</a>{% endfor %}</p>
-{% if not rows %}
-<p class="empty" data-testid="applications-empty">No applications{% if status %} with status {{ status }}{% endif %} yet. Open a job and click <em>Start application</em>.</p>
-{% else %}
-<table class="table"><thead><tr><th>Job</th><th>Company</th><th>Status</th><th>Updated</th><th>Follow-up</th></tr></thead><tbody>
-{% for r in rows %}<tr data-testid="application-row">
-  <td><a href="/applications/{{ r.app.id }}">{{ r.job.title }}</a></td><td>{{ r.company }}</td>
-  <td><span class="pill pill-app-{{ r.app.status }}">{{ r.app.status }}</span></td>
-  <td>{{ r.app.updated_at|localtime }}</td><td>{{ r.app.next_follow_up_at|localtime if r.app.next_follow_up_at else '' }}</td>
-</tr>{% endfor %}
-</tbody></table>
-{% endif %}
+{% extends "base.html" %}{% block title %}Applications · CareerOS{% endblock %}{% block content %}
+<header class="focus-header"><div><p class="eyebrow">One step closer</p><h1>Your application pipeline</h1><p>Focus on the next conversation, the next document, the next decision.</p></div><a href="/jobs?view=recommended&sort=score">Find a role →</a></header>
+{% if not rows %}<div class="quiet-empty" data-testid="applications-empty"><h3>Your next chapter starts with one role</h3><p>Choose an opportunity and prepare your first application.</p></div>{% endif %}
+<div class="kanban">{% for label,stages in [('Preparing',['preparing','ready']),('Applied',['submitted','response']),('Interviewing',['screen','interview']),('Decisions',['offer','rejected','withdrawn'])] %}{% set column=rows|selectattr('app.status','in',stages)|list %}<section class="kanban-column"><h2>{{ label }} <span>{{ column|length }}</span></h2>{% for r in column %}<a class="application-card" data-testid="application-row" href="/applications/{{ r.app.id }}"><p>{{ r.company }}</p><h3>{{ r.job.title }}</h3><span class="pill pill-app-{{ r.app.status }}">{{ r.app.status }}</span>{% if r.app.next_follow_up_at %}<p>Follow-up {{ r.app.next_follow_up_at|localtime }}</p>{% endif %}</a>{% else %}<p class="kanban-empty">Nothing here yet.</p>{% endfor %}</section>{% endfor %}</div>
 {% endblock %}

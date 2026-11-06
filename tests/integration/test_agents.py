@@ -101,8 +101,10 @@ def test_real_discovery_matching_pipeline(
         assert all(r.status == "succeeded" for r in runs)
     populated = client.get("/mission-control")
     assert populated.status_code == 200
-    assert "ExamplePay" in populated.text and "Source date:" in populated.text
-    assert "First seen:" in populated.text and "Last source refresh" in populated.text
+    assert "ExamplePay" in populated.text
+    assert "Source date:" in client.get("/jobs?view=recommended&sort=score").text
+    assert "First seen" in client.get("/jobs?view=recommended&sort=score").text
+    assert "Last checked" in client.get("/sources").text
 
 
 @respx.mock

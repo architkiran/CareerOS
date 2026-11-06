@@ -3,8 +3,10 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from careeros.db.models import Job, JobSourceRecord, Source
 from careeros.modules.applications import service as apps_service
 from careeros.modules.jobs import service as jobs
 from careeros.modules.matching import service as matching
@@ -46,6 +48,8 @@ def inbox(
     min_score: str | None = None,
     sort: str = "newest",
     page: str | None = None,
+    view: str = "all",
+    selected: str | None = None,
 ) -> HTMLResponse:
     # Browser forms send every field, empty ones included; treat blanks and junk as "not set".
     days_n = forms.bounded_int(days, 1, 365)
@@ -74,11 +78,19 @@ def inbox(
         min_score=min_score_n,
         sort=cast(Any, sort),
         page=page_n,
+        recommended=view == "recommended",
     )
     rows, total = jobs.list_jobs(session, filters)
+    selected_detail = jobs.get_job_detail(session, selected or rows[0].job.id) if rows else None
+    selected_match = (
+        matching.best_matches(session, [selected_detail.job.id]).get(selected_detail.job.id)
+        if selected_detail
+        else None
+    )
     params = {
         k: v
         for k, v in {
+            "view": view,
             "q": filters.q,
             "triage": triage,
             "status": status,
@@ -98,6 +110,12 @@ def inbox(
         request,
         "jobs.html",
         {
+            "selected_detail": selected_detail,
+            "selected_match": selected_match,
+            "selected_application": apps_service.get_for_job(session, selected_detail.job.id)
+            if selected_detail
+            else None,
+            "view": view,
             "rows": rows,
             "total": total,
             "filters": filters,
@@ -107,7 +125,20 @@ def inbox(
             "page": page_n,
             "pages": pages,
             "query": urlencode(params),
-            "any_jobs": total > 0 or bool(params.keys() - {"status"}),
+            "any_jobs": session.scalar(select(Job.id).limit(1)) is not None,
+            "board_links": {
+                row.job.id: list(
+                    session.execute(
+                        select(Source.source_type, JobSourceRecord.source_url)
+                        .join(JobSourceRecord)
+                        .where(
+                            JobSourceRecord.job_id == row.job.id,
+                            Source.source_type.in_(("remotive", "jobicy")),
+                        )
+                    ).all()
+                )
+                for row in rows
+            },
         },
     )
 

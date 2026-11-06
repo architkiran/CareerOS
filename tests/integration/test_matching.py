@@ -274,10 +274,9 @@ def test_inbox_lane_min_score_and_sort(scored: sessionmaker[Session], client: Te
         client.get("/jobs?eligibility=any&min_score=100").text.count('data-testid="job-row"') == 0
     )
     sorted_html = client.get("/jobs?eligibility=any&sort=score").text
-    scores = [
-        int(x.split("</strong>")[0])
-        for x in sorted_html.split('<strong class="meter-num score">')[1:]
-    ]
+    import re
+
+    scores = [int(x) for x in re.findall(r"<strong>([0-9]+) match</strong>", sorted_html)]
     assert scores == sorted(scores, reverse=True) and len(scores) >= 5
 
 
@@ -291,7 +290,7 @@ def test_job_detail_shows_breakdown(scored: sessionmaker[Session], client: TestC
     html = client.get(f"/jobs/{job.id}").text
     assert html.count('data-testid="lane-match"') == 6
     assert 'data-testid="filters-table"' in html and 'data-testid="score-table"' in html
-    assert "Skills alignment" in html and "match-v3" in html
+    assert "Skills alignment" in html and "match-v4" in html
     assert "Compensation" in html and "work authorization" in html
     assert "1 unverified skills were not counted." in html
 
@@ -375,7 +374,7 @@ def test_stale_algorithm_version_triggers_rescore(world: sessionmaker[Session]) 
     w.run_once()
     with world() as s:
         assert not matching.has_stale_scores(s)
-        assert {m.algorithm_version for m in s.scalars(select(JobLaneMatch))} == {"match-v3"}
+        assert {m.algorithm_version for m in s.scalars(select(JobLaneMatch))} == {"match-v4"}
 
 
 def test_greenhouse_full_time_from_description_can_pass(world: sessionmaker[Session]) -> None:
@@ -567,3 +566,14 @@ def test_inbox_pages_are_disjoint_stable_and_keep_total(factory: sessionmaker[Se
         assert len(set(ids)) == 105 and ids == sorted(ids)
         again, _ = list_jobs(session, JobFilters(page=2))
         assert [r.job.id for r in again] == ids[50:100]
+
+
+def test_recommended_view_excludes_unclassified_roles(scored):  # type: ignore[no-untyped-def]
+    from careeros.modules.jobs.service import JobFilters, list_jobs, recommended_jobs
+
+    with scored() as s:
+        rows, total = list_jobs(s, JobFilters(recommended=True, sort="score"))
+        assert total and all(r.match.match.classified for r in rows)
+        cards = recommended_jobs(s, limit=3)
+        assert cards and all(r.match.match.classified for r in cards)
+        assert len({r.company for r in cards}) == len(cards)

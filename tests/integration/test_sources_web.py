@@ -22,7 +22,7 @@ def test_add_source_and_list(client: TestClient) -> None:
     )
     assert r.status_code == 303
     page = client.get("/sources").text
-    assert 'data-testid="source-row"' in page and "acme" in page and "never run" in page
+    assert 'data-testid="source-row"' in page and "acme" in page and "Not checked yet" in page
 
 
 def test_add_source_validation(client: TestClient) -> None:

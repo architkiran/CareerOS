@@ -1,47 +1,10 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}CareerOS{% endblock %}</title>
-  <link rel="icon" href="{{ url_for('static', path='favicon.svg') }}" type="image/svg+xml">
-  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='mission.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='workspaces.css') }}">
-  <script src="{{ url_for('static', path='theme.js') }}"></script>
-</head>
-<body>
-  <a class="skip" href="#main">Skip to content</a>
-  {% set path = request.url.path %}
-  {% macro nav(href, label) -%}
-    {%- set on = (path == href) or (href != '/' and path.startswith(href)) -%}
-    <a href="{{ href }}" class="{{ 'on' if on }}" {% if on %}aria-current="page"{% endif %}>{{ label }}</a>
-  {%- endmacro %}
-  <div class="shell">
-    <aside class="side">
-      <a class="brand" href="/mission-control"><img src="{{ url_for('static', path='favicon.svg') }}" alt="" width="22" height="22"> CareerOS</a>
-      {% set area = 'home' %}
-      {% if path == '/' or path.startswith('/settings') %}{% set area = 'system' %}
-      {% elif path.startswith(('/jobs','/sources','/companies','/research')) %}{% set area = 'opportunities' %}
-      {% elif path.startswith(('/applications','/documents','/interviews','/approvals','/follow-ups','/outreach')) %}{% set area = 'applications' %}
-      {% elif path.startswith(('/market-intelligence','/analytics')) %}{% set area = 'insights' %}
-      {% elif path.startswith(('/profile','/lanes','/resumes','/resume-studio')) %}{% set area = 'career' %}{% endif %}
-      <p class="workspace-label">Your workspace</p>
-      <nav aria-label="Main" data-testid="workspace-nav">
-        {% for href, label, key, number in [('/mission-control','Home','home','01'),('/jobs','Opportunities','opportunities','02'),('/applications','Applications','applications','03'),('/market-intelligence','Insights','insights','04'),('/resumes','Career library','career','05')] %}
-        <a href="{{ href }}" class="{{ 'on' if area == key }}" {% if area == key %}aria-current="page"{% endif %}><span class="nav-number" aria-hidden="true">{{ number }}</span>{{ label }}</a>
-        {% endfor %}
-      </nav>
-      <div class="side-bottom"><a class="system-link {{ 'on' if area == 'system' }}" href="/settings">System &amp; settings</a><p class="muted">Local. Private. Yours.</p></div>
-      <button class="theme-toggle" data-theme-toggle type="button">Switch to light mode</button>
-    </aside>
-    <main class="container" id="main" tabindex="-1">
-      {% set tabs = {'home':[('/mission-control','Overview'),('/agents','Agent team')], 'opportunities':[('/jobs','Job inbox'),('/companies','Companies'),('/sources','Discovery sources')], 'applications':[('/applications','Pipeline'),('/interviews','Interview practice'),('/approvals','Review queue'),('/follow-ups','Follow-ups')], 'insights':[('/market-intelligence','Market brief'),('/analytics','Outcomes')], 'career':[('/resumes','Resume studio'),('/profile','Verified profile'),('/lanes','Search preferences')], 'system':[('/settings','Settings'),('/','System status')]} %}
-      <nav class="workspace-tabs" aria-label="Workspace sections">{% for href,label in tabs[area] %}{{ nav(href,label) }}{% endfor %}</nav>
-      {% block content %}{% endblock %}
-    </main>
-  </div>
-  <script src="{{ url_for('static', path='nav.js') }}" defer></script>
-  <script src="{{ url_for('static', path='app.js') }}" defer></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% block title %}CareerOS{% endblock %}</title><link rel="icon" href="{{ url_for('static',path='favicon.svg') }}" type="image/svg+xml"><link rel="stylesheet" href="{{ url_for('static',path='app.css') }}"><link rel="stylesheet" href="{{ url_for('static',path='mission.css') }}"><link rel="stylesheet" href="{{ url_for('static',path='focus.css') }}"><script src="{{ url_for('static',path='theme.js') }}"></script></head>
+<body><a class="skip" href="#main">Skip to content</a>{% set path=request.url.path %}
+<div class="focus-shell"><aside class="focus-side"><a class="focus-brand" href="/mission-control"><span class="brand-symbol">c</span><span>career<span class="brand-light">os</span></span></a><p class="side-caption">A workspace for your next chapter</p>
+<nav aria-label="Main" data-testid="workspace-nav">{% for href,label,icon,active in [('/mission-control','Today','◈',path.startswith('/mission-control')),('/jobs?view=recommended&sort=score','Opportunities','◎',path.startswith('/jobs')),('/applications','Applications','▤',path.startswith(('/applications','/documents','/approvals','/interviews','/follow-ups')))] %}<a href="{{ href }}" class="{{ 'on' if active }}" {% if active %}aria-current="page"{% endif %}><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav>
+<p class="nav-label">Your workspace</p><nav aria-label="Tools">{% for href,label,icon,active in [('/agents','Agent activity','⏣',path.startswith(('/agents','/missions'))),('/resumes','Resume studio','▱',path.startswith('/resumes')),('/sources','Discovery','⌕',path.startswith(('/sources','/companies','/research','/opportunities/import')))] %}<a href="{{ href }}" class="{{ 'on' if active }}"><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav>
+<div class="focus-side-bottom"><details><summary>More tools</summary><a href="/profile">Verified profile</a><a href="/lanes">Search preferences</a><a href="/market-intelligence">Market intelligence</a><a href="/analytics">Outcomes &amp; insights</a><a href="/companies">Company research</a><a href="/settings">Settings</a><a href="/">System diagnostics</a></details><button class="theme-toggle" data-theme-toggle type="button">Switch theme</button><p class="local-note"><span></span> Local &amp; private</p></div></aside>
+<main id="main" class="focus-main" tabindex="-1"><div class="page-topline"><span>CAREER WORKSPACE</span><details class="mobile-tools"><summary>Workspace</summary><a href="/agents">Agent activity</a><a href="/resumes">Resume studio</a><a href="/sources">Discovery</a><a href="/profile">Verified profile</a><a href="/market-intelligence">Market brief</a><a href="/settings">Settings</a></details><a href="/opportunities/import">+ Add a job</a></div>
+{% if path.startswith(('/applications','/approvals','/interviews','/follow-ups')) %}<nav class="context-tabs" aria-label="Workspace sections">{% for href,label in [('/applications','Pipeline'),('/interviews','Interviews'),('/approvals','Review queue'),('/follow-ups','Follow-ups')] %}<a href="{{ href }}" class="{{ 'on' if path.startswith(href) }}">{{ label }}</a>{% endfor %}</nav>{% elif path.startswith(('/sources','/companies','/research')) %}<nav class="context-tabs" aria-label="Workspace sections"><a href="/sources">Discovery</a><a href="/companies">Companies</a><a href="/opportunities/import">Import a job</a></nav>{% endif %}
+{% block content %}{% endblock %}</main></div><script src="{{ url_for('static',path='nav.js') }}" defer></script><script src="{{ url_for('static',path='app.js') }}" defer></script></body></html>

@@ -46,6 +46,7 @@ class JobFilters:
     min_score: int | None = None
     sort: Literal["newest", "score"] = "newest"
     page: int = 1
+    recommended: bool = False
 
 
 @dataclass
@@ -105,7 +106,7 @@ def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]
 
     ranked = best_match_summary(filters.lane_id)
     stmt = _filtered(filters).outerjoin(ranked, and_(ranked.c.job_id == Job.id, ranked.c.rank == 1))
-    if filters.lane_id:
+    if filters.lane_id or filters.recommended:
         stmt = stmt.where(ranked.c.classified.is_(True))
     if filters.eligibility == "not_fail":
         stmt = stmt.where(or_(ranked.c.eligibility.is_(None), ranked.c.eligibility != "fail"))
@@ -276,3 +277,17 @@ def job_counts(session: Session, display_timezone: str) -> JobCounts:
             active, Job.possible_duplicate_of_id.is_not(None), Job.triage_status == "new"
         ),
     )
+
+
+def recommended_jobs(session: Session, limit: int = 3) -> list[JobRow]:
+    rows, _ = list_jobs(session, JobFilters(recommended=True, sort="score", min_score=50))
+    selected = []
+    companies = set()
+    for row in rows:
+        if row.company in companies:
+            continue
+        selected.append(row)
+        companies.add(row.company)
+        if len(selected) >= limit:
+            break
+    return selected

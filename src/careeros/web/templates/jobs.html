@@ -1,66 +1,9 @@
-{% extends "base.html" %}
-{% block title %}Jobs · CareerOS{% endblock %}
-{% block content %}
-<h1>Job inbox <span class="muted">{{ total }} {{ 'job' if total == 1 else 'jobs' }}</span></h1>
-<form method="get" action="/jobs" class="filters">
-  <input name="q" value="{{ filters.q or '' }}" placeholder="Search title, company, description" maxlength="200">
-  <select name="triage"><option value="">Not rejected</option>
-    {% for t in triage_statuses %}<option value="{{ t }}" {% if filters.triage == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-  <button>Filter</button> <a href="/jobs">Clear</a>
-  <details class="more-filters" {% if filters.status != 'active' or filters.source_id or filters.workplace or filters.days or filters.lane_id or filters.eligibility != 'not_fail' or filters.min_score is not none or filters.sort != 'newest' or filters.possible_duplicates %}open{% endif %}>
-  <summary>More filters</summary>
-  <div class="filters">
-  <select name="status">{% for s in ['active','closed','all'] %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
-  <select name="source_id"><option value="">All sources</option>
-    {% for s in sources %}<option value="{{ s.id }}" {% if filters.source_id == s.id %}selected{% endif %}>{{ s.display_name }} ({{ s.source_type }})</option>{% endfor %}</select>
-  <select name="workplace"><option value="">Any workplace</option>
-    {% for w in ['remote','hybrid','onsite'] %}<option value="{{ w }}" {% if filters.workplace == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select>
-  <select name="days"><option value="">Any time</option>
-    {% for d, label in [(1,'Last 24h'),(7,'Last 7 days'),(30,'Last 30 days')] %}<option value="{{ d }}" {% if filters.days == d %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  <select name="lane_id"><option value="">Best lane</option>
-    {% for l in lanes %}<option value="{{ l.id }}" {% if filters.lane_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
-  <select name="eligibility">
-    {% for v, label in [('not_fail','Hide filtered out'),('pass','Passes filters'),('unknown','Needs review'),('fail','Filtered out'),('any','Any eligibility')] %}<option value="{{ v }}" {% if filters.eligibility == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  <input name="min_score" type="number" min="0" max="100" value="{{ filters.min_score if filters.min_score is not none else '' }}" placeholder="Min score" class="narrow">
-  <select name="sort"><option value="newest">Newest</option><option value="score" {% if filters.sort == 'score' %}selected{% endif %}>Best score</option></select>
-  <label class="check"><input type="checkbox" name="dupes" value="true" {% if filters.possible_duplicates %}checked{% endif %}> Possible duplicates</label>
-  <button class="secondary">Apply</button>
-  </div></details>
-</form>
-
-{% if not rows %}
-  {% if any_jobs %}<p class="empty" data-testid="jobs-no-match">No jobs match these filters.</p>
-  {% else %}<p class="empty" data-testid="jobs-empty">No jobs yet. Add sources on the <a href="/sources">Sources</a> page and run discovery from the <a href="/">Overview</a>.</p>{% endif %}
-{% else %}
-<table class="table">
-  <thead><tr><th>Role</th><th class="hide-sm">Company</th><th>Location</th><th class="hide-sm">Type</th><th>Match</th><th class="hide-sm">First seen</th><th>Triage</th></tr></thead>
-  <tbody>
-  {% for r in rows %}
-  <tr data-testid="job-row">
-    <td><a href="/jobs/{{ r.job.id }}"><strong>{{ r.job.title }}</strong></a>
-      {% if r.job.possible_duplicate_of_id %}<span class="pill pill-unverified">possible duplicate</span>{% endif %}
-      {% if r.job.status == 'closed' %}<span class="pill">closed</span>{% endif %}
-      <br><span class="muted">{{ r.sources | join(', ') }}</span></td>
-    <td class="hide-sm">{{ r.company }}</td>
-    <td>{{ r.job.location_text or '' }}{% if r.job.workplace_type %} <span class="muted">· {{ r.job.workplace_type }}</span>{% endif %}</td>
-    <td class="hide-sm">{% if r.job.employment_type %}{{ r.job.employment_type.replace('_', ' ') }}{% else %}<span class="muted">not stated</span>{% endif %}</td>
-    <td data-testid="match-cell">{% if r.match and r.match.match.classified %}
-      <span class="meter {{ r.match.effective_eligibility }}" title="Score {{ r.match.effective_score }}; {{ r.match.match.completeness }}% of the weighted information was known">
-        <strong class="meter-num score">{{ r.match.effective_score }}</strong>
-        <span class="meter-bar v{{ r.match.effective_score }} c{{ r.match.match.completeness }}" aria-hidden="true"><i></i><b></b></span></span>
-      <span class="pill pill-elig-{{ r.match.effective_eligibility }}">{{ {'pass':'pass','unknown':'review','fail':'filtered'}[r.match.effective_eligibility] }}</span>
-      <br><span class="muted">{{ r.match.lane_name }}{% if r.match.override %} · overridden{% endif %}</span>
-      {% else %}<span class="muted">no lane match</span>{% endif %}</td>
-    <td class="hide-sm">{{ r.job.first_seen_at|localtime }}</td>
-    <td><span class="pill pill-{{ r.job.triage_status }}">{{ r.job.triage_status }}</span></td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% if pages > 1 %}
-<p class="pager">{% if page > 1 %}<a href="/jobs?{{ query }}&page={{ page - 1 }}">← Previous</a>{% endif %}
-  Page {{ page }} of {{ pages }}
-  {% if page < pages %}<a href="/jobs?{{ query }}&page={{ page + 1 }}">Next →</a>{% endif %}</p>
-{% endif %}
-{% endif %}
+{% extends "base.html" %}{% from "_macros.html" import csrf with context %}
+{% block title %}Opportunities · CareerOS{% endblock %}{% block content %}
+<header class="focus-header"><div><p class="eyebrow">Find the work that fits</p><h1>Opportunities</h1><p>{{ total }} roles in this view. Open one to understand the fit before you apply.</p></div><a href="/opportunities/import">+ Add a job you found</a></header>
+<form method="get" action="/jobs" class="job-search"><input name="q" value="{{ filters.q or '' }}" placeholder="Search roles, employers, or skills" maxlength="200"><input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="triage" value="{{ filters.triage or '' }}"><button>Search</button><details class="more-filters"><summary>Refine</summary><div class="filters"><select name="lane_id"><option value="">All role families</option>{% for l in lanes %}<option value="{{ l.id }}" {% if filters.lane_id==l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select><select name="source_id"><option value="">All employers &amp; boards</option>{% for s in sources %}<option value="{{ s.id }}" {% if filters.source_id==s.id %}selected{% endif %}>{{ s.display_name }}</option>{% endfor %}</select><select name="eligibility">{% for key,label in [('not_fail','Hide ruled-out roles'),('pass','Passes filters'),('unknown','Needs review'),('fail','Ruled out'),('any','Show all')] %}<option value="{{ key }}" {% if filters.eligibility==key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><input name="min_score" type="number" min="0" max="100" value="{{ filters.min_score if filters.min_score is not none else '' }}" placeholder="Minimum match"><select name="days"><option value="">Any time</option>{% for n in [1,7,30] %}<option value="{{ n }}" {% if filters.days==n %}selected{% endif %}>Last {{ n }} days</option>{% endfor %}</select><select name="workplace"><option value="">Any workplace</option>{% for w in ['remote','hybrid','onsite'] %}<option value="{{ w }}" {% if filters.workplace==w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select><select name="status">{% for key in ['active','closed','all'] %}<option {% if filters.status==key %}selected{% endif %}>{{ key }}</option>{% endfor %}</select><select name="sort"><option value="newest" {% if filters.sort=='newest' %}selected{% endif %}>Newest</option><option value="score" {% if filters.sort=='score' %}selected{% endif %}>Best match</option></select><button>Apply filters</button></div></details></form>
+<nav class="view-chips" aria-label="Opportunity views"><a class="{{ 'active' if view=='recommended' }}" href="/jobs?view=recommended&sort=score">For you</a><a class="{{ 'active' if filters.triage=='saved' }}" href="/jobs?triage=saved">Saved</a><a class="{{ 'active' if filters.triage=='shortlisted' }}" href="/jobs?triage=shortlisted">Shortlist</a><a class="{{ 'active' if filters.days==1 }}" href="/jobs?days=1">New today</a><a class="{{ 'active' if view=='all' and not filters.triage and not filters.days }}" href="/jobs?view=all">All postings</a></nav>
+{% if not rows %}<div class="quiet-empty" data-testid="{{ 'jobs-no-match' if any_jobs else 'jobs-empty' }}"><h3>No roles in this view yet</h3><p>Try a broader view, connect another employer, or add a job you found elsewhere.</p><a href="/sources">Explore discovery →</a></div>{% else %}
+<div class="jobs-split"><section class="job-list" aria-label="Job results">{% for r in rows %}<article class="job-list-card {{ 'selected' if selected_detail and selected_detail.job.id==r.job.id }}" data-testid="job-row"><a href="/jobs?{{ query }}&selected={{ r.job.id }}"><div class="job-card-top"><span>{{ r.company }}</span>{% if r.match and r.match.match.classified %}<strong>{{ r.match.effective_score }} match</strong>{% endif %}</div><h3><strong>{{ r.job.title }}</strong></h3><p>{{ r.job.location_text or 'Location not stated' }}{% if r.job.workplace_type %} · {{ r.job.workplace_type }}{% endif %}</p><p data-testid="match-cell">{% if r.match and r.match.match.classified %}{{ r.match.lane_name }} · <span class="pill pill-elig-{{ r.match.effective_eligibility }}">{{ 'Eligibility review needed' if r.match.effective_eligibility=='unknown' else r.match.effective_eligibility }}</span>{% else %}Outside your matched role families{% endif %}</p></a>{% for kind,url in board_links.get(r.job.id,[]) %}<p><a href="{{ url }}" rel="noopener noreferrer" target="_blank">Source: {{ 'Remotive' if kind=='remotive' else 'Jobicy' }} ↗</a></p>{% endfor %}<p>{{ r.job.employment_type|replace('_',' ') if r.job.employment_type else 'Type not stated' }}</p><p><a href="/jobs/{{ r.job.id }}">Full details</a> · {{ r.job.triage_status }}{% if r.job.status=='closed' %} · closed{% endif %}</p></article>{% endfor %}{% if pages>1 %}<p class="pager">{% if page>1 %}<a href="/jobs?{{ query }}&page={{ page-1 }}">← Previous</a>{% endif %} Page {{ page }} of {{ pages }} {% if page<pages %}<a href="/jobs?{{ query }}&page={{ page+1 }}">Next →</a>{% endif %}</p>{% endif %}</section>
+{% if selected_detail %}{% set job=selected_detail.job %}<section class="job-detail-pane" aria-label="Selected opportunity"><p class="eyebrow">{{ selected_detail.company.canonical_name }}</p><h2>{{ job.title }}</h2><p class="muted">{{ job.location_text or 'Location not stated' }} · {{ job.employment_type|replace('_',' ') if job.employment_type else 'Employment type not stated' }}</p>{% if selected_match and selected_match.match.classified %}<div class="tailoring-review"><strong>{{ selected_match.effective_score }}/100 match</strong><p>{{ selected_match.match.explanation }}</p><p>Matching is a prioritisation aid. Review the posting and authorization requirements yourself.</p></div>{% endif %}<div class="actions">{% if selected_application %}<a href="/applications/{{ selected_application.id }}">Continue application →</a>{% else %}<form method="post" action="/jobs/{{ job.id }}/application">{{ csrf() }}<button>Prepare application</button></form>{% endif %}<form method="post" action="/jobs/{{ job.id }}/triage">{{ csrf() }}<input type="hidden" name="action" value="save"><button class="secondary">Save role</button></form></div><a href="/jobs/{{ job.id }}">Fit breakdown &amp; research →</a><p class="muted">Source date: {{ job.posted_at|localtime if job.posted_at else 'Not provided' }} · First seen {{ job.first_seen_at|localtime }}</p><div class="job-description">{{ job.description_text }}</div><details><summary>Where this came from</summary>{% for sighting in selected_detail.sightings %}<p><a href="{{ sighting.source_url }}" target="_blank" rel="noopener noreferrer">{{ sighting.source_name }} · Original listing ↗</a></p>{% endfor %}</details></section>{% endif %}</div>{% endif %}
 {% endblock %}

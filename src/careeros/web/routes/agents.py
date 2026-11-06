@@ -12,9 +12,11 @@ from careeros.common.clock import utcnow
 from careeros.db.models import AgentAttempt, AgentDependency, AgentRun, Mission, Source, Task
 from careeros.modules.agents import service
 from careeros.modules.agents.registry import AGENTS, BY_KEY, ON_DEMAND_AGENTS, PLANNED
+from careeros.modules.applications import service as application_service
+from careeros.modules.approvals import service as approval_service
 from careeros.modules.backup.service import latest_backup
 from careeros.modules.events.service import latest_events
-from careeros.modules.jobs.service import recent_jobs
+from careeros.modules.jobs.service import recommended_jobs
 from careeros.modules.market.contracts import MarketReport
 from careeros.modules.market.service import latest_brief
 from careeros.modules.models.gateway import usage_summary
@@ -54,7 +56,7 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
     runs = service.runs_for(session, current.id) if current else []
     by_key = {run.agent_key: run for run in runs}
     events = latest_events(session)
-    opportunities = recent_jobs(session)
+    opportunities = recommended_jobs(session)
     heartbeat = get_setting(session, "worker.last_seen_at")
     seen = datetime.fromisoformat(heartbeat) if isinstance(heartbeat, str) else None
     scheduled = get_setting(session, service.LAST_SCHEDULED_KEY)
@@ -65,6 +67,30 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
     )
     market = latest_brief(session)
     ctx["mc"] = {
+        "background_tasks": list(
+            session.scalars(
+                select(Task)
+                .where(
+                    Task.task_type.in_(("match.all", "ingest.all", "ingest.source")),
+                    Task.status.in_(("queued", "running", "dead")),
+                )
+                .order_by(Task.created_at.desc())
+                .limit(10)
+            )
+        ),
+        "task_labels": {
+            "match.all": "Opportunity matching",
+            "ingest.all": "Job discovery",
+            "ingest.source": "Employer feed check",
+        },
+        "recent_runs": list(
+            session.execute(
+                select(AgentRun, Mission)
+                .join(Mission)
+                .order_by(Mission.created_at.desc(), AgentRun.position)
+                .limit(40)
+            ).all()
+        ),
         "active_runs": list(
             session.execute(
                 select(AgentRun, Mission)
@@ -103,6 +129,8 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         "cursor": events[0].id if events else 0,
         "opportunities": opportunities[:5],
         "profile": profile_summary(session),
+        "followups": approval_service.open_follow_ups(session, due_within_days=3)[:3],
+        "application_rows": application_service.list_applications(session)[:3],
         "usage": usage_summary(session),
         "worker_seen": seen,
         "worker_recent": seen is not None and utcnow() - seen < timedelta(seconds=75),
@@ -199,6 +227,11 @@ def retry(run_id: str, request: Request, session: SessionDep) -> RedirectRespons
 @router.get("/agents", response_class=HTMLResponse)
 def agent_index(request: Request, session: SessionDep) -> HTMLResponse:
     return _render(request, "agents.html", _context(request, session))
+
+
+@router.get("/partials/agents", response_class=HTMLResponse)
+def agent_partial(request: Request, session: SessionDep) -> HTMLResponse:
+    return _render(request, "_agent_activity.html", _context(request, session))
 
 
 @router.get("/agents/{key}", response_class=HTMLResponse)

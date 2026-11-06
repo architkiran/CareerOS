@@ -16,11 +16,11 @@ def test_control_empty_state_and_permissions(client: TestClient) -> None:
     response = client.get("/mission-control")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
-    assert "Your next opportunity starts here" in response.text
-    assert "No missions yet" in response.text
-    assert "Not observed recently" in response.text
+    assert "Let’s find your first strong match" in response.text
+    assert "Ready when you are" in response.text
+    assert "Find opportunities" in response.text
     assert client.post("/missions").status_code == 403
-    assert "Planned work; these are not running agents." in client.get("/agents").text
+    assert "No tasks running" in client.get("/agents").text
     assert "cannot submit applications" in client.get("/agents/discovery").text
     assert client.get("/agents/missing").status_code == 404
     assert client.get("/missions/missing").status_code == 404
@@ -47,7 +47,8 @@ def test_start_controls_history_and_live_partial(app: FastAPI, client: TestClien
     assert "No enabled sources." in html
     partial = client.get("/partials/mission-control")
     assert "6 of 6 steps complete" in partial.text
-    assert "Recent" in partial.text
+    assert "View results" in partial.text
+    assert "Recent results" in client.get("/agents").text
     assert "Updated the career funnel" in client.get("/agents/analytics").text
     assert post_form(client, path + "/cancel").status_code == 409
 
@@ -74,7 +75,7 @@ def test_dashboard_escapes_persisted_summaries(app: FastAPI, client: TestClient)
         run = service.runs_for(session, mission.id)[0]
         run.summary = "<script>malicious()</script>"
         session.commit()
-    response = client.get("/mission-control")
+    response = client.get("/agents")
     assert "<script>malicious()" not in response.text
     assert "&lt;script&gt;malicious()" in response.text
 
@@ -95,7 +96,7 @@ def test_every_mission_mutation_requires_csrf(client: TestClient, path: str) -> 
     assert client.post(path).status_code == 403
 
 
-def test_five_workspace_navigation_and_on_demand_activity(client, app):  # type: ignore[no-untyped-def]
+def test_three_primary_actions_and_on_demand_activity(client, app):  # type: ignore[no-untyped-def]
     from careeros.modules.agents.service import start_application_mission
     from careeros.modules.applications.service import start_application
     from tests.integration.test_documents import _setup
@@ -110,10 +111,10 @@ def test_five_workspace_navigation_and_on_demand_activity(client, app):  # type:
     assert response.status_code == 200
     html = response.text
     main_nav = html.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert main_nav.count("<a ") == 5
-    assert "Career library" in main_nav and "Resume references" not in main_nav
-    assert "What your team is doing" in html and "1 active tasks" in html
+    assert main_nav.count("<a ") == 3
+    assert all(label in main_nav for label in ("Today", "Opportunities", "Applications"))
+    assert "Your career team" in html and "Application drafts" in html
     assert f"/missions/{mission.id}" in html and "Application drafts" in html
-    assert "Past work and mission history" in html
-    for path in ["/jobs", "/applications", "/profile", "/sources", "/companies", "/interviews"]:
+    assert "View task" in client.get("/agents").text
+    for path in ["/applications", "/sources", "/companies", "/interviews"]:
         assert 'aria-label="Workspace sections"' in client.get(path).text

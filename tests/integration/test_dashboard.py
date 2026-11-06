@@ -78,7 +78,7 @@ def test_no_inline_styles_or_scripts_anywhere() -> None:
 
 def test_sidebar_marks_current_page(client: TestClient) -> None:
     html = client.get("/jobs").text
-    assert 'href="/jobs" class="on" aria-current="page"' in html
+    assert 'href="/jobs?view=recommended&amp;sort=score" class="on" aria-current="page"' in html
     assert 'href="/mission-control" class=""' in html  # Home not active on /jobs
     assert 'class="skip" href="#main"' in html
 
