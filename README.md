@@ -1,8 +1,11 @@
 # CareerOS
 
-The latest product update groups the app into five workspaces and adds master-layout
-LaTeX PDF resumes, consistent download names, live cross-mission activity, source
-intelligence and a US SmartRecruiters adapter. See [product workspaces](docs/PRODUCT_WORKSPACES.md).
+The current interface centers on **Today, Opportunities and Applications**, with a
+live agent activity board and a quieter neutral design. Resume preparation selects
+verified evidence for each job and exports your master LaTeX layout as a PDF, with
+an explanation and preview. Discovery includes public employer feeds, Remotive,
+Jobicy and user-assisted imports from other boards. See the
+[Focus redesign and validation](docs/FOCUS_REDESIGN.md).
 
 Start locally with `./Start\ CareerOS.command` (port 8766). For a fresh clone, install
 Python dependencies first, then run `.venv/bin/python scripts/setup_latex.py` once
@@ -61,7 +64,7 @@ available, with its verified-fact and QA gates.
 
 `/companies` now collects watchlist research, tracked roles and source coverage.
 Assistant research stays pending; stale official policy evidence stays unknown.
-See [company research](docs/COMPANY_RESEARCH.md). Generated Word downloads and
+See [company research](docs/COMPANY_RESEARCH.md). Generated document downloads and
 approvals now verify both the content and binary hashes; legacy files require a
 new version. See [document integrity](docs/DOCUMENT_INTEGRITY.md).
 Applications can also request an on-demand agent to prepare both template drafts
