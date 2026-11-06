@@ -1,0 +1,25 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[margin=0.45in,top=0.3in,bottom=0.25in]{geometry}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\raggedbottom
+\raggedright
+
+% Section headings
+\titleformat{\section}{\large\bfseries}{}{0pt}{\MakeUppercase}[\vspace{1pt}\titlerule]
+\titlespacing*{\section}{0pt}{5pt}{3pt}
+
+% Bullet lists
+\setlist[itemize]{leftmargin=0.2in,itemsep=0pt,parsep=0pt,topsep=2pt,partopsep=0pt}
+
+% Entry with right-aligned date: \entry{left}{right}
+\newcommand{\entry}[2]{\noindent #1\hfill #2\par}
+

@@ -17,3 +17,5 @@ exports/
 .DS_Store
 config/sources.toml
 backups/
+
+.tools/

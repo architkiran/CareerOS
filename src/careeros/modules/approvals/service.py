@@ -95,12 +95,12 @@ def application_payload(session: Session, app_id: str, include_cover_letter: boo
     resume = _latest(session, app_id, "resume")
     if resume is None or resume.status != "ready":
         raise ApprovalError("The latest resume must pass QA (and warnings be acknowledged) first.")
-    docs = [_document_payload(resume)]
+    docs = [_document_payload(session, resume)]
     if include_cover_letter:
         letter = _latest(session, app_id, "cover_letter")
         if letter is None or letter.status != "ready":
             raise ApprovalError("The latest cover letter must pass QA first, or leave it out.")
-        docs.append(_document_payload(letter))
+        docs.append(_document_payload(session, letter))
     return Payload(
         "submit_application",
         "application",
@@ -110,9 +110,18 @@ def application_payload(session: Session, app_id: str, include_cover_letter: boo
     )
 
 
-def _document_payload(doc: Document) -> dict[str, Any]:
+def _document_payload(session: Session, doc: Document) -> dict[str, Any]:
     try:
         documents.verify_integrity(doc)
+        from careeros.modules.documents.qa import run_qa
+
+        checks = run_qa(
+            documents.load_content(doc), documents.load_candidate(session), utcnow().date()
+        )
+        if any(check.severity == "error" for check in checks):
+            raise documents.DocumentError(
+                "The resume no longer passes current fact checks. Regenerate and review it."
+            )
     except documents.DocumentError as exc:
         raise ApprovalError(str(exc)) from exc
     return {

@@ -119,7 +119,16 @@ def latest(session: Session, application_id: str, doc_type: str) -> Document | N
     return session.scalars(stmt).first()
 
 
-def generate(session: Session, application_id: str, doc_type: DocType, data_dir: Path) -> Document:
+def generate(
+    session: Session,
+    application_id: str,
+    doc_type: DocType,
+    data_dir: Path,
+    *,
+    render_format: Literal["docx", "pdf"] = "docx",
+    project_limit: int = 3,
+    experience_limit: int = 2,
+) -> Document:
     """Create a new immutable version. Returns the existing latest one if nothing changed."""
     if doc_type not in DOC_LABELS:
         raise DocumentError("Unknown document type")
@@ -135,6 +144,19 @@ def generate(session: Session, application_id: str, doc_type: DocType, data_dir:
     candidate = load_candidate(session)
     builder = build_resume if doc_type == "resume" else build_cover_letter
     content = builder(candidate, job.title, company.canonical_name, job.description_text, lane_name)
+    content.context["qa_version"] = "qa-v2"
+    if render_format == "pdf":
+        if doc_type != "resume" or project_limit not in (2, 3, 4) or experience_limit not in (2, 3):
+            raise DocumentError("Choose a resume with 2–4 projects and 2–3 experiences.")
+        from careeros.modules.documents import latex
+
+        for section, limit in (("Projects", project_limit), ("Experience", experience_limit)):
+            for name, claims in content.sections:
+                if name == section:
+                    refs = list(dict.fromkeys(tuple(c.refs) for c in claims))[:limit]
+                    claims[:] = [c for c in claims if tuple(c.refs) in refs]
+        content.context.update(renderer="master-latex-v1", layout_hash=latex.layout_hash())
+        content.context["tex_hash"] = sha256(latex.source(content))
     findings = run_qa(content, candidate, utcnow().date())
     payload = json.dumps(content.to_dict(), sort_keys=True)
     content_hash = sha256(payload)
@@ -152,14 +174,21 @@ def generate(session: Session, application_id: str, doc_type: DocType, data_dir:
     json_path = folder / f"{stem}.json"
     json_path.write_text(payload)
     json_path.chmod(0o600)
-    render_docx(content, folder / f"{stem}.docx")
+    artifact_path = folder / f"{stem}.{render_format}"
+    if render_format == "pdf":
+        try:
+            findings.extend(latex.compile_pdf(content, artifact_path))
+        except latex.LatexError as exc:
+            raise DocumentError(str(exc)) from exc
+    else:
+        render_docx(content, artifact_path)
     doc = Document(
         application_id=application_id,
         document_type=doc_type,
         version=version,
-        storage_path=str(folder / f"{stem}.docx"),
+        storage_path=str(artifact_path),
         content_hash=content_hash,
-        file_hash=_file_hash(folder / f"{stem}.docx"),
+        file_hash=_file_hash(artifact_path),
         base_template_id=lane_name,
         model_provider="none",
         status=status_for(findings, False),
@@ -216,7 +245,11 @@ def verify_integrity(doc: Document) -> None:
         path = Path(doc.storage_path)
         if path.is_symlink() or path.with_suffix(".json").is_symlink():
             raise DocumentError("Stored document files must not be symbolic links.")
-        load_content(doc)
+        content = load_content(doc)
+        if path.suffix == ".pdf":
+            tex = path.with_suffix(".tex")
+            if tex.is_symlink() or _file_hash(tex) != content.context.get("tex_hash"):
+                raise DocumentError("Stored LaTeX source no longer matches its recorded hash.")
         if _file_hash(path) != doc.file_hash:
             raise DocumentError("Stored Word file no longer matches its recorded hash. Regenerate.")
     except (OSError, ValueError, KeyError, TypeError) as exc:

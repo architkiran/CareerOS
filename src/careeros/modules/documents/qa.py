@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import date
 from typing import Any, Literal
 
-from careeros.modules.documents.content import Candidate, DocumentContent, SourceItem
+from careeros.modules.documents.content import Candidate, DocumentContent, SourceItem, internal_note
 
 Severity = Literal["error", "warning"]
 _NUMBER = re.compile(r"\d[\d,.]*%?")
@@ -43,7 +43,24 @@ def run_qa(content: DocumentContent, candidate: Candidate, today: date) -> list[
     verified_skills = {s.text.lower() for s in candidate.skills}
     out: list[Finding] = []
 
+    if any(internal_note(item.text) for item in items.values()):
+        out.append(
+            Finding(
+                "warning",
+                "internal_notes_excluded",
+                "Internal profile notes were omitted. Review the underlying experience details.",
+            )
+        )
     for claim in content.claims():
+        if internal_note(claim.text):
+            out.append(
+                Finding(
+                    "error",
+                    "internal_note",
+                    "An internal editing instruction cannot appear in an application document.",
+                    claim.text,
+                )
+            )
         sources = [items[r] for r in claim.refs if r in items]
         if not claim.refs or len(sources) != len(claim.refs):
             out.append(

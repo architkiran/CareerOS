@@ -5,6 +5,7 @@ it ("skill:<id>", "fact:<id>", "experience:<id>", "project:<id>", "profile:<id>"
 Job details (title, company) are context, not claims about the candidate.
 """
 
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from typing import Any
@@ -101,6 +102,39 @@ def _relevance(item: SourceItem, job_text: str) -> int:
     return sum(1 for s in item.skills if contains_term(job_text, s))
 
 
+def internal_note(text: str) -> bool:
+    return bool(
+        re.search(
+            r"per your resume notes|add exact start|add exact.*dates|TODO:|TBD:|"
+            r"insert (?:your|metric)|replace (?:this|with)",
+            text,
+            re.I,
+        )
+    )
+
+
+def experience_paragraphs(text: str) -> list[str]:
+    """Join soft PDF line wraps; retain explicit bullets and completed sentences."""
+    paragraphs: list[str] = []
+    current = ""
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            if current:
+                paragraphs.append(current)
+                current = ""
+            continue
+        bullet = bool(re.match(r"^[-•]\s+", line))
+        line = re.sub(r"^[-•]\s+", "", line)
+        if current and (bullet or line[0].isupper() or current.endswith((".", "!", "?"))):
+            paragraphs.append(current)
+            current = ""
+        current = (current + " " + line).strip()
+    if current:
+        paragraphs.append(current)
+    return [p for p in paragraphs if not internal_note(p)]
+
+
 def build_resume(
     c: Candidate, job_title: str, company: str, job_text: str, lane: str
 ) -> DocumentContent:
@@ -139,7 +173,7 @@ def build_resume(
         exp_claims.append(
             Claim("Experience", f"{title}, {org}" + (f" ({dates})" if dates else ""), [e.ref])
         )
-        for line in (ln.strip(" -•\t") for ln in desc.splitlines()):
+        for line in experience_paragraphs(desc):
             if line:
                 exp_claims.append(Claim("Experience", line, [e.ref]))
     if exp_claims:

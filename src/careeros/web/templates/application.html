@@ -10,7 +10,8 @@
 <section class="card" id="documents">
   <h2>Documents</h2>
   <p class="muted">Built from verified profile items only, with templates (no AI). Every line links to the profile items behind it. Errors block a version; warnings need your acknowledgment.</p>
-  <p class="muted">This Word template does not preserve the exact layout of your master PDF. Compare your <a href="/resumes">role-family resume references</a> before using a generated file.</p>
+  <p class="muted">The master PDF uses your supplied LaTeX layout. The legacy Word template does not preserve the exact layout of your master PDF. Compare your <a href="/resumes">role-family resume references</a> before using a generated file.</p>
+  {% if a.status in ('preparing','ready') %}<form method="post" action="/applications/{{ a.id }}/resume-pdf" class="actions">{{ csrf() }}<label>Projects <select name="project_limit"><option>2</option><option selected>3</option><option>4</option></select></label><label>Experiences <select name="experience_limit"><option selected>2</option><option>3</option></select></label><button>Prepare master-layout PDF</button></form>{% endif %}
   <div class="actions">
     {% if a.status in ('preparing', 'ready') %}<form method="post" action="/applications/{{ a.id }}/prepare" class="inline">{{ csrf() }}<button>Prepare both template drafts with agent</button></form>{% endif %}
     {% for t in ['resume', 'cover_letter'] %}
@@ -28,7 +29,7 @@
     {% else %}<p class="ok">All checks passed.</p>{% endif %}
     <div class="actions">
       {% if d.status == 'needs_ack' and not integrity_errors[d.id] %}<form method="post" action="/documents/{{ d.id }}/acknowledge" class="inline">{{ csrf() }}<button>Acknowledge warnings</button></form>{% endif %}
-      <a href="/documents/{{ d.id }}/download">Download .docx</a>
+      <a href="/documents/{{ d.id }}/download">Download {{ '.pdf' if d.storage_path.endswith('.pdf') else '.docx' }}</a>{% if d.storage_path.endswith('.pdf') %}<a href="/documents/{{ d.id }}/download?inline=true" target="_blank" rel="noopener">Preview PDF ↗</a><span class="muted">Master LaTeX layout · Archit_Kiran_Kumar_Resume.pdf</span>{% endif %}
       {% if d.version > 1 %}<a href="/documents/{{ d.id }}/diff">Changes from v{{ d.version - 1 }}</a>{% endif %}
     </div>
     <details><summary>Claim map ({{ claims[d.id]|length }} lines)</summary>

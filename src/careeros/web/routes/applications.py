@@ -129,6 +129,29 @@ def _sync(session: Session, app_id: str) -> None:
         )
 
 
+@router.post("/applications/{app_id}/resume-pdf")
+async def generate_pdf(app_id: str, request: Request, session: SessionDep) -> Response:
+    form = await request.form()
+    try:
+        docs.generate(
+            session,
+            app_id,
+            "resume",
+            Path(request.app.state.settings.data_dir),
+            render_format="pdf",
+            project_limit=int(forms.text(form, "project_limit") or "3"),
+            experience_limit=int(forms.text(form, "experience_limit") or "2"),
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (docs.DocumentError, ValueError) as exc:
+        session.rollback()
+        return _workspace(request, session, app_id, {"errors": [str(exc)]}, 422)
+    _sync(session, app_id)
+    session.commit()
+    return RedirectResponse(f"/applications/{app_id}#documents", status_code=303)
+
+
 @router.post("/applications/{app_id}/documents")
 async def generate(app_id: str, request: Request, session: SessionDep) -> Response:
     f = await request.form()
@@ -174,7 +197,9 @@ def _doc_file(request: Request, doc: Document) -> Path:
 
 
 @router.get("/documents/{doc_id}/download")
-def download(doc_id: str, request: Request, session: SessionDep) -> FileResponse:
+def download(
+    doc_id: str, request: Request, session: SessionDep, inline: bool = False
+) -> FileResponse:
     doc = session.get(Document, doc_id)
     if doc is None:
         raise HTTPException(404, "Document not found")
@@ -185,8 +210,12 @@ def download(doc_id: str, request: Request, session: SessionDep) -> FileResponse
         raise HTTPException(409, "Stored document failed its integrity check.") from exc
     return FileResponse(
         path,
-        filename=f"{doc.document_type}-v{doc.version}.docx",
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=("Archit_Kiran_Kumar_Resume" if doc.document_type == "resume" else "Cover_Letter")
+        + path.suffix,
+        media_type="application/pdf"
+        if path.suffix == ".pdf"
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        content_disposition_type="inline" if inline and path.suffix == ".pdf" else "attachment",
         headers={"Cache-Control": "no-store"},
     )
 
