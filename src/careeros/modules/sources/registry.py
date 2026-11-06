@@ -16,7 +16,7 @@ from careeros.modules.events.service import record_event
 from careeros.modules.ingestion.service import get_or_create_company
 from careeros.modules.sources.adapters.base import validate_token
 
-SourceType = Literal["greenhouse", "lever", "ashby", "smartrecruiters"]
+SourceType = Literal["greenhouse", "lever", "ashby", "smartrecruiters", "remotive", "jobicy"]
 
 
 class SourcePolicy(BaseModel):
@@ -37,6 +37,9 @@ class SourceIn(SourcePolicy):
 
     def model_post_init(self, _context: object) -> None:
         validate_token(self.token)
+        fixed = {"remotive": "public", "jobicy": "usa"}
+        if self.type in fixed and self.token != fixed[self.type]:
+            raise ValueError("This public board uses a fixed identifier: " + fixed[self.type])
 
 
 class DuplicateSourceError(ValueError):

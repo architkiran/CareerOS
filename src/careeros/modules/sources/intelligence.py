@@ -9,6 +9,39 @@ from careeros.modules.system.settings_store import get_setting, set_setting
 
 CATALOG = (
     {
+        "key": "formlabs",
+        "type": "greenhouse",
+        "token": "formlabs",
+        "name": "Formlabs",
+        "url": "https://formlabs.com/company/careers/",
+        "scope": "Manufacturing and 3D-printing technology; official company hiring feed.",
+    },
+    {
+        "key": "captech",
+        "type": "smartrecruiters",
+        "token": "CapTechConsulting",
+        "name": "CapTech Consulting",
+        "url": "https://www.captechconsulting.com/careers",
+        "scope": "Consulting and technology delivery; US company hiring feed.",
+    },
+    {
+        "key": "remotive",
+        "type": "remotive",
+        "token": "public",
+        "name": "Remotive",
+        "url": "https://remotive.com/remote-jobs/api",
+        "scope": "Remote roles across employers; attribution preserved. "
+        "Publication is delayed by 24 hours.",
+    },
+    {
+        "key": "jobicy",
+        "type": "jobicy",
+        "token": "usa",
+        "name": "Jobicy",
+        "url": "https://github.com/Jobicy/remote-jobs-api",
+        "scope": "US remote roles across employers; hourly provider limit enforced.",
+    },
+    {
         "key": "wise",
         "type": "smartrecruiters",
         "token": "wise",

@@ -134,6 +134,10 @@ def latest_brief(session: Session) -> MarketBrief | None:
 
 def _source_date(record: JobSourceRecord, source: Source) -> tuple[datetime | None, str]:
     raw = record.raw_json
+    if source.source_type in ("remotive", "jobicy"):
+        return parse_iso(
+            raw.get("publication_date") or raw.get("pubDate")
+        ), "publication_if_provided"
     if source.source_type == "greenhouse":
         return parse_iso(raw.get("first_published")), "publication_if_provided"
     if source.source_type == "ashby":

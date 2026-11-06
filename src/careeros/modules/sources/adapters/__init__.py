@@ -2,6 +2,7 @@ from careeros.modules.sources.adapters.ashby import AshbyAdapter
 from careeros.modules.sources.adapters.base import Adapter, InvalidPayloadError
 from careeros.modules.sources.adapters.greenhouse import GreenhouseAdapter
 from careeros.modules.sources.adapters.lever import LeverAdapter
+from careeros.modules.sources.adapters.public_boards import JobicyAdapter, RemotiveAdapter
 from careeros.modules.sources.adapters.smartrecruiters import SmartRecruitersAdapter
 
 ADAPTERS: dict[str, Adapter] = {
@@ -9,6 +10,8 @@ ADAPTERS: dict[str, Adapter] = {
     "lever": LeverAdapter(),
     "ashby": AshbyAdapter(),
     "smartrecruiters": SmartRecruitersAdapter(),
+    "remotive": RemotiveAdapter(),
+    "jobicy": JobicyAdapter(),
 }
 
 __all__ = ["ADAPTERS", "Adapter", "InvalidPayloadError"]

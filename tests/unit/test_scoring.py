@@ -144,3 +144,18 @@ def test_all_unknown_is_neutral_with_zero_completeness() -> None:
 def test_explanation_mentions_lane_and_completeness() -> None:
     r = evaluate(mi())
     assert "Data / BI Analyst" in r.explanation and f"{r.completeness}%" in r.explanation
+
+
+def test_medical_coding_consultant_is_not_business_consulting() -> None:
+    consulting = lane(title_keywords=("consultant", "business analyst"))
+    result = evaluate(
+        mi(job(title="Coding Consultant Outpatient", description="SQL Excel billing"), consulting)
+    )
+    assert not result.classified
+    assert "Clinical" in result.dimensions[0].explanation
+    assert evaluate(mi(job(title="Business Consultant"), consulting)).classified
+
+
+def test_luxembourg_remote_location_is_outside_us() -> None:
+    result = evaluate(mi(job(location_text="Remote - Luxembourg", workplace_type="remote")))
+    assert next(f for f in result.filters if f.name == "location").decision == "fail"

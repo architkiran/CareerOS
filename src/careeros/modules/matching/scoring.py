@@ -94,6 +94,21 @@ class MatchResult:
 
 def _role_title(m: MatchInput) -> tuple[float, str, bool]:
     title = title_key(m.job.title)
+    # A broad "consultant" keyword must not turn licensed clinical work into a
+    # business consulting match. Apply only to unrelated lane titles, preserving
+    # explicit custom medical career lanes.
+    clinical = (
+        "coding consultant",
+        "medical coder",
+        "outpatient",
+        "inpatient",
+        "registered nurse",
+        "physician",
+    )
+    if any(contains_term(title, term) for term in clinical) and not any(
+        contains_term(title_key(kw), term) for kw in m.lane.title_keywords for term in clinical
+    ):
+        return 0.0, "Clinical or medical-coding title is outside this lane's role family.", False
     for kw in m.lane.title_keywords:
         if contains_term(title, title_key(kw)):
             return 1.0, f"Title contains '{kw}'.", True

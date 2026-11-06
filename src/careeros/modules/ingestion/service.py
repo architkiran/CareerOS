@@ -240,8 +240,26 @@ def _fail(session: Session, source: Source, run: SourceRun, exc: FetchError, now
 
 def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary:
     """Fetch, normalize and persist one source. Commits; never raises fetch errors."""
-    adapter = ADAPTERS[source.source_type]
     started = utcnow()
+    minimum_minutes = {"remotive": 360, "jobicy": 60}.get(source.source_type)
+    if minimum_minutes:
+        previous = session.scalars(
+            select(SourceRun)
+            .where(SourceRun.source_id == source.id)
+            .order_by(SourceRun.started_at.desc())
+            .limit(1)
+        ).first()
+        if previous and (started - previous.started_at).total_seconds() < minimum_minutes * 60:
+            record_event(
+                session,
+                "source.cached",
+                "Provider refresh window is not due; using saved jobs.",
+                entity_type="source",
+                entity_id=source.id,
+            )
+            session.commit()
+            return RunSummary(source.id, source.display_name, "skipped")
+    adapter = ADAPTERS[source.source_type]
     run = SourceRun(source_id=source.id, started_at=started)
     session.add(run)
     session.flush()
@@ -308,7 +326,11 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
         elif outcome == "updated":
             run.updated_count += 1
 
-    run.closed_count = _close_unseen(session, source, seen, now)
+    run.closed_count = (
+        0
+        if source.source_type in ("remotive", "jobicy", "manual")
+        else _close_unseen(session, source, seen, now)
+    )
     run.status = "partial" if run.invalid_count else "success"
     run.error_summary = "; ".join(errors) or None
     run.finished_at = utcnow()

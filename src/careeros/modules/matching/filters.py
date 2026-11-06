@@ -332,6 +332,7 @@ _NON_US = (
     "emea",
     "apac",
     "latam",
+    "luxembourg",
 )
 
 

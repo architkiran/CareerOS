@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
-from careeros.db.models import Company, Evidence, Job, JobSourceRecord, ResearchItem
+from careeros.db.models import Company, Evidence, Job, JobSourceRecord, ResearchItem, Source
 from careeros.modules.events.service import record_event
 from careeros.modules.matching.filters import authorization_claims
 
@@ -110,6 +110,15 @@ def open_research(session: Session, job_id: str) -> ResearchItem:
     session.add(item)
     session.flush()
     url = _job_source_url(session, job.id) or job.canonical_url
+    provenance = session.scalar(
+        select(Source.source_type)
+        .join(JobSourceRecord)
+        .where(JobSourceRecord.job_id == job.id)
+        .limit(1)
+    )
+    source_kind = (
+        "third_party" if provenance in ("manual", "remotive", "jobicy") else "official_posting"
+    )
     claims = authorization_claims(job.description_text)
     for claim, quote in claims:
         session.add(
@@ -119,7 +128,7 @@ def open_research(session: Session, job_id: str) -> ResearchItem:
                 job_id=job.id,
                 claim_type=claim,
                 claim_text=f"Job posting: {CLAIM_LABELS[claim].lower()}",
-                source_kind="official_posting",
+                source_kind=source_kind,
                 source_url=url,
                 source_title=job.title,
                 confidence="high",

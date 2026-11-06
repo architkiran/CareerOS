@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v3"  # v3: stale employer evidence cannot establish current policy
+ALGORITHM_VERSION = "match-v4"  # v4: distinguish clinical consulting and Luxembourg locations
 
 
 @dataclass(frozen=True)

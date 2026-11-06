@@ -24,6 +24,7 @@ from careeros.web.routes import (
     approvals,
     companies,
     events,
+    intake,
     interviews,
     jobs,
     market,
@@ -96,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
     app.middleware("http")(csrf_middleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.include_router(intake.router)
     app.include_router(system.router)
     app.include_router(agents.router)
     app.include_router(profile.router)
