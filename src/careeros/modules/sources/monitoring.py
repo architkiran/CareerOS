@@ -41,6 +41,8 @@ def coverage(session: Session, now: datetime | None = None) -> list[MonitorSourc
             if source.last_error
             else "Checking"
             if run and run.finished_at is None
+            else "Some items rejected"
+            if run and run.status == "partial"
             else "Due now"
             if due <= now
             else "Scheduled"
