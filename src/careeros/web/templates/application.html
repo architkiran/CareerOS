@@ -13,7 +13,7 @@
   <p class="muted">The master PDF uses your supplied LaTeX layout. The legacy Word template does not preserve the exact layout of your master PDF. Compare your <a href="/resumes">role-family resume references</a> before using a generated file.</p>
   {% if a.status in ('preparing','ready') %}<form method="post" action="/applications/{{ a.id }}/resume-pdf" class="actions">{{ csrf() }}<label>Projects <select name="project_limit"><option>2</option><option selected>3</option><option>4</option></select></label><label>Experiences <select name="experience_limit"><option selected>2</option><option>3</option></select></label><button>Prepare master-layout PDF</button></form>{% endif %}
   <div class="actions">
-    {% if a.status in ('preparing', 'ready') %}<form method="post" action="/applications/{{ a.id }}/prepare" class="inline">{{ csrf() }}<button>Prepare both template drafts with agent</button></form>{% endif %}
+    {% if a.status in ('preparing', 'ready') %}<form method="post" action="/applications/{{ a.id }}/prepare" class="inline">{{ csrf() }}<button>Prepare application drafts with agent</button></form>{% endif %}
     {% for t in ['resume', 'cover_letter'] %}
     <form method="post" action="/applications/{{ a.id }}/documents" class="inline">{{ csrf() }}<input type="hidden" name="document_type" value="{{ t }}"><button>{{ 'Regenerate' if docs[t] else 'Generate' }} {{ labels[t].lower() }}</button></form>
     {% endfor %}
