@@ -93,3 +93,47 @@ def test_public_board_rejects_replaced_attribution_url():
     }
     with pytest.raises(InvalidPayloadError, match="original board URL"):
         RemotiveAdapter().normalize(raw, "Remotive")
+
+
+def test_interrupted_ingestion_rolls_back_current_chunk_and_marks_health_failed(app, monkeypatch):  # type: ignore[no-untyped-def]
+    from sqlalchemy import func, select
+
+    from careeros.db.models import Job, Source, SourceRun
+    from careeros.modules.ingestion import service
+
+    factory = app.state.session_factory
+    with factory() as s:
+        source = add_source(s, SourceIn(type="greenhouse", token="chunks", name="Chunks"))
+        s.commit()
+        source_id = source.id
+
+    class Feed:
+        def get_json(self, *args, **kwargs):
+            return {
+                "jobs": [
+                    {
+                        "id": i,
+                        "title": "Data Analyst",
+                        "absolute_url": f"https://example.com/{i}",
+                        "content": "SQL analytics",
+                        "location": {"name": "Boston"},
+                    }
+                    for i in range(1, 121)
+                ]
+            }, 200
+
+    original = service.upsert_job
+
+    def interrupted(session, source, job, now):
+        if job.external_id == "101":
+            raise RuntimeError("Interrupted batch")
+        return original(session, source, job, now)
+
+    monkeypatch.setattr(service, "upsert_job", interrupted)
+    assert service.run_all(factory, Feed())[0].status == "failed"
+    with factory() as s:
+        # Batch 1 is durable; rows in the interrupted second transaction are not.
+        assert s.scalar(select(func.count(Job.id))) == 99
+        run = s.scalar(select(SourceRun))
+        assert run.status == "failed" and run.finished_at is not None
+        assert s.get(Source, source_id).last_error

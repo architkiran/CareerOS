@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
@@ -283,6 +283,10 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
         session.commit()
         return RunSummary(source.id, source.display_name, "failed", error=str(err))
 
+    # Reserve the writer before any normalization/upsert reads. Explicitly
+    # beginning the parent transaction also prevents sqlite legacy savepoints
+    # from committing individual rows when their outer transaction is implicit.
+    session.execute(text("BEGIN IMMEDIATE"))
     now = utcnow()
     run.http_status = status
     run.fetched_count = len(raw_items)
@@ -292,6 +296,7 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
     for i, raw in enumerate(raw_items, start=1):
         if i % 100 == 0:
             session.commit()  # keep write transactions short so the dashboard stays responsive
+            session.execute(text("BEGIN IMMEDIATE"))
         raw_id = raw.get("id")
         if raw_id is not None:
             seen.add(str(raw_id))
@@ -388,6 +393,21 @@ def run_all(
             except Exception as exc:  # isolate truly unexpected bugs per source
                 logger.exception("Unexpected error ingesting source %s", sid)
                 session.rollback()
+                refreshed_source = session.get(Source, sid)
+                unfinished = session.scalar(
+                    select(SourceRun)
+                    .where(SourceRun.source_id == sid, SourceRun.finished_at.is_(None))
+                    .order_by(SourceRun.started_at.desc())
+                    .limit(1)
+                )
+                if refreshed_source is not None and unfinished is not None:
+                    _fail(
+                        session,
+                        refreshed_source,
+                        unfinished,
+                        FetchError(f"Unexpected ingestion error: {type(exc).__name__}"),
+                        utcnow(),
+                    )
                 results.append(
                     RunSummary(
                         sid,
