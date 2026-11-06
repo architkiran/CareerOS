@@ -1,0 +1,205 @@
+"""A revision is explicit user choices and edits, never a change to master facts."""
+
+import re
+from dataclasses import replace
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from careeros.modules.documents.content import (
+    Candidate,
+    Claim,
+    DocumentContent,
+    experience_paragraphs,
+    internal_note,
+)
+from careeros.modules.documents.tailoring import relevance, terms
+
+
+class Choices(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_refs: list[str] = Field(default_factory=list, max_length=20)
+    experience_refs: list[str] = Field(default_factory=list, max_length=20)
+    skills: list[str] = Field(default_factory=list, max_length=100)
+    summary: str = Field(default="", max_length=2000)
+    experience_edits: dict[str, str] = Field(default_factory=dict, max_length=20)
+    feedback: str = Field(default="", max_length=3000)
+
+
+def selected_candidate(candidate: Candidate, choices: Choices) -> Candidate:
+    projects = {p.ref for p in candidate.projects}
+    experiences = {e.ref for e in candidate.experience}
+    skills = {s.text for s in candidate.skills}
+    if (
+        not set(choices.project_refs) <= projects
+        or not set(choices.experience_refs) <= experiences
+        or not set(choices.skills) <= skills
+    ):
+        raise ValueError("Selections must refer to verified profile evidence.")
+    if not choices.experience_refs and experiences:
+        raise ValueError(
+            "Keep at least one experience. Excluding every role would lose your work history."
+        )
+    if not choices.project_refs and projects:
+        raise ValueError("Choose at least one project from your verified library.")
+    return replace(
+        candidate,
+        projects=tuple(p for p in candidate.projects if p.ref in choices.project_refs),
+        experience=tuple(e for e in candidate.experience if e.ref in choices.experience_refs),
+        skills=tuple(s for s in candidate.skills if s.text in choices.skills),
+    )
+
+
+_CONNECTORS = set(
+    [
+        "a",
+        "an",
+        "to",
+        "in",
+        "on",
+        "at",
+        "of",
+        "by",
+        "as",
+        "for",
+        "and",
+        "or",
+        "with",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "i",
+        "my",
+        "me",
+        "using",
+        "use",
+        "used",
+        "building",
+        "built",
+        "develop",
+        "developed",
+        "creating",
+        "created",
+        "experienced",
+        "experience",
+        "background",
+        "work",
+        "working",
+        "focused",
+        "focus",
+        "includes",
+        "include",
+        "professional",
+        "analyst",
+        "engineer",
+        "data",
+        "engineering",
+        "analysis",
+        "analytics",
+        "specialist",
+    ]
+)
+
+
+def validate_edit(text: str, evidence: str) -> None:
+    if internal_note(text):
+        raise ValueError("Editing instructions belong in feedback, not in the resume.")
+    # Reject factual additions rather than trusting a fluent paraphrase. Existing
+    # numeric and ownership QA independently checks the saved claims as well.
+    words = terms(text) - terms(evidence) - _CONNECTORS
+    numbers = set(re.findall(r"\d[\d,.]*%?", text)) - set(re.findall(r"\d[\d,.]*%?", evidence))
+    if words or numbers:
+        raise ValueError(
+            "This edit adds unverified detail. Verify new facts in your profile first. "
+            "Unmatched text: " + ", ".join(sorted(words | numbers)[:8])
+        )
+
+
+def apply_edits(content: DocumentContent, candidate: Candidate, choices: Choices) -> None:
+    all_evidence = "\n".join(
+        x.text + " " + " ".join(x.skills)
+        for group in (
+            candidate.education,
+            candidate.other_facts,
+            candidate.experience,
+            candidate.projects,
+            candidate.skills,
+        )
+        for x in group
+    )
+    refs = [
+        x.ref
+        for group in (
+            candidate.education,
+            candidate.other_facts,
+            candidate.experience,
+            candidate.projects,
+            candidate.skills,
+        )
+        for x in group
+    ]
+    if choices.summary.strip():
+        validate_edit(choices.summary, all_evidence)
+        content.sections = [
+            (
+                name,
+                [Claim("Summary", choices.summary.strip(), refs)] if name == "Summary" else claims,
+            )
+            for name, claims in content.sections
+        ]
+        if not any(name == "Summary" for name, _ in content.sections):
+            content.sections.insert(
+                0, ("Summary", [Claim("Summary", choices.summary.strip(), refs)])
+            )
+    for ref, text in choices.experience_edits.items():
+        exp = next((e for e in candidate.experience if e.ref == ref), None)
+        if exp is None:
+            raise ValueError("An experience edit must refer to a selected verified role.")
+        paragraphs = experience_paragraphs(text)
+        if not paragraphs:
+            raise ValueError("An included experience cannot have an empty description.")
+        validate_edit(text, exp.text)
+        for name, claims in content.sections:
+            if name == "Experience":
+                positions = [i for i, c in enumerate(claims) if c.refs == [ref]]
+                if positions:
+                    head = claims[positions[0]]
+                    claims[:] = [c for c in claims if c.refs != [ref]]
+                    claims[positions[0] : positions[0]] = [
+                        head,
+                        *[Claim("Experience", p, [ref]) for p in paragraphs],
+                    ]
+    content.context["feedback"] = choices.feedback
+    content.context["editor"] = "evidence-workbench-v1"
+    content.context["choices"] = choices.model_dump_json()
+
+
+def inventory(candidate: Candidate, job_text: str) -> list[dict[str, object]]:
+    return [
+        {
+            "ref": p.ref,
+            "name": p.text.split("|")[0],
+            "score": relevance(p, job_text),
+            "text": p.text.replace("|", "\n"),
+            "technologies": p.skills,
+        }
+        for p in sorted(candidate.projects, key=lambda p: (-relevance(p, job_text), p.ref))
+    ]
+
+
+def recommended_skills(candidate: Candidate, project_refs: list[str], job_text: str) -> list[str]:
+    """Known JD skills plus skills actually stated in the selected project evidence."""
+    from careeros.modules.matching.text import contains_term
+
+    project_tools = " ".join(
+        " ".join(p.skills) for p in candidate.projects if p.ref in project_refs
+    )
+    core = {"python", "sql", "excel", "tableau", "power bi", "pandas", "duckdb"}
+    return [
+        s.text
+        for s in candidate.skills
+        if contains_term(job_text, s.text)
+        or contains_term(project_tools, s.text)
+        or (contains_term(job_text, "analyst") and s.text.lower() in core)
+    ]

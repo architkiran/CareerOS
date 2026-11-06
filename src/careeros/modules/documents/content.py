@@ -159,8 +159,34 @@ def build_resume(
     matched = [s for s in skills if contains_term(job_low, s.text)]
     sections: list[tuple[str, list[Claim]]] = []
 
+    links = [f.text for f in c.other_facts if f.text.startswith("https://")]
+    if links:
+        header.append(" | ".join(link.removeprefix("https://") for link in links))
     summary: list[Claim] = []
-    if c.education:
+    master_summary = next((f for f in c.other_facts if f.kind == "master_summary"), None)
+    if master_summary:
+        if matched:
+            focus = matched[:5]
+            text = "Data professional working with " + ", ".join(s.text for s in focus) + "."
+            refs = [master_summary.ref, *[s.ref for s in focus]]
+            evidence = [
+                (e, line)
+                for e in c.experience
+                for line in experience_paragraphs(e.text.split("|", 2)[-1])
+            ]
+            if evidence:
+                from careeros.modules.documents.tailoring import terms
+
+                item, line = max(evidence, key=lambda pair: len(terms(pair[1]) & terms(job_low)))
+                text += " " + line
+                refs.append(item.ref)
+            if c.education:
+                text += " " + c.education[0].text.replace(" | ", ", ") + "."
+                refs.append(c.education[0].ref)
+            summary.append(Claim("Summary", text, refs))
+        else:
+            summary.append(Claim("Summary", master_summary.text, [master_summary.ref]))
+    elif c.education:
         edu = c.education[0]
         focus = matched[:4] or skills[:4]
         text = edu.text
@@ -190,13 +216,13 @@ def build_resume(
         for line in sorted(
             experience_paragraphs(desc),
             key=lambda text: -len(set(text.lower().split()) & set(job_low.split())),
-        )[:3]:
+        ):
             if line:
                 exp_claims.append(Claim("Experience", line, [e.ref]))
     if exp_claims:
         sections.append(("Experience", exp_claims))
     proj_claims: list[Claim] = []
-    ranked = sorted(c.projects, key=lambda p: (-_relevance(p, job_low), p.ref))[:4]
+    ranked = sorted(c.projects, key=lambda p: (-_relevance(p, job_low), p.ref))
     for p in ranked:
         name, desc, outcomes = (p.text.split("|", 2) + ["", ""])[:3]
         tech = f" ({', '.join(p.skills)})" if p.skills else ""

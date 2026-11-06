@@ -37,7 +37,11 @@ _STOP = frozenset(
 
 
 def terms(text: str) -> set[str]:
-    return {t for t in re.findall(r"[a-z][a-z0-9+#.-]{1,}", text.lower()) if t not in _STOP}
+    return {
+        t.rstrip(".-")
+        for t in re.findall(r"[a-z][a-z0-9+#.-]{1,}", text.lower())
+        if t.rstrip(".-") not in _STOP
+    }
 
 
 def relevance(item: SourceItem, description: str) -> int:
@@ -46,6 +50,14 @@ def relevance(item: SourceItem, description: str) -> int:
     score = 5 * sum(contains_term(description, skill) for skill in item.skills) + len(
         terms(item.text) & advertised
     )
+    if contains_term(description, "analyst"):
+        title = item.text.split("|", 1)[0]
+        if any(contains_term(title, term) for term in ("dashboard", "intelligence")):
+            score += 14
+        elif contains_term(title, "analytics"):
+            score += 8
+        if any(contains_term(title, term) for term in ("pipeline", "platform")):
+            score = max(1, score - 7) if score > 0 else 0
     # A completed project is stronger application evidence than a proposed or
     # unfinished one with the same technologies. Its stated status is preserved.
     if re.search(r"\b(?:in progress|planned|not yet completed)\b", item.text, re.I):
@@ -71,8 +83,8 @@ def plan(
     candidate: Candidate,
     title: str,
     description: str,
-    project_limit: int = 3,
-    experience_limit: int = 2,
+    project_limit: int = 4,
+    experience_limit: int = 20,
 ) -> TailoringReport:
     target = title + "\n" + description
     projects = sorted(candidate.projects, key=lambda p: (-relevance(p, target), p.ref))[
@@ -87,7 +99,7 @@ def plan(
         ),
     )[:experience_limit]
     return TailoringReport(
-        "verified-selection-v3",
+        "verified-selection-v4",
         title,
         [
             s.text

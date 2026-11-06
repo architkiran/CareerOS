@@ -29,6 +29,12 @@ from careeros.modules.documents.content import (
 )
 from careeros.modules.documents.qa import Finding, run_qa, status_for
 from careeros.modules.documents.render import render_docx
+from careeros.modules.documents.workbench import (
+    Choices,
+    apply_edits,
+    recommended_skills,
+    selected_candidate,
+)
 from careeros.modules.events.service import record_event
 from careeros.modules.profile import service as profile_service
 from careeros.modules.sources.text import sha256
@@ -69,7 +75,11 @@ def load_candidate(session: Session) -> Candidate:
             if f.verified_status == v and f.category == "education"
         ),
         other_facts=tuple(
-            SourceItem(f"fact:{f.id}", "fact", f.fact_value)
+            SourceItem(
+                f"fact:{f.id}",
+                "master_summary" if f.fact_key == "Master professional summary" else "fact",
+                f.fact_value,
+            )
             for f in facts
             if f.verified_status == v and f.category != "education"
         ),
@@ -126,8 +136,9 @@ def generate(
     data_dir: Path,
     *,
     render_format: Literal["docx", "pdf"] = "docx",
-    project_limit: int = 3,
-    experience_limit: int = 2,
+    project_limit: int = 4,
+    experience_limit: int = 20,
+    choices: Choices | None = None,
 ) -> Document:
     """Create a new immutable version. Returns the existing latest one if nothing changed."""
     if doc_type not in DOC_LABELS:
@@ -142,9 +153,31 @@ def generate(
     lane = session.get(RoleLane, app.role_lane_id) if app.role_lane_id else None
     lane_name = lane.name if lane else "General"
     candidate = load_candidate(session)
+    original_candidate = candidate
+    if doc_type == "resume" and choices is None:
+        from dataclasses import replace
+
+        from careeros.modules.documents.tailoring import plan
+
+        planned = plan(candidate, job.title, job.description_text, project_limit, experience_limit)
+        wanted = recommended_skills(
+            candidate,
+            [ref for ref in planned.source_refs if ref.startswith("project:")],
+            job.title + " " + job.description_text,
+        )
+        candidate = replace(
+            candidate, skills=tuple(s for s in candidate.skills if s.text in wanted)
+        )
+    if choices is not None:
+        try:
+            candidate = selected_candidate(candidate, choices)
+        except ValueError as exc:
+            raise DocumentError(str(exc)) from exc
+        project_limit = max(1, len(candidate.projects))
+        experience_limit = max(1, len(candidate.experience))
     builder = build_resume if doc_type == "resume" else build_cover_letter
     content = builder(candidate, job.title, company.canonical_name, job.description_text, lane_name)
-    content.context["qa_version"] = "qa-v3"
+    content.context["qa_version"] = "qa-v4-coverage"
     if doc_type == "resume":
         from careeros.modules.documents.tailoring import plan, report_dict
 
@@ -160,8 +193,8 @@ def generate(
                     if all(ref in tailoring.source_refs for ref in claim.refs)
                 ]
     if render_format == "pdf":
-        if doc_type != "resume" or project_limit not in (2, 3, 4) or experience_limit not in (2, 3):
-            raise DocumentError("Choose a resume with 2–4 projects and 2–3 experiences.")
+        if doc_type != "resume" or not 1 <= project_limit <= 20 or not 1 <= experience_limit <= 20:
+            raise DocumentError("Choose a resume with 1–20 projects and experiences.")
         from careeros.modules.documents import latex
 
         for section, limit in (("Projects", project_limit), ("Experience", experience_limit)):
@@ -171,7 +204,19 @@ def generate(
                     claims[:] = [c for c in claims if tuple(c.refs) in refs]
         content.context.update(renderer="master-latex-v1", layout_hash=latex.layout_hash())
         content.context["tex_hash"] = sha256(latex.source(content))
+    if choices is not None:
+        try:
+            apply_edits(content, candidate, choices)
+        except ValueError as exc:
+            raise DocumentError(str(exc)) from exc
+    # Edits change the rendered source; approval hashes always cover final text.
+    if render_format == "pdf":
+        content.context["tex_hash"] = sha256(latex.source(content))
     findings = run_qa(content, candidate, utcnow().date())
+    if doc_type == "resume":
+        from careeros.modules.documents.coverage import coverage_findings
+
+        findings.extend(coverage_findings(content, original_candidate))
     payload = json.dumps(content.to_dict(), sort_keys=True)
     content_hash = sha256(payload)
 

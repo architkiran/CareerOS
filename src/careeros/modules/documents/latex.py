@@ -51,7 +51,7 @@ def source(content: DocumentContent) -> str:
     lines = [PREAMBLE.read_text(), r"\begin{document}", r"\begin{center}"]
     if content.header:
         lines.append(r"{\LARGE\bfseries " + escape(content.header[0].upper()) + r"}\\[3pt]")
-        lines += [escape(line) for line in content.header[1:]]
+        lines += [escape(line) + r"\\[1pt]" for line in content.header[1:]]
     lines.append(r"\end{center}")
     sections = dict(content.sections)
     labels = {
@@ -66,14 +66,82 @@ def source(content: DocumentContent) -> str:
         if not claims:
             continue
         lines.append(r"\section{" + labels[key] + "}")
-        if key in ("Summary", "Education"):
+        if key == "Summary":
             lines.extend(escape(claim.text) + r"\par" for claim in claims)
+        elif key == "Education":
+            for claim in claims:
+                match = re.match(r"(.*) \(([^()]+ -- [^()]+)\)$", claim.text)
+                if match:
+                    left, dates = match.groups()
+                    institution, separator, detail = left.partition(", ")
+                    lines.append(
+                        r"\entry{\textbf{"
+                        + escape(institution)
+                        + "}"
+                        + escape(separator + detail)
+                        + "}{"
+                        + escape(dates)
+                        + "}"
+                    )
+                else:
+                    lines.append(escape(claim.text) + r"\par")
         elif key == "Skills":
-            lines += (
-                [r"\begin{itemize}"]
-                + [r"\item " + escape(c.text) for c in claims]
-                + [r"\end{itemize}"]
-            )
+            groups: dict[str, list[str]] = {}
+            for skill in [v.strip() for c in claims for v in c.text.split(",") if v.strip()]:
+                low = skill.lower()
+                label = (
+                    "Languages & Frameworks"
+                    if low
+                    in {
+                        "python",
+                        "sql",
+                        "pandas",
+                        "pyspark",
+                        "dbt",
+                        "fastapi",
+                        "flask",
+                        "scikit-learn",
+                        "pytest",
+                        "scala",
+                        "java",
+                        "r",
+                        "typescript",
+                        "sqlalchemy",
+                    }
+                    else "Cloud"
+                    if low
+                    in {
+                        "aws",
+                        "gcp",
+                        "s3",
+                        "lambda",
+                        "step functions",
+                        "glue",
+                        "kinesis",
+                        "athena",
+                        "iam",
+                        "bigquery",
+                        "vertex ai",
+                    }
+                    else "DevOps & Streaming"
+                    if low
+                    in {
+                        "kafka",
+                        "docker",
+                        "kubernetes",
+                        "terraform",
+                        "ci/cd",
+                        "github actions",
+                        "prometheus",
+                        "grafana",
+                    }
+                    else "Data & BI"
+                )
+                groups.setdefault(label, []).append(skill)
+            lines.append(r"\begin{itemize}")
+            for label, values in groups.items():
+                lines.append(r"\item \textbf{" + escape(label) + ":} " + escape(", ".join(values)))
+            lines.append(r"\end{itemize}")
         else:
             current: tuple[str, ...] | None = None
             for claim in claims:
