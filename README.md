@@ -45,8 +45,9 @@ The audit, implementation limits and next stages are in
 [the CareerOS 2.0 audit](docs/CAREEROS_2_AUDIT.md) and
 [orchestration architecture](docs/AGENT_ORCHESTRATION.md).
 Career intelligence now explores evidence-backed themes within configured feeds;
-broader web/industry research, interview coaching and exact master-resume template
-preservation remain future milestones. Existing generic document generation remains
+broader web/industry research, conversational coaching and exact master-resume
+template preservation remain future milestones. On-demand interview practice is
+now available, with its limits described below. Existing generic document generation remains
 available, with its verified-fact and QA gates.
 
 ## First run
@@ -346,3 +347,13 @@ can set a longer minimum gap and request delay. The Sources page also distinguis
 configured feeds from target employers that still need official careers-page
 research. Preferred-company labels never verify sponsorship. Scheduling remains
 off until explicitly enabled.
+
+
+## Interview practice
+
+Use **Prepare interview practice** on a job, or open `/interviews`. The on-demand
+specialist prepares posting-specific questions and verified-project discussion
+prompts, with private answers, checklists and self-assessed confidence. It runs
+through durable missions and links to the exact saved plan. No answer becomes a
+verified profile fact, no application status changes, and nothing is sent out.
+See [interview practice behavior and limits](docs/INTERVIEW_PRACTICE.md).

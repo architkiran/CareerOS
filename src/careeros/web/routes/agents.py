@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from careeros.common.clock import utcnow
 from careeros.db.models import AgentAttempt, AgentDependency, AgentRun, Mission, Source, Task
 from careeros.modules.agents import service
-from careeros.modules.agents.registry import AGENTS, BY_KEY, PLANNED
+from careeros.modules.agents.registry import AGENTS, BY_KEY, ON_DEMAND_AGENTS, PLANNED
 from careeros.modules.backup.service import latest_backup
 from careeros.modules.events.service import latest_events
 from careeros.modules.jobs.service import recent_jobs
@@ -48,7 +48,9 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
     if not status.schema.up_to_date:
         return ctx
     missions = list(session.scalars(select(Mission).order_by(Mission.created_at.desc()).limit(20)))
-    current = service.active_mission(session) or (missions[0] if missions else None)
+    current = service.active_mission(session) or next(
+        (m for m in missions if m.workflow == "career-review"), None
+    )
     runs = service.runs_for(session, current.id) if current else []
     by_key = {run.agent_key: run for run in runs}
     events = latest_events(session)
@@ -70,6 +72,19 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         "runs": runs,
         "completed": sum(run.status == "succeeded" for run in runs),
         "cards": [(spec, by_key.get(spec.key)) for spec in AGENTS],
+        "extra_cards": [
+            (
+                spec,
+                session.scalars(
+                    select(AgentRun)
+                    .join(Mission)
+                    .where(AgentRun.agent_key == spec.key)
+                    .order_by(Mission.created_at.desc())
+                    .limit(1)
+                ).first(),
+            )
+            for spec in ON_DEMAND_AGENTS
+        ],
         "ov": build_overview(session, state.settings),
         "events": events,
         "cursor": events[0].id if events else 0,

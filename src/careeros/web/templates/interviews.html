@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Interview practice · CareerOS{% endblock %}
+{% block content %}
+<header class="mc-header"><div><p class="eyebrow">Prepare with evidence</p><h1>Interview practice</h1><p class="muted">Role-specific questions, verified project references, and private reflection.</p></div><a href="/jobs">Choose an opportunity ↗</a></header>
+<section class="mc-panel"><h2>Prepare for a saved opportunity</h2><p class="muted">Shortlisted roles and active application workspaces appear here. Preparation does not submit an application, confirm eligibility or change your profile.</p>{% for job, company in jobs %}<article class="mc-opportunity"><div><h3><a href="/jobs/{{ job.id }}">{{ job.title }}</a></h3><p class="muted">{{ company }}</p></div><form method="post" action="/interviews/prepare/{{ job.id }}">{{ csrf() }}<button class="secondary">Prepare practice</button></form></article>{% else %}<p class="empty">Shortlist an opportunity or use Prepare interview on its job page.</p>{% endfor %}</section>
+<section class="mc-panel"><h2>Your practice history</h2>{% for plan, prep in plans %}<a class="mc-history-row" href="/interviews/{{ plan.id }}"><div><strong>{{ prep.job_title }}</strong><span>{{ prep.company }} · {{ plan.created_at|localtime }} · {{ prep.questions|length }} questions</span></div><span class="state">{{ plan.status }}</span></a>{% else %}<p class="muted">No practice plans yet. Your private answers and feedback will stay attached to the plan you use.</p>{% endfor %}</section>
+{% endblock %}

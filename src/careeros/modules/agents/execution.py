@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
 from careeros.db.models import AgentRun, Approval, Job, Mission, Source
-from careeros.modules.agents.contracts import AgentExecutionError, AgentOutput, AgentTaskInput
+from careeros.modules.agents.contracts import (
+    AgentExecutionError,
+    AgentOutput,
+    AgentTaskInput,
+    ArtifactRef,
+)
 from careeros.modules.agents.registry import SUPPORTED_VERSIONS
 from careeros.modules.analytics.service import compute
 from careeros.modules.ingestion.service import run_all
@@ -85,7 +90,25 @@ def execute(
             warnings=warnings,
         ).model_dump()
     with factory() as session:
-        output = _local_step(session, key)
+        if key == "interview":
+            from careeros.modules.interviews.contracts import Preparation
+            from careeros.modules.interviews.service import prepare_plan
+
+            if inputs.job_id is None:
+                raise AgentExecutionError("Interview preparation needs a saved job.")
+            plan = prepare_plan(session, inputs.job_id)
+            content = Preparation.model_validate(plan.content_json)
+            output = AgentOutput(
+                summary=f"Prepared {len(content.questions)} role-specific practice questions.",
+                metrics={
+                    "questions": len(content.questions),
+                    "verified_skill_overlap": len(content.verified_skill_overlap),
+                },
+                artifacts=[ArtifactRef(kind="interview_plan", id=plan.id)],
+                warnings=content.warnings,
+            )
+        else:
+            output = _local_step(session, key)
         session.commit()
         return output.model_dump()
 
@@ -108,6 +131,7 @@ def _local_step(session: Session, key: str) -> AgentOutput:
             warnings=[
                 w for w in report.warnings if not w.startswith("No evidence-backed role themes")
             ],
+            artifacts=[ArtifactRef(kind="market_brief", id=brief.id)],
         )
     if key == "matching":
         result = score_jobs(session, commit_every=25)

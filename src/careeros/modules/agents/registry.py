@@ -21,6 +21,11 @@ class AgentSpec:
         return {
             "discovery": ("Read configured public ATS feeds", "Normalize and persist jobs"),
             "matching": ("Read verified profile and lanes", "Write explainable job scores"),
+            "interview": (
+                "Read saved posting requirements",
+                "Read verified project references",
+                "Prepare private practice questions",
+            ),
             "market": (
                 "Read saved public postings",
                 "Read verified skills",
@@ -70,12 +75,19 @@ AGENTS = (
         ("analytics",),
     ),
 )
-BY_KEY = {agent.key: agent for agent in AGENTS}
+ON_DEMAND_AGENTS = (
+    AgentSpec(
+        "interview",
+        "Interview practice",
+        "Prepare role-specific questions grounded in verified project evidence.",
+        "/interviews",
+    ),
+)
+BY_KEY = {agent.key: agent for agent in (*AGENTS, *ON_DEMAND_AGENTS)}
 
 # These are product gaps, not runnable placeholders.
 PLANNED = (
     ("Resume specialist", "Exact master resume format preservation"),
     ("Application preparation", "Coordinated document preparation and approval handoff"),
     ("Recruiter intelligence", "Evidence-backed recruiter discovery and networking drafts"),
-    ("Interview coach", "Personalized practice and feedback"),
 )

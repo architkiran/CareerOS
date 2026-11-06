@@ -17,5 +17,10 @@ def build_templates(display_timezone: str) -> Jinja2Templates:
             return "never"
         return value.astimezone(tz).strftime("%Y-%m-%d %H:%M %Z")
 
+    from careeros.modules.agents.contracts import ArtifactRef
+    from careeros.modules.agents.service import mission_label
+
+    templates.env.globals["mission_label"] = mission_label
+    templates.env.globals["artifact_href"] = lambda item: ArtifactRef.model_validate(item).href
     templates.env.filters["localtime"] = localtime
     return templates

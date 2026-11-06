@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
-from careeros.db.models import AgentAttempt, AgentDependency, AgentRun, Mission, Task
+from careeros.db.models import AgentAttempt, AgentDependency, AgentRun, Job, Mission, Task
 from careeros.modules.agents.contracts import AgentOutput
 from careeros.modules.agents.registry import AGENTS, BY_KEY, TASK_TYPE, VERSION, WORKFLOW
 from careeros.modules.events.service import record_event
@@ -35,6 +35,10 @@ def active_mission(session: Session) -> Mission | None:
     return session.scalars(
         select(Mission).where(Mission.workflow == WORKFLOW, Mission.status.in_(ACTIVE))
     ).first()
+
+
+def mission_label(mission: Mission) -> str:
+    return "Interview preparation" if mission.workflow.startswith("interview:") else "Career review"
 
 
 def _event(session: Session, mission: Mission, kind: str, message: str) -> None:
@@ -125,9 +129,9 @@ def _advance(session: Session, mission: Mission) -> None:
             mission,
             "completed",
             (
-                "Career review completed with items needing attention."
+                f"{mission_label(mission)} completed with items needing attention."
                 if has_warnings
-                else "Career review completed. Your results are ready."
+                else f"{mission_label(mission)} completed. Your results are ready."
             ),
         )
 
@@ -219,9 +223,12 @@ def retry_run(session: Session, run_id: str) -> None:
     if run.status != "failed" or not run.task_id or mission.status != "failed":
         raise MissionConflict("Only a failed step in a failed mission can be retried.")
     # Acquire the active-workflow slot before touching the old task.
-    other = active_mission(session)
+    other = session.scalars(
+        select(Mission).where(Mission.workflow == mission.workflow, Mission.status.in_(ACTIVE))
+    ).first()
     if other is not None:
-        raise MissionConflict("Finish or cancel the active career review before retrying this one.")
+        label = mission_label(mission).lower()
+        raise MissionConflict(f"Finish or cancel the active {label} before retrying this one.")
     try:
         with session.begin_nested():
             mission.status, mission.finished_at = "running", None
@@ -288,3 +295,42 @@ def maybe_schedule(session: Session, hours: float, now: datetime | None = None) 
         set_setting(session, LAST_SCHEDULED_KEY, now.isoformat())
     session.commit()
     return created
+
+
+def start_interview_mission(session: Session, job_id: str) -> tuple[Mission, bool]:
+    """One on-demand interview preparation at a time per job; no application side effects."""
+    _write_lock(session)
+    if session.get(Job, job_id) is None:
+        raise LookupError("Job not found")
+    workflow = f"interview:{job_id}"
+    existing = session.scalars(
+        select(Mission).where(Mission.workflow == workflow, Mission.status.in_(ACTIVE))
+    ).first()
+    if existing:
+        return existing, False
+    mission = Mission(workflow=workflow, version=VERSION, trigger="manual")
+    try:
+        with session.begin_nested():
+            session.add(mission)
+            session.flush()
+    except IntegrityError:
+        return session.scalars(
+            select(Mission).where(Mission.workflow == workflow, Mission.status.in_(ACTIVE))
+        ).one(), False
+    run = AgentRun(mission_id=mission.id, agent_key="interview", position=0)
+    session.add(run)
+    session.flush()
+    task, _ = queue.enqueue(
+        session,
+        TASK_TYPE,
+        {"agent_run_id": run.id, "job_id": job_id},
+        idempotency_key=f"agent:{run.id}",
+    )
+    run.task_id, run.status = task.id, "queued"
+    _event(
+        session,
+        mission,
+        "queued",
+        "Interview preparation queued. No application or message will be sent.",
+    )
+    return mission, True
