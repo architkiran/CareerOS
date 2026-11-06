@@ -50,6 +50,7 @@ def inbox(
     page: str | None = None,
     view: str = "all",
     selected: str | None = None,
+    published_minutes: str | None = None,
 ) -> HTMLResponse:
     # Browser forms send every field, empty ones included; treat blanks and junk as "not set".
     days_n = forms.bounded_int(days, 1, 365)
@@ -79,6 +80,7 @@ def inbox(
         sort=cast(Any, sort),
         page=page_n,
         recommended=view == "recommended",
+        published_minutes=forms.bounded_int(published_minutes, 1, 10080),
     )
     rows, total = jobs.list_jobs(session, filters)
     selected_detail = jobs.get_job_detail(session, selected or rows[0].job.id) if rows else None
@@ -91,6 +93,7 @@ def inbox(
         k: v
         for k, v in {
             "view": view,
+            "published_minutes": filters.published_minutes,
             "q": filters.q,
             "triage": triage,
             "status": status,

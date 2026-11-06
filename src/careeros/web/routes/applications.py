@@ -97,6 +97,8 @@ def start(job_id: str, session: SessionDep) -> Response:
         app = apps.start_application(session, job_id)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+    agents.start_support_mission(session, app.id, "evidence")
+    agents.start_support_mission(session, app.id, "networking")
     session.commit()
     return RedirectResponse(f"/applications/{app.id}", status_code=303)
 
@@ -145,8 +147,8 @@ async def generate_pdf(app_id: str, request: Request, session: SessionDep) -> Re
             "resume",
             Path(request.app.state.settings.data_dir),
             render_format="pdf",
-            project_limit=int(forms.text(form, "project_limit") or "3"),
-            experience_limit=int(forms.text(form, "experience_limit") or "2"),
+            project_limit=int(forms.text(form, "project_limit") or "4"),
+            experience_limit=int(forms.text(form, "experience_limit") or "20"),
         )
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
@@ -279,3 +281,28 @@ async def save_notes(app_id: str, request: Request, session: SessionDep) -> Resp
     app.notes = (forms.text(f, "notes") or "")[:5000] or None
     session.commit()
     return RedirectResponse(f"/applications/{app_id}", status_code=303)
+
+
+@router.post("/applications/{app_id}/networking")
+def prepare_networking(app_id: str, session: SessionDep) -> Response:
+    try:
+        agents.start_support_mission(session, app_id, "networking")
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    session.commit()
+    return RedirectResponse(f"/applications/{app_id}/workbench#people", 303)
+
+
+@router.get("/documents/{doc_id}/preview")
+def document_preview(doc_id: str, request: Request, session: SessionDep) -> FileResponse:
+    from careeros.modules.documents.preview import preview_path
+
+    document = session.get(Document, doc_id)
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    _doc_file(request, document)
+    try:
+        path = preview_path(document)
+    except docs.DocumentError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-store"})

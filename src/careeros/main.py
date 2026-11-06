@@ -33,6 +33,8 @@ from careeros.web.routes import (
     resumes,
     sources,
     system,
+    watch,
+    workbench,
 )
 from careeros.web.routes import (
     settings as settings_routes,
@@ -98,6 +100,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(csrf_middleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(intake.router)
+    app.include_router(workbench.router)
+    app.include_router(watch.router)
     app.include_router(system.router)
     app.include_router(agents.router)
     app.include_router(profile.router)
