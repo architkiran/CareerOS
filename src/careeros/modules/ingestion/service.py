@@ -241,7 +241,7 @@ def _fail(session: Session, source: Source, run: SourceRun, exc: FetchError, now
 def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary:
     """Fetch, normalize and persist one source. Commits; never raises fetch errors."""
     started = utcnow()
-    minimum_minutes = {"remotive": 360, "jobicy": 60}.get(source.source_type)
+    minimum_minutes = {"remotive": 360, "jobicy": 60, "wwr": 60}.get(source.source_type)
     if minimum_minutes:
         previous = session.scalars(
             select(SourceRun)
@@ -333,7 +333,7 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
 
     run.closed_count = (
         0
-        if source.source_type in ("remotive", "jobicy", "manual")
+        if source.source_type in ("remotive", "jobicy", "wwr", "manual")
         else _close_unseen(session, source, seen, now)
     )
     run.status = "partial" if run.invalid_count else "success"

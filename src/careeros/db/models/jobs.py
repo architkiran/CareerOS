@@ -14,7 +14,7 @@ from careeros.common.clock import utcnow
 from careeros.common.ids import new_id
 from careeros.db.base import Base, UTCDateTime
 
-SOURCE_TYPES = ("greenhouse", "lever", "ashby", "smartrecruiters", "remotive", "jobicy")
+SOURCE_TYPES = ("greenhouse", "lever", "ashby", "smartrecruiters", "remotive", "jobicy", "wwr")
 
 
 class Company(Base):

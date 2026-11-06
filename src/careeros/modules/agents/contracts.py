@@ -19,7 +19,15 @@ class AgentTaskInput(BaseModel):
 class ArtifactRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["market_brief", "interview_plan", "resume_reference", "document", "application"]
+    kind: Literal[
+        "market_brief",
+        "interview_plan",
+        "resume_reference",
+        "document",
+        "application",
+        "networking",
+        "evidence",
+    ]
     id: str = Field(pattern=r"^[0-9a-f]{32}$")
 
     @property
@@ -30,6 +38,8 @@ class ArtifactRef(BaseModel):
             "resume_reference": f"/resumes/{self.id}/download",
             "document": f"/documents/{self.id}/download",
             "application": f"/applications/{self.id}#documents",
+            "networking": f"/applications/{self.id}/workbench#people",
+            "evidence": f"/applications/{self.id}/workbench",
         }[self.kind]
 
 

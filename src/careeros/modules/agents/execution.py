@@ -44,10 +44,17 @@ def execute(
         if mission.status == "cancelled":
             raise AgentExecutionError("Mission cancelled before this step started.")
         key = run.agent_key
-        target = inputs.application_id if key == "application" else inputs.job_id
-        if key in ("application", "interview") and mission.workflow != f"{key}:{target}":
+        target = (
+            inputs.application_id
+            if key in ("application", "networking", "evidence")
+            else inputs.job_id
+        )
+        if (
+            key in ("application", "interview", "networking", "evidence")
+            and mission.workflow != f"{key}:{target}"
+        ):
             raise AgentExecutionError("The saved task target does not match its mission.")
-    if key == "discovery":
+    if key in ("discovery", "freshness"):
 
         def cancelled() -> bool:
             with factory() as check:
@@ -88,6 +95,13 @@ def execute(
             warnings.append("Some feeds failed. Results cover only feeds checked successfully.")
         if metrics["invalid_jobs"]:
             warnings.append("Some postings could not be normalized. Inspect source run details.")
+        if key == "freshness":
+            from careeros.modules.scheduler.worker import enqueue_rescore
+
+            with factory() as session:
+                if metrics["new_jobs"] or metrics["updated_jobs"]:
+                    enqueue_rescore(session, "freshness monitor results")
+                    session.commit()
         return AgentOutput(
             summary=(
                 "No feeds are due under their scheduled refresh policies."
@@ -98,7 +112,32 @@ def execute(
             warnings=warnings,
         ).model_dump()
     with factory() as session:
-        if key == "application":
+        if key in ("networking", "evidence"):
+            from careeros.modules.agents import support
+
+            if inputs.application_id is None or data_dir is None:
+                raise AgentExecutionError(
+                    "Application research requires an application and private data directory."
+                )
+            report = (
+                support.networking(session, inputs.application_id)
+                if key == "networking"
+                else support.evidence(session, inputs.application_id)
+            )
+            support.save_report(data_dir, inputs.application_id, key, report)
+            output = AgentOutput(
+                summary="Prepared a source-backed networking brief and outreach drafts."
+                if key == "networking"
+                else "Mapped posting requirements to verified skills and project evidence.",
+                metrics={"published_contact_leads": len(cast(list[Any], report["leads"]))}
+                if key == "networking"
+                else {
+                    "verified_skill_mentions": cast(int, report["verified_count"]),
+                    "unverified_skill_mentions": cast(int, report["unverified_count"]),
+                },
+                artifacts=[ArtifactRef(kind=cast(Any, key), id=inputs.application_id)],
+            )
+        elif key == "application":
             if inputs.application_id is None or data_dir is None:
                 raise AgentExecutionError(
                     "Draft preparation needs an application and configured data directory."

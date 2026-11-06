@@ -266,6 +266,10 @@ class Worker:
                 maybe_schedule(session, self.schedule_interval_hours)
             if self.mission_scheduler_enabled:
                 agents.maybe_schedule(session, self.schedule_interval_hours)
+            from careeros.modules.sources.monitoring import tick
+
+            tick(session)
+            session.commit()
             task = queue.claim(session, self.worker_id)
             if task is None:
                 return False

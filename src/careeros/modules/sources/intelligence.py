@@ -9,6 +9,15 @@ from careeros.modules.system.settings_store import get_setting, set_setting
 
 CATALOG = (
     {
+        "key": "wwr",
+        "type": "wwr",
+        "token": "all",
+        "name": "We Work Remotely",
+        "url": "https://weworkremotely.com/remote-job-rss-feed",
+        "scope": "Public RSS with explicit reuse permission and original listing attribution; "
+        "hourly checks.",
+    },
+    {
         "key": "formlabs",
         "type": "greenhouse",
         "token": "formlabs",

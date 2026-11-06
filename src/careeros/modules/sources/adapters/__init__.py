@@ -4,6 +4,7 @@ from careeros.modules.sources.adapters.greenhouse import GreenhouseAdapter
 from careeros.modules.sources.adapters.lever import LeverAdapter
 from careeros.modules.sources.adapters.public_boards import JobicyAdapter, RemotiveAdapter
 from careeros.modules.sources.adapters.smartrecruiters import SmartRecruitersAdapter
+from careeros.modules.sources.adapters.wwr import WWRAdapter
 
 ADAPTERS: dict[str, Adapter] = {
     "greenhouse": GreenhouseAdapter(),
@@ -12,6 +13,7 @@ ADAPTERS: dict[str, Adapter] = {
     "smartrecruiters": SmartRecruitersAdapter(),
     "remotive": RemotiveAdapter(),
     "jobicy": JobicyAdapter(),
+    "wwr": WWRAdapter(),
 }
 
 __all__ = ["ADAPTERS", "Adapter", "InvalidPayloadError"]

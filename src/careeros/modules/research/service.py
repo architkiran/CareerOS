@@ -117,7 +117,9 @@ def open_research(session: Session, job_id: str) -> ResearchItem:
         .limit(1)
     )
     source_kind = (
-        "third_party" if provenance in ("manual", "remotive", "jobicy") else "official_posting"
+        "third_party"
+        if provenance in ("manual", "remotive", "jobicy", "wwr")
+        else "official_posting"
     )
     claims = authorization_claims(job.description_text)
     for claim, quote in claims:

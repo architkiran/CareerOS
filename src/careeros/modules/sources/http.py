@@ -127,7 +127,21 @@ class Fetcher:
     def get_json(
         self, url: str, *, params: dict[str, Any] | None = None, min_interval: float = 2.0
     ) -> tuple[Any, int]:
-        """GET a URL and decode JSON. Returns (payload, status_code)."""
+        return self._get(url, params=params, min_interval=min_interval)
+
+    def get_text(self, url: str, *, min_interval: float = 2.0) -> tuple[str, int]:
+        value, status = self._get(url, min_interval=min_interval, as_text=True)
+        return str(value), status
+
+    def _get(
+        self,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        min_interval: float = 2.0,
+        as_text: bool = False,
+    ) -> tuple[Any, int]:
+        """Bounded GET with the same retries, rate limits and access gates for text and JSON."""
         assert self.client is not None
         host = urlsplit(url).netloc
         last_error: FetchError | None = None
@@ -157,7 +171,7 @@ class Fetcher:
                     raise FetchError(f"Unexpected HTTP {status}", status)
                 else:
                     try:
-                        return json.loads(content), status
+                        return (content.decode("utf-8") if as_text else json.loads(content)), status
                     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                         raise FetchError("Response was not valid JSON", status) from exc
             if attempt < self.policy.max_attempts:

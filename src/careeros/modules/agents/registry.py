@@ -19,6 +19,21 @@ class AgentSpec:
     @property
     def tools(self) -> tuple[str, ...]:
         return {
+            "evidence": (
+                "Read explicit posting requirements",
+                "Map verified skills, projects and experience",
+                "Save a private evidence brief",
+            ),
+            "networking": (
+                "Read publicly stated recruiting contacts in the saved posting",
+                "Prepare source-backed contact leads and outreach drafts",
+                "Create user-assisted public profile search links",
+            ),
+            "freshness": (
+                "Check due public feeds within provider limits",
+                "Persist publication and observation evidence",
+                "Queue updated matching",
+            ),
             "sources": (
                 "Inspect configured feed health",
                 "Read reviewed public feed catalog",
@@ -88,6 +103,24 @@ AGENTS = (
 )
 ON_DEMAND_AGENTS = (
     AgentSpec(
+        "evidence",
+        "Application evidence mapper",
+        "Connect the posting's explicit requirements to your verified evidence.",
+        "/applications",
+    ),
+    AgentSpec(
+        "networking",
+        "Networking researcher",
+        "Find published recruiting leads and prepare grounded outreach drafts.",
+        "/applications",
+    ),
+    AgentSpec(
+        "freshness",
+        "Freshness monitor",
+        "Check due feeds, retain publication evidence and surface new opportunities.",
+        "/watch",
+    ),
+    AgentSpec(
         "sources",
         "Source intelligence",
         "Find coverage gaps and propose reviewed public feeds.",
@@ -109,4 +142,4 @@ ON_DEMAND_AGENTS = (
 BY_KEY = {agent.key: agent for agent in (*AGENTS, *ON_DEMAND_AGENTS)}
 
 # These are product gaps, not runnable placeholders.
-PLANNED = (("Recruiter intelligence", "Evidence-backed recruiter discovery and networking drafts"),)
+PLANNED: tuple[tuple[str, str], ...] = ()

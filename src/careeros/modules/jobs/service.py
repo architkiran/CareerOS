@@ -47,6 +47,8 @@ class JobFilters:
     sort: Literal["newest", "score"] = "newest"
     page: int = 1
     recommended: bool = False
+    published_minutes: int | None = None
+    first_seen_after: datetime | None = None
 
 
 @dataclass
@@ -71,6 +73,14 @@ def _filtered(filters: JobFilters) -> Select[Job, str]:
         stmt = stmt.where(Job.workplace_type == filters.workplace)
     if filters.days:
         stmt = stmt.where(Job.first_seen_at >= utcnow() - timedelta(days=filters.days))
+    if filters.published_minutes:
+        now = utcnow()
+        stmt = stmt.where(
+            Job.posted_at >= now - timedelta(minutes=filters.published_minutes),
+            Job.posted_at <= now,
+        )
+    if filters.first_seen_after:
+        stmt = stmt.where(Job.first_seen_at > filters.first_seen_after)
     if filters.possible_duplicates:
         stmt = stmt.where(Job.possible_duplicate_of_id.is_not(None))
     if filters.source_id:
@@ -301,7 +311,8 @@ def public_board_links(session: Session, job_ids: list[str]) -> dict[str, list[t
             select(JobSourceRecord.job_id, Source.source_type, JobSourceRecord.source_url)
             .join(Source, Source.id == JobSourceRecord.source_id)
             .where(
-                JobSourceRecord.job_id.in_(job_ids), Source.source_type.in_(("remotive", "jobicy"))
+                JobSourceRecord.job_id.in_(job_ids),
+                Source.source_type.in_(("remotive", "jobicy", "wwr")),
             )
         ):
             links.setdefault(job_id, []).append((kind, url))

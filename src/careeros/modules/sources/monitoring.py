@@ -1,0 +1,77 @@
+"""Honest local polling: provider cadence is not a promise of publication latency."""
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from careeros.common.clock import utcnow
+from careeros.modules.sources.registry import last_run, list_sources, source_policy
+from careeros.modules.system.settings_store import get_setting, set_setting
+
+
+@dataclass
+class MonitorSource:
+    id: str
+    name: str
+    minutes: int
+    checked: datetime | None
+    next_due: datetime
+    state: str
+    publication: str
+
+
+def coverage(session: Session, now: datetime | None = None) -> list[MonitorSource]:
+    now = now or utcnow()
+    rows = []
+    for source in list_sources(session):
+        if not source.enabled or source.source_type == "manual":
+            continue
+        run = last_run(session, source.id)
+        minutes = max(
+            source_policy(source).refresh_interval_minutes or 15,
+            {"remotive": 360, "jobicy": 60, "smartrecruiters": 60, "wwr": 60}.get(
+                source.source_type, 15
+            ),
+        )
+        checked = run.started_at if run else None
+        due = checked + timedelta(minutes=minutes) if checked else now
+        state = (
+            "Needs attention"
+            if source.last_error
+            else "Checking"
+            if run and run.finished_at is None
+            else "Due now"
+            if due <= now
+            else "Scheduled"
+        )
+        publication = {
+            "remotive": "Provider delays publication by 24h",
+            "jobicy": "Public-board timestamp; hourly checks",
+            "ashby": "Published/re-published time from source",
+            "greenhouse": "Original publication only when source supplies it",
+            "lever": "Source creation timestamp when supplied",
+            "smartrecruiters": "Source release timestamp",
+            "wwr": "RSS publication timestamp",
+        }.get(source.source_type, "Source publication time may be unknown")
+        rows.append(
+            MonitorSource(source.id, source.display_name, minutes, checked, due, state, publication)
+        )
+    return rows
+
+
+def tick(session: Session) -> None:
+    if not get_setting(session, "watch.enabled", False):
+        return
+    now = utcnow()
+    last = get_setting(session, "watch.last_tick")
+    if last and now - datetime.fromisoformat(last) < timedelta(seconds=60):
+        return
+    set_setting(session, "watch.last_tick", now.isoformat())
+    from careeros.modules.agents import service as agents
+
+    if agents.active_mission(session):
+        return
+    due = [r.id for r in coverage(session, now) if r.next_due <= now and r.state != "Checking"][:5]
+    if due:
+        agents.start_monitor_mission(session, due)

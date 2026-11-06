@@ -50,6 +50,12 @@ def mission_label(mission: Mission) -> str:
         return "Interview preparation"
     if mission.workflow.startswith("application:"):
         return "Application draft preparation"
+    if mission.workflow.startswith("networking:"):
+        return "Networking research"
+    if mission.workflow.startswith("evidence:"):
+        return "Application evidence mapping"
+    if mission.workflow.startswith("freshness:"):
+        return "Freshness monitoring"
     if mission.workflow.startswith("sources:"):
         return "Source coverage review"
     return "Career review"
@@ -370,3 +376,13 @@ def _start_on_demand(
 
 def start_source_mission(session: Session) -> tuple[Mission, bool]:
     return _start_on_demand(session, "sources", "catalog", {})
+
+
+def start_support_mission(session: Session, application_id: str, kind: str) -> tuple[Mission, bool]:
+    if kind not in ("evidence", "networking") or session.get(Application, application_id) is None:
+        raise LookupError("Unknown application research task")
+    return _start_on_demand(session, kind, application_id, {"application_id": application_id})
+
+
+def start_monitor_mission(session: Session, source_ids: list[str]) -> tuple[Mission, bool]:
+    return _start_on_demand(session, "freshness", "watch", {"source_ids": source_ids})
