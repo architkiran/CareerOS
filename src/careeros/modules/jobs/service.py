@@ -100,35 +100,32 @@ def _match_for(
 
 
 def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]:
-    """SQL handles text/field filters; match-based filters and score sort run in Python.
+    """Filter/rank/page small columns in SQLite, then load evidence for one page only."""
+    from careeros.modules.matching.service import best_match_summary
 
-    Fine for a personal inbox of a few thousand jobs.
-    """
-    all_rows = session.execute(
-        _filtered(filters).order_by(Job.first_seen_at.desc(), Job.title)
-    ).all()
-    matches = _match_for(session, [job.id for job, _ in all_rows], filters.lane_id)
-
-    def keep(job: Job) -> bool:
-        m = matches.get(job.id)
-        if filters.lane_id and (m is None or not m.match.classified):
-            return False
-        elig = m.effective_eligibility if m else None
-        if filters.eligibility == "not_fail" and elig == "fail":
-            return False
-        if filters.eligibility in ("pass", "unknown", "fail") and elig != filters.eligibility:
-            return False
-        return not (
-            filters.min_score is not None and (m is None or m.effective_score < filters.min_score)
-        )
-
-    kept = [(job, company) for job, company in all_rows if keep(job)]
+    ranked = best_match_summary(filters.lane_id)
+    stmt = _filtered(filters).outerjoin(ranked, and_(ranked.c.job_id == Job.id, ranked.c.rank == 1))
+    if filters.lane_id:
+        stmt = stmt.where(ranked.c.classified.is_(True))
+    if filters.eligibility == "not_fail":
+        stmt = stmt.where(or_(ranked.c.eligibility.is_(None), ranked.c.eligibility != "fail"))
+    elif filters.eligibility in ("pass", "unknown", "fail"):
+        stmt = stmt.where(ranked.c.eligibility == filters.eligibility)
+    if filters.min_score is not None:
+        stmt = stmt.where(ranked.c.score >= filters.min_score)
+    total = (
+        session.scalar(select(func.count()).select_from(stmt.with_only_columns(Job.id).subquery()))
+        or 0
+    )
+    order = [Job.first_seen_at.desc(), Job.title, Job.id]
     if filters.sort == "score":
-        kept.sort(key=lambda r: -(matches[r[0].id].effective_score if r[0].id in matches else -1))
-    total = len(kept)
+        order.insert(0, func.coalesce(ranked.c.score, -1).desc())
     page = max(filters.page, 1)
-    rows = kept[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+    rows = session.execute(
+        stmt.order_by(*order).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
+    ).all()
     job_ids = [job.id for job, _ in rows]
+    matches = _match_for(session, job_ids, filters.lane_id)
     names: dict[str, list[str]] = {}
     if job_ids:
         for job_id, name in session.execute(

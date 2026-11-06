@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from careeros.db.models import (
@@ -138,14 +138,19 @@ def _recommend(label: str, segments: list[Segment]) -> list[str]:
 
 
 def compute(session: Session) -> Analytics:
-    from careeros.modules.matching.service import best_matches
+    from careeros.modules.matching.service import best_match_summary
 
-    jobs = list(session.scalars(select(Job)))
-    best = best_matches(session, [j.id for j in jobs])
-    passed = sum(
-        1
-        for j in jobs
-        if (v := best.get(j.id)) and v.match.classified and v.effective_eligibility == "pass"
+    jobs = session.execute(select(Job.id, Job.triage_status, Job.triage_reason)).all()
+    ranked = best_match_summary()
+    passed = int(
+        session.scalar(
+            select(func.count())
+            .select_from(ranked)
+            .where(
+                ranked.c.rank == 1, ranked.c.classified.is_(True), ranked.c.eligibility == "pass"
+            )
+        )
+        or 0
     )
     apps = list(session.scalars(select(Application)))
     app_ids = [a.id for a in apps]
@@ -205,10 +210,13 @@ def compute(session: Session) -> Analytics:
 
     lanes = {lane.id: lane.name for lane in session.scalars(select(RoleLane))}
     source_of: dict[str, str] = {}
-    for rec, src in session.execute(
-        select(JobSourceRecord, Source).join(Source, Source.id == JobSourceRecord.source_id)
-    ).all():
-        source_of.setdefault(rec.job_id, f"{src.display_name} ({src.source_type})")
+    for job_id, name, source_type in session.execute(
+        select(JobSourceRecord.job_id, Source.display_name, Source.source_type)
+        .join(Source, Source.id == JobSourceRecord.source_id)
+        .where(JobSourceRecord.job_id.in_([a.job_id for a in apps]))
+        .order_by(JobSourceRecord.first_seen_at, JobSourceRecord.id)
+    ):
+        source_of.setdefault(job_id, f"{name} ({source_type})")
 
     def week(dt: datetime | None) -> str:
         if dt is None:

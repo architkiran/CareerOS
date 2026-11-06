@@ -318,7 +318,7 @@ class MatchCounts:
     top_blocker: tuple[str, int] | None = None
 
 
-def best_match_summary() -> Subquery:
+def best_match_summary(lane_id: str | None = None) -> Subquery:
     """Rank minimal columns in SQLite; avoid materializing every lane's JSON in Python.
 
     Ties use lane name then match ID, matching best_matches' explicit ordering.
@@ -355,7 +355,7 @@ def best_match_summary() -> Subquery:
                 MatchOverride.role_lane_id == JobLaneMatch.role_lane_id,
             ),
         )
-        .where(RoleLane.enabled.is_(True))
+        .where(JobLaneMatch.role_lane_id == lane_id if lane_id else RoleLane.enabled.is_(True))
         .subquery()
     )
 

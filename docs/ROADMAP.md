@@ -112,13 +112,17 @@ Acceptance: all core flows work with model gateway disabled and with zero spend.
 ## CareerOS 2.0 staged extension
 
 - Audit: existing 476-test baseline and actual capability assessment recorded.
-- Foundation: five bounded specialists coordinated through durable missions,
+- Foundation: six bounded review specialists coordinated through durable missions,
   persisted dependency edges, attempts, queue leases and recoverable handoffs.
 - Mission Control: persisted progress, results, errors, approvals, opportunity
   summaries, history, agent workspaces and dark/light presentation.
-- Next: evidence-backed market intelligence and role suggestions, followed by
-  permitted discovery coverage/freshness improvements and master DOCX fidelity.
-- Later: application preparation coordination, recruiter intelligence, interview
-  practice and measured strategy feedback.
+- Implemented: cited posting-based role themes; source cadence/coverage policies;
+  watchlist company research with pending evidence; on-demand interview practice
+  and application template drafts; document binary integrity and faster inbox/analytics.
+- Next: editable master-template fidelity with rendered comparisons; broader
+  permitted market sources and additional bounded adapters; recruiter intelligence
+  using explicit contact provenance; richer local-model coaching when available.
+- Limits: template drafts do not preserve master PDF layout; interview feedback is
+  self-assessed; model-assisted matching and broad market research are not claimed.
 
 See `AGENT_ORCHESTRATION.md` for exact implemented behavior and remaining limits.

@@ -483,3 +483,87 @@ def test_dashboard_counts_when_every_lane_disabled(world: sessionmaker[Session])
         counts = matching.match_counts(s)
         assert counts.unscored == 7
         assert counts.passing == counts.needs_review == counts.filtered_out == 0
+
+
+@pytest.mark.parametrize("eligibility", ["any", "not_fail", "pass", "unknown", "fail"])
+@pytest.mark.parametrize("sort", ["newest", "score"])
+def test_sql_inbox_preserves_python_filter_semantics(
+    world: sessionmaker[Session], eligibility: str, sort: str
+) -> None:
+    from careeros.modules.jobs.service import JobFilters, list_jobs
+
+    with world() as s:
+        matching.score_jobs(s)
+        lanes = profile_service.list_lanes(s)
+        lanes[0].enabled = False
+        jobs = list(s.scalars(select(Job).order_by(Job.first_seen_at.desc(), Job.title, Job.id)))
+        matching.set_override(
+            s, jobs[0].id, lanes[1].id, eligibility="pass", score=99, reason="Reviewed"
+        )
+        # Keep one unscored job, so NULL matching behavior is checked as well.
+        for match in s.scalars(select(JobLaneMatch).where(JobLaneMatch.job_id == jobs[-1].id)):
+            s.delete(match)
+        s.commit()
+        for lane_id in (None, lanes[0].id, lanes[1].id):
+            views = (
+                matching.lane_matches(s, [j.id for j in jobs], lane_id)
+                if lane_id
+                else matching.best_matches(s, [j.id for j in jobs])
+            )
+            for min_score in (None, 0, 60, 100):
+                expected = []
+                for job in jobs:
+                    view = views.get(job.id)
+                    if lane_id and (not view or not view.match.classified):
+                        continue
+                    state = view.effective_eligibility if view else None
+                    if eligibility == "not_fail" and state == "fail":
+                        continue
+                    if eligibility in ("pass", "unknown", "fail") and state != eligibility:
+                        continue
+                    if min_score is not None and (not view or view.effective_score < min_score):
+                        continue
+                    if job.triage_status != "rejected" and job.status == "active":
+                        expected.append(job)
+                if sort == "score":
+                    expected.sort(
+                        key=lambda job: -(views[job.id].effective_score if job.id in views else -1)
+                    )
+                filters = JobFilters(
+                    lane_id=lane_id, eligibility=eligibility, min_score=min_score, sort=sort
+                )  # type: ignore[arg-type]
+                actual, total = list_jobs(s, filters)
+                assert [row.job.id for row in actual] == [job.id for job in expected]
+                assert total == len(expected)
+
+
+def test_inbox_pages_are_disjoint_stable_and_keep_total(factory: sessionmaker[Session]) -> None:
+    from careeros.common.clock import utcnow
+    from careeros.db.models import Company
+    from careeros.modules.jobs.service import JobFilters, list_jobs
+
+    with factory() as session:
+        company = Company(canonical_name="Example", normalized_name="example")
+        session.add(company)
+        session.flush()
+        now = utcnow()
+        for n in range(105):
+            session.add(
+                Job(
+                    company_id=company.id,
+                    title="Same title",
+                    normalized_title="same title",
+                    canonical_url=f"https://example.test/{n}",
+                    dedupe_key=str(n),
+                    description_hash="h",
+                    first_seen_at=now,
+                )
+            )
+        session.commit()
+        pages = [list_jobs(session, JobFilters(page=p)) for p in (1, 2, 3, 4)]
+        assert [len(rows) for rows, _ in pages] == [50, 50, 5, 0]
+        assert all(total == 105 for _, total in pages)
+        ids = [r.job.id for rows, _ in pages for r in rows]
+        assert len(set(ids)) == 105 and ids == sorted(ids)
+        again, _ = list_jobs(session, JobFilters(page=2))
+        assert [r.job.id for r in again] == ids[50:100]

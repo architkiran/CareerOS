@@ -5,9 +5,13 @@
 The first slice uses deterministic specialist agents, not autonomous LLM dialogue.
 It runs without Ollama, API keys, new services or a frontend build tool.
 
-The fixed version-1 graph is:
+The preserved version-1 graph is:
 
 `Discovery → Matching → Posting-evidence research → Analytics → Verification`
+
+New version-2 reviews add Career intelligence between Matching and Research.
+Interview practice and application drafts use separate on-demand missions scoped
+to a saved job/application, sharing the same queue and recovery machinery.
 
 Each tool is selected by a code-owned agent key. Job text cannot name tools,
 change dependencies, request additional privileges or decide approvals.
@@ -18,6 +22,7 @@ step can succeed. Aggregate results never contain full candidate/resume text.
 |---|---|---|
 | Discovery | Configured ATS feeds; jobs, provenance and source runs | Existing three adapters and HTTP policies; no login, arbitrary browsing or paid source |
 | Matching | Verified candidate facts, lanes and jobs; scores | Existing deterministic eligibility and scoring, including unknowns and overrides |
+| Career intelligence | Saved public postings and verified skills; cited briefing | Configured-feed themes only; no unsupported whole-market trend claim |
 | Research | Active shortlisted postings; research items and pending evidence | Extracts statements only; never accepts evidence or asserts unsupported sponsorship |
 | Analytics | Application events and job state; aggregate run snapshot | Existing funnel and sample-aware methods; no automatic strategy changes |
 | Verification | Profile readiness, source errors, approval counts | Operational check; not a claim that all documents, permissions or external data were independently verified |
@@ -73,7 +78,7 @@ There is **no hard process-level timeout** for arbitrary Python code in this sli
 
 ## Interface and operation
 
-- `/mission-control`: live persisted progress, five specialists, recent opportunities,
+- `/mission-control`: live persisted progress, six review specialists, on-demand tasks, recent opportunities,
   action center, queue/source state, worker heartbeat, usage, backup timestamp and activity.
 - `/missions/{id}`: dependency links, output metrics, warnings, attempts and recovery controls.
 - `/agents`: actual executable capabilities and clearly labelled planned capabilities.
@@ -103,8 +108,8 @@ A local machine that is asleep or shut down does not execute scheduled work.
 
 ## Next milestone
 
-Add market research with a small, explicit permitted-source list, source dates,
-confidence and evidence-backed transferable-role suggestions. Resume-template work
+Broaden market research beyond configured feeds using explicit permitted sources.
+The initial cited posting-based briefing is implemented. Resume-template work
 must separately add editable master import, allowed edit regions and rendered
 layout comparisons before making an exact-format preservation claim.
 
@@ -130,3 +135,19 @@ the last attempt failed. A no-feeds-due result is distinct from no enabled sourc
 Cancellation is checked between source requests, so a cancelled mission does not
 continue fetching the rest of the company list. In-flight requests keep their
 bounded timeout and results already saved remain preserved.
+
+## Additional working slices
+
+- `INTERVIEW_PRACTICE.md`: private practice plans, answers, reflections and
+  evidence-grounded question generation through the interview specialist.
+- `APPLICATION_DRAFT_AGENT.md`: verified-fact template draft preparation and
+  exact version links, with explicit layout and human-review warnings.
+- `COMPANY_RESEARCH.md`: watchlist workspaces, pending research leads and stale
+  authorization evidence handling.
+- `DOCUMENT_INTEGRITY.md`: content plus binary hash checks and approval binding.
+
+The inbox now ranks and pages small match columns in SQLite before loading one
+page of full evidence. Existing eligibility, classified-lane preference, overrides,
+and explicit-lane behavior are retained. Equal-time/equal-title rows use job ID as
+a final stable tie breaker. Analytics reads small job columns and source metadata
+for actual applications, avoiding unrelated raw posting payloads.
