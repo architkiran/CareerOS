@@ -52,6 +52,7 @@ class Document(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    file_hash: Mapped[str | None] = mapped_column(String(64))
     generated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     base_template_id: Mapped[str] = mapped_column(String(100), nullable=False)
     model_provider: Mapped[str] = mapped_column(String(30), nullable=False, default="none")

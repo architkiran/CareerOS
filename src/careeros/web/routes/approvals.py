@@ -98,7 +98,7 @@ def approval_page(approval_id: str, request: Request, session: SessionDep) -> HT
         ctx["application"] = app
         ctx["job"] = session.get(Job, app.job_id) if app else None
         ctx["documents"] = {
-            d.content_hash: d
+            (d.document_type, d.version, d.content_hash): d
             for d in session.query(Document).filter(Document.application_id == approval.target_id)
         }
     else:

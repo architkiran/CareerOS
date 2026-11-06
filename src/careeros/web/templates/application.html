@@ -10,6 +10,7 @@
 <section class="card" id="documents">
   <h2>Documents</h2>
   <p class="muted">Built from verified profile items only, with templates (no AI). Every line links to the profile items behind it. Errors block a version; warnings need your acknowledgment.</p>
+  <p class="muted">This Word template does not preserve the exact layout of your master PDF. Compare your <a href="/resumes">role-family resume references</a> before using a generated file.</p>
   <div class="actions">
     {% for t in ['resume', 'cover_letter'] %}
     <form method="post" action="/applications/{{ a.id }}/documents" class="inline">{{ csrf() }}<input type="hidden" name="document_type" value="{{ t }}"><button>{{ 'Regenerate' if docs[t] else 'Generate' }} {{ labels[t].lower() }}</button></form>
@@ -20,11 +21,12 @@
   <article class="doc" data-testid="doc-{{ t }}">
     <h3>{{ labels[t] }} v{{ d.version }} <span class="pill pill-doc-{{ d.status }}" data-testid="doc-status-{{ t }}">{{ d.status.replace('_', ' ') }}</span></h3>
     <p class="muted">Generated {{ d.generated_at|localtime }} · template: {{ d.base_template_id }} · {{ d.content_hash[:12] }}</p>
+    {% if integrity_errors[d.id] %}<p class="bad" data-testid="document-integrity-error">{{ integrity_errors[d.id] }} The existing version is preserved.</p>{% endif %}
     {% set fs = findings[d.id] %}
     {% if fs %}<ul class="findings">{% for f in fs %}<li class="{{ 'bad' if f.severity == 'error' else 'warnc' }}"><strong>{{ f.severity }}</strong> {{ f.message }}{% if f.claim %} <span class="muted">“{{ f.claim }}”</span>{% endif %}</li>{% endfor %}</ul>
     {% else %}<p class="ok">All checks passed.</p>{% endif %}
     <div class="actions">
-      {% if d.status == 'needs_ack' %}<form method="post" action="/documents/{{ d.id }}/acknowledge" class="inline">{{ csrf() }}<button>Acknowledge warnings</button></form>{% endif %}
+      {% if d.status == 'needs_ack' and not integrity_errors[d.id] %}<form method="post" action="/documents/{{ d.id }}/acknowledge" class="inline">{{ csrf() }}<button>Acknowledge warnings</button></form>{% endif %}
       <a href="/documents/{{ d.id }}/download">Download .docx</a>
       {% if d.version > 1 %}<a href="/documents/{{ d.id }}/diff">Changes from v{{ d.version - 1 }}</a>{% endif %}
     </div>
@@ -45,7 +47,7 @@
   <h2>Submit</h2>
   {% set resume = docs.resume %}
   {% if a.status in ('preparing', 'ready') %}
-    {% if resume and resume.status == 'ready' %}
+    {% if resume and resume.status == 'ready' and not integrity_errors[resume.id] %}
     <form method="post" action="/applications/{{ a.id }}/approval" class="grid">{{ csrf() }}
       <label class="check wide"><input type="checkbox" name="include_cover_letter" {% if docs.cover_letter and docs.cover_letter.status == 'ready' %}checked{% endif %}> Include the cover letter</label>
       <div><button data-testid="request-approval">Review package and request approval</button></div></form>

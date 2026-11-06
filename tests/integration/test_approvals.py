@@ -52,6 +52,35 @@ def test_requires_ready_resume(factory: sessionmaker[Session], data_dir: Path) -
             gate.application_payload(s, app.id, False)
 
 
+@pytest.mark.parametrize("artifact", ["binary", "json", "missing", "legacy"])
+def test_changed_document_invalidates_exact_approval(
+    factory: sessionmaker[Session], data_dir: Path, artifact: str
+) -> None:
+    app_id = _ready_app(factory, data_dir)
+    with factory() as s:
+        payload = gate.application_payload(s, app_id, False)
+        approval = gate.request(s, payload, data_dir)
+        assert gate.snapshot(approval)["data"]["documents"][0]["file_hash"]
+        gate.decide(s, approval.id, True, confirmed=True)
+        doc = docs.latest(s, app_id, "resume")
+        assert doc is not None
+        path = Path(doc.storage_path)
+        if artifact == "binary":
+            path.write_bytes(b"changed after approval")
+        elif artifact == "json":
+            path.with_suffix(".json").write_text("{}")
+        elif artifact == "missing":
+            path.unlink()
+        else:
+            doc.file_hash = None
+        with pytest.raises(gate.ApprovalError, match="invalidated"):
+            gate.confirm_done(s, approval.id, confirmed=True)
+        assert approval.status == "invalidated"
+        assert s.get(Application, app_id).status != "submitted"  # type: ignore[union-attr]
+        with pytest.raises(gate.ApprovalError):
+            gate.application_payload(s, app_id, False)
+
+
 def test_cover_letter_must_be_ready_if_included(
     factory: sessionmaker[Session], data_dir: Path
 ) -> None:

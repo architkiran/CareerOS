@@ -27,6 +27,7 @@ from careeros.db.models import (
     JobSourceRecord,
     OutreachDraft,
 )
+from careeros.modules.documents import service as documents
 from careeros.modules.events.service import record_event
 from careeros.modules.sources.text import sha256
 
@@ -94,14 +95,12 @@ def application_payload(session: Session, app_id: str, include_cover_letter: boo
     resume = _latest(session, app_id, "resume")
     if resume is None or resume.status != "ready":
         raise ApprovalError("The latest resume must pass QA (and warnings be acknowledged) first.")
-    docs = [{"type": "resume", "version": resume.version, "hash": resume.content_hash}]
+    docs = [_document_payload(resume)]
     if include_cover_letter:
         letter = _latest(session, app_id, "cover_letter")
         if letter is None or letter.status != "ready":
             raise ApprovalError("The latest cover letter must pass QA first, or leave it out.")
-        docs.append(
-            {"type": "cover_letter", "version": letter.version, "hash": letter.content_hash}
-        )
+        docs.append(_document_payload(letter))
     return Payload(
         "submit_application",
         "application",
@@ -109,6 +108,19 @@ def application_payload(session: Session, app_id: str, include_cover_letter: boo
         url,
         {"job_title": job.title, "company": company.canonical_name, "documents": docs},
     )
+
+
+def _document_payload(doc: Document) -> dict[str, Any]:
+    try:
+        documents.verify_integrity(doc)
+    except documents.DocumentError as exc:
+        raise ApprovalError(str(exc)) from exc
+    return {
+        "type": doc.document_type,
+        "version": doc.version,
+        "hash": doc.content_hash,
+        "file_hash": doc.file_hash,
+    }
 
 
 def outreach_payload(session: Session, draft_id: str) -> Payload:

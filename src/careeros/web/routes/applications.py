@@ -42,6 +42,7 @@ def workspace_ctx(session: Session, app: Application) -> dict[str, Any]:
         "docs": ds,
         "claims": {d.id: docs.claims_for(session, d.id) for d in current},
         "findings": {d.id: docs.findings(d) for d in current},
+        "integrity_errors": {d.id: docs.integrity_error(d) for d in current},
         "history": apps.history(session, app.id),
         "next_statuses": apps.TRANSITIONS[app.status],
         "labels": docs.DOC_LABELS,
@@ -100,7 +101,13 @@ def _sync(session: Session, app_id: str) -> None:
     app = session.get(Application, app_id)
     resume = docs.latest(session, app_id, "resume")
     if app is not None:
-        apps.sync_ready(session, app, resume is not None and resume.status == "ready")
+        apps.sync_ready(
+            session,
+            app,
+            resume is not None
+            and resume.status == "ready"
+            and docs.integrity_error(resume) is None,
+        )
 
 
 @router.post("/applications/{app_id}/documents")
@@ -154,7 +161,7 @@ def download(doc_id: str, request: Request, session: SessionDep) -> FileResponse
         raise HTTPException(404, "Document not found")
     path = _doc_file(request, doc)
     try:
-        docs.load_content(doc)  # verifies the stored content hash
+        docs.verify_integrity(doc)
     except (docs.DocumentError, OSError) as exc:
         raise HTTPException(409, "Stored document failed its integrity check.") from exc
     return FileResponse(

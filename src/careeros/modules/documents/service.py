@@ -1,6 +1,7 @@
 """Generate, version, diff and acknowledge application documents."""
 
 import difflib
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -139,7 +140,11 @@ def generate(session: Session, application_id: str, doc_type: DocType, data_dir:
     content_hash = sha256(payload)
 
     current = latest(session, application_id, doc_type)
-    if current is not None and current.content_hash == content_hash:
+    if (
+        current is not None
+        and current.content_hash == content_hash
+        and integrity_error(current) is None
+    ):
         return current
     version = (current.version + 1) if current else 1
     folder = documents_dir(data_dir, application_id)
@@ -154,6 +159,7 @@ def generate(session: Session, application_id: str, doc_type: DocType, data_dir:
         version=version,
         storage_path=str(folder / f"{stem}.docx"),
         content_hash=content_hash,
+        file_hash=_file_hash(folder / f"{stem}.docx"),
         base_template_id=lane_name,
         model_provider="none",
         status=status_for(findings, False),
@@ -195,6 +201,40 @@ def load_content(doc: Document) -> DocumentContent:
     return DocumentContent.from_dict(json.loads(data))
 
 
+def _file_hash(path: Path) -> str:
+    with path.open("rb") as file:
+        return hashlib.file_digest(file, "sha256").hexdigest()
+
+
+def verify_integrity(doc: Document) -> None:
+    """Verify both private artifacts before acknowledgment, download or approval."""
+    if not doc.file_hash:
+        raise DocumentError(
+            "This legacy version has no file hash. Regenerate to verify a new version."
+        )
+    try:
+        path = Path(doc.storage_path)
+        if path.is_symlink() or path.with_suffix(".json").is_symlink():
+            raise DocumentError("Stored document files must not be symbolic links.")
+        load_content(doc)
+        if _file_hash(path) != doc.file_hash:
+            raise DocumentError("Stored Word file no longer matches its recorded hash. Regenerate.")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        if isinstance(exc, DocumentError):
+            raise
+        raise DocumentError(
+            "Stored document failed its integrity check. Regenerate a new version."
+        ) from exc
+
+
+def integrity_error(doc: Document) -> str | None:
+    try:
+        verify_integrity(doc)
+    except DocumentError as exc:
+        return str(exc)
+    return None
+
+
 def findings(doc: Document) -> list[Finding]:
     return [Finding(**f) for f in doc.qa_json]
 
@@ -205,6 +245,7 @@ def acknowledge(session: Session, document_id: str) -> Document:
         raise LookupError("Document not found")
     if doc.status == "blocked":
         raise DocumentError("This version has errors. Fix your profile and regenerate.")
+    verify_integrity(doc)
     doc.warnings_acknowledged_at = utcnow()
     doc.status = status_for(findings(doc), True)
     record_event(

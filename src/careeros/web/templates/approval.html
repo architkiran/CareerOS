@@ -21,7 +21,7 @@
   </dl>
   {% if snap.data.documents %}
   <h3>Documents</h3>
-  <ul class="items">{% for d in snap.data.documents %}{% set doc = documents.get(d.hash) %}
+  <ul class="items">{% for d in snap.data.documents %}{% set doc = documents.get((d.type, d.version, d.hash)) %}
     <li>{{ d.type.replace('_', ' ')|capitalize }} v{{ d.version }} <code>{{ d.hash[:12] }}</code>{% if doc %} · <a href="/documents/{{ doc.id }}/download">Download exactly this version</a>{% endif %}</li>{% endfor %}</ul>
   {% endif %}
   {% if draft %}

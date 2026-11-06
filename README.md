@@ -50,6 +50,12 @@ template preservation remain future milestones. On-demand interview practice is
 now available, with its limits described below. Existing generic document generation remains
 available, with its verified-fact and QA gates.
 
+`/companies` now collects watchlist research, tracked roles and source coverage.
+Assistant research stays pending; stale official policy evidence stays unknown.
+See [company research](docs/COMPANY_RESEARCH.md). Generated Word downloads and
+approvals now verify both the content and binary hashes; legacy files require a
+new version. See [document integrity](docs/DOCUMENT_INTEGRITY.md).
+
 ## First run
 
 Read `CLAUDE.md` before changing anything. Then read `docs/ARCHITECTURE.md`, `docs/PRODUCT_SPEC.md`, and `docs/ROADMAP.md`.

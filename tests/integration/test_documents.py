@@ -167,6 +167,41 @@ def test_tampered_file_detected(factory: sessionmaker[Session], data_dir: Path) 
             docs.load_content(doc)
 
 
+@pytest.mark.parametrize("artifact", ["binary", "json", "missing", "legacy"])
+def test_integrity_failure_requires_new_immutable_version(
+    factory: sessionmaker[Session], data_dir: Path, client: TestClient, artifact: str
+) -> None:
+    jid = _setup(factory)
+    with factory() as s:
+        app = apps.start_application(s, jid)
+        old = docs.generate(s, app.id, "resume", data_dir)
+        path = Path(old.storage_path)
+        if artifact == "binary":
+            path.write_bytes(b"altered Word content")
+        elif artifact == "json":
+            path.with_suffix(".json").write_text("{}")
+        elif artifact == "missing":
+            path.unlink()
+        else:
+            old.file_hash = None
+        s.commit()
+        assert docs.integrity_error(old)
+        with pytest.raises(docs.DocumentError):
+            docs.acknowledge(s, old.id)
+        response = client.get(f"/documents/{old.id}/download")
+        assert response.status_code == (404 if artifact == "missing" else 409)
+        assert (
+            'data-testid="document-integrity-error"' in client.get(f"/applications/{app.id}").text
+        )
+        original_bytes = path.read_bytes() if path.exists() else None
+        new = docs.generate(s, app.id, "resume", data_dir)
+        assert new.version == old.version + 1 and new.storage_path != old.storage_path
+        assert old.file_hash is None if artifact == "legacy" else old.file_hash
+        docs.verify_integrity(new)
+        if original_bytes is not None:
+            assert path.read_bytes() == original_bytes
+
+
 def test_no_profile_is_a_clear_error(factory: sessionmaker[Session], data_dir: Path) -> None:
     with factory() as s:
         c = Company(canonical_name="A", normalized_name="a")
