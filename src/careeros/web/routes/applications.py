@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Annotated, Any, cast
 
@@ -45,6 +46,11 @@ def workspace_ctx(session: Session, app: Application) -> dict[str, Any]:
         "docs": ds,
         "claims": {d.id: docs.claims_for(session, d.id) for d in current},
         "findings": {d.id: docs.findings(d) for d in current},
+        "tailoring": {
+            d.id: json.loads(docs.load_content(d).context.get("tailoring", "{}"))
+            for d in current
+            if docs.integrity_error(d) is None
+        },
         "integrity_errors": {d.id: docs.integrity_error(d) for d in current},
         "history": apps.history(session, app.id),
         "next_statuses": apps.TRANSITIONS[app.status],
@@ -160,7 +166,11 @@ async def generate(app_id: str, request: Request, session: SessionDep) -> Respon
         raise HTTPException(422, "Unknown document type")
     try:
         docs.generate(
-            session, app_id, cast(docs.DocType, doc_type), Path(request.app.state.settings.data_dir)
+            session,
+            app_id,
+            cast(docs.DocType, doc_type),
+            Path(request.app.state.settings.data_dir),
+            render_format="pdf" if doc_type == "resume" else "docx",
         )
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
@@ -216,7 +226,17 @@ def download(
         if path.suffix == ".pdf"
         else "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         content_disposition_type="inline" if inline and path.suffix == ".pdf" else "attachment",
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            **(
+                {
+                    "X-Frame-Options": "SAMEORIGIN",
+                    "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self'",
+                }
+                if inline and path.suffix == ".pdf"
+                else {}
+            ),
+        },
     )
 
 

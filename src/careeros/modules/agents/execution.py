@@ -135,14 +135,7 @@ def _prepare_application(session: Session, application_id: str, data_dir: Path) 
     if app is None or app.status not in ("preparing", "ready"):
         raise AgentExecutionError("This application is no longer available for draft preparation.")
     try:
-        from careeros.modules.documents.latex import compiler_path
-
-        use_master = (
-            data_dir / "resume_templates/master.tex"
-        ).is_file() and compiler_path() is not None
-        resume = documents.generate(
-            session, app.id, "resume", data_dir, render_format="pdf" if use_master else "docx"
-        )
+        resume = documents.generate(session, app.id, "resume", data_dir, render_format="pdf")
         letter = documents.generate(session, app.id, "cover_letter", data_dir)
         for doc in (resume, letter):
             documents.verify_integrity(doc)
@@ -153,12 +146,7 @@ def _prepare_application(session: Session, application_id: str, data_dir: Path) 
     applications.sync_ready(session, app, resume.status == "ready")
     needs_review = sum(d.status != "ready" for d in (resume, letter))
     warnings = [
-        (
-            "The resume uses your master LaTeX layout; inspect the PDF before approval."
-            if use_master
-            else "These Word drafts use a generic template "
-            "and do not preserve your master PDF layout."
-        ),
+        "The resume uses your master LaTeX layout; inspect the PDF before approval.",
         "Review every statement and layout before requesting approval; nothing was submitted.",
     ]
     if needs_review:

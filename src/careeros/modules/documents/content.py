@@ -99,14 +99,16 @@ def _fmt_dates(item: SourceItem) -> str:
 
 
 def _relevance(item: SourceItem, job_text: str) -> int:
-    return sum(1 for s in item.skills if contains_term(job_text, s))
+    from careeros.modules.documents.tailoring import relevance
+
+    return relevance(item, job_text)
 
 
 def internal_note(text: str) -> bool:
     return bool(
         re.search(
             r"per your resume notes|add exact start|add exact.*dates|TODO:|TBD:|"
-            r"insert (?:your|metric)|replace (?:this|with)",
+            r"insert (?:your|metric)|replace (?:this|with)|confirm exact (?:title|dates|metrics)",
             text,
             re.I,
         )
@@ -132,7 +134,19 @@ def experience_paragraphs(text: str) -> list[str]:
         current = (current + " " + line).strip()
     if current:
         paragraphs.append(current)
-    return [p for p in paragraphs if not internal_note(p)]
+    clean = []
+    for paragraph in paragraphs:
+        if internal_note(paragraph):
+            # Preserve an independently verified sentence while omitting an
+            # adjacent editing instruction; never reword its substantive claim.
+            paragraph = " ".join(
+                sentence
+                for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z])", paragraph)
+                if not internal_note(sentence)
+            )
+        if paragraph:
+            clean.append(paragraph)
+    return clean
 
 
 def build_resume(
@@ -173,13 +187,16 @@ def build_resume(
         exp_claims.append(
             Claim("Experience", f"{title}, {org}" + (f" ({dates})" if dates else ""), [e.ref])
         )
-        for line in experience_paragraphs(desc):
+        for line in sorted(
+            experience_paragraphs(desc),
+            key=lambda text: -len(set(text.lower().split()) & set(job_low.split())),
+        )[:3]:
             if line:
                 exp_claims.append(Claim("Experience", line, [e.ref]))
     if exp_claims:
         sections.append(("Experience", exp_claims))
     proj_claims: list[Claim] = []
-    ranked = sorted(c.projects, key=lambda p: -_relevance(p, job_low))[:4]
+    ranked = sorted(c.projects, key=lambda p: (-_relevance(p, job_low), p.ref))[:4]
     for p in ranked:
         name, desc, outcomes = (p.text.split("|", 2) + ["", ""])[:3]
         tech = f" ({', '.join(p.skills)})" if p.skills else ""

@@ -8,28 +8,23 @@
 {{ alerts(errors) }}
 
 <section class="card" id="documents">
-  <h2>Documents</h2>
-  <p class="muted">Built from verified profile items only, with templates (no AI). Every line links to the profile items behind it. Errors block a version; warnings need your acknowledgment.</p>
-  <p class="muted">The master PDF uses your supplied LaTeX layout. The legacy Word template does not preserve the exact layout of your master PDF. Compare your <a href="/resumes">role-family resume references</a> before using a generated file.</p>
-  {% if a.status in ('preparing','ready') %}<form method="post" action="/applications/{{ a.id }}/resume-pdf" class="actions">{{ csrf() }}<label>Projects <select name="project_limit"><option>2</option><option selected>3</option><option>4</option></select></label><label>Experiences <select name="experience_limit"><option selected>2</option><option>3</option></select></label><button>Prepare master-layout PDF</button></form>{% endif %}
-  <div class="actions">
-    {% if a.status in ('preparing', 'ready') %}<form method="post" action="/applications/{{ a.id }}/prepare" class="inline">{{ csrf() }}<button>Prepare application drafts with agent</button></form>{% endif %}
-    {% for t in ['resume', 'cover_letter'] %}
-    <form method="post" action="/applications/{{ a.id }}/documents" class="inline">{{ csrf() }}<input type="hidden" name="document_type" value="{{ t }}"><button>{{ 'Regenerate' if docs[t] else 'Generate' }} {{ labels[t].lower() }}</button></form>
-    {% endfor %}
-  </div>
+  <p class="eyebrow">Prepared for {{ company.canonical_name }}</p><h2>Your tailored resume</h2><p class="muted">Your verified experience, selected for this job. Exported as a PDF in your master LaTeX layout.</p>
+  {% if a.status in ('preparing','ready') %}<form method="post" action="/applications/{{ a.id }}/resume-pdf" class="actions">{{ csrf() }}<button>Tailor resume · PDF</button><details><summary>Content selection</summary><label>Projects <select name="project_limit"><option>2</option><option selected>3</option><option>4</option></select></label><label>Experiences <select name="experience_limit"><option selected>2</option><option>3</option></select></label></details></form>{% endif %}
+  <details><summary>Cover letter &amp; agent preparation</summary><div class="actions"><form method="post" action="/applications/{{ a.id }}/prepare">{{ csrf() }}<button class="secondary">Prepare with agent</button></form><form method="post" action="/applications/{{ a.id }}/documents">{{ csrf() }}<input type="hidden" name="document_type" value="cover_letter"><button class="secondary">Prepare cover letter</button></form></div></details>
   {% for t in ['resume', 'cover_letter'] %}{% set d = docs[t] %}
   {% if d %}
   <article class="doc" data-testid="doc-{{ t }}">
     <h3>{{ labels[t] }} v{{ d.version }} <span class="pill pill-doc-{{ d.status }}" data-testid="doc-status-{{ t }}">{{ d.status.replace('_', ' ') }}</span></h3>
-    <p class="muted">Generated {{ d.generated_at|localtime }} · template: {{ d.base_template_id }} · {{ d.content_hash[:12] }}</p>
+    <p class="muted">Prepared {{ d.generated_at|localtime }} · {{ d.base_template_id }}</p>
     {% if integrity_errors[d.id] %}<p class="bad" data-testid="document-integrity-error">{{ integrity_errors[d.id] }} The existing version is preserved.</p>{% endif %}
+    {% if t == 'resume' and tailoring.get(d.id) %}{% set report=tailoring[d.id] %}<section class="tailoring-review"><h3>What changed for this role</h3><p><strong>Target:</strong> {{ report.target_role }}</p><p><strong>Relevant verified skills:</strong> {{ report.matched_verified_skills|join(', ') or 'No explicit skill overlap found' }}</p><p><strong>Projects selected:</strong> {{ report.selected_projects|join(' · ') }}</p><details><summary>Why these projects?</summary><ul>{% for name in report.selected_projects %}<li>{{ name }} — {{ report.project_reasons[loop.index0] }}</li>{% endfor %}</ul></details><p class="muted">{{ report.note }}</p></section>{% endif %}
+    {% if t=='resume' and d.storage_path.endswith('.pdf') and not integrity_errors[d.id] %}<iframe class="pdf-preview" src="/documents/{{ d.id }}/download?inline=true" title="Tailored resume PDF preview" loading="lazy"></iframe>{% endif %}
     {% set fs = findings[d.id] %}
     {% if fs %}<ul class="findings">{% for f in fs %}<li class="{{ 'bad' if f.severity == 'error' else 'warnc' }}"><strong>{{ f.severity }}</strong> {{ f.message }}{% if f.claim %} <span class="muted">“{{ f.claim }}”</span>{% endif %}</li>{% endfor %}</ul>
     {% else %}<p class="ok">All checks passed.</p>{% endif %}
     <div class="actions">
       {% if d.status == 'needs_ack' and not integrity_errors[d.id] %}<form method="post" action="/documents/{{ d.id }}/acknowledge" class="inline">{{ csrf() }}<button>Acknowledge warnings</button></form>{% endif %}
-      <a href="/documents/{{ d.id }}/download">Download {{ '.pdf' if d.storage_path.endswith('.pdf') else '.docx' }}</a>{% if d.storage_path.endswith('.pdf') %}<a href="/documents/{{ d.id }}/download?inline=true" target="_blank" rel="noopener">Preview PDF ↗</a><span class="muted">Master LaTeX layout · Archit_Kiran_Kumar_Resume.pdf</span>{% endif %}
+      {% if t!='resume' or d.storage_path.endswith('.pdf') %}<a href="/documents/{{ d.id }}/download">{{ 'Download tailored PDF' if t=='resume' else 'Download cover letter · Word' }}</a>{% else %}<p class="muted">This is an older Word draft. Use “Tailor resume · PDF” to prepare the current format.</p>{% endif %}{% if d.storage_path.endswith('.pdf') %}<a href="/documents/{{ d.id }}/download?inline=true" target="_blank" rel="noopener">Preview PDF ↗</a><span class="muted">Master LaTeX layout · Archit_Kiran_Kumar_Resume.pdf</span>{% endif %}
       {% if d.version > 1 %}<a href="/documents/{{ d.id }}/diff">Changes from v{{ d.version - 1 }}</a>{% endif %}
     </div>
     <details><summary>Claim map ({{ claims[d.id]|length }} lines)</summary>
@@ -58,7 +53,7 @@
   {% if approvals %}<ul class="items">{% for ap in approvals %}<li><a href="/approvals/{{ ap.id }}">Approval</a> <span class="pill pill-approval-{{ ap.status }}">{{ ap.status }}</span> <span class="muted">{{ ap.requested_at|localtime }}</span></li>{% endfor %}</ul>{% endif %}
 </section>
 
-<section class="card" id="follow-ups">
+<details class="card" id="follow-ups"><summary>Follow-ups</summary>
   <h2>Follow-ups</h2>
   {% if not follow_ups %}<p class="empty">None open.</p>{% endif %}
   <ul class="items">{% for r in follow_ups %}<li>{{ r.follow_up.due_at|localtime }}{% if r.overdue %} <span class="bad">overdue</span>{% endif %} · {{ r.follow_up.action_type.replace('_',' ') }}{% if r.follow_up.notes %} · <span class="muted">{{ r.follow_up.notes }}</span>{% endif %}
@@ -67,9 +62,9 @@
     <label>Due <input type="date" name="due" required></label>
     <label>What <select name="action_type"><option value="follow_up">Follow up</option><option value="check_status">Check status</option><option value="thank_you">Thank-you note</option><option value="prepare_interview">Prepare for interview</option></select></label>
     <label class="wide">Note <input name="notes" maxlength="1000"></label><div><button class="secondary">Add follow-up</button></div></form>
-</section>
+</details>
 
-<section class="card" id="outreach">
+<details class="card" id="outreach"><summary>Networking & outreach</summary>
   <h2>Outreach drafts</h2>
   <p class="muted">Drafts only. CareerOS never sends messages and never automates LinkedIn. Copy the text and send it yourself after approving it.</p>
   {% for d, c, body in drafts %}
@@ -97,7 +92,7 @@
     <label class="wide">Subject <input name="subject" maxlength="300"></label>
     <label class="wide">Message <textarea name="body" rows="5" required maxlength="10000"></textarea></label>
     <div><button>Save draft</button></div></form></details>
-</section>
+</details>
 
 <section class="card">
   <h2>Status</h2>

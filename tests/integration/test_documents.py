@@ -245,7 +245,9 @@ def test_status_rules(factory: sessionmaker[Session]) -> None:
 # ---------- web ----------
 
 
-def test_application_pages_end_to_end(factory: sessionmaker[Session], client: TestClient) -> None:
+def test_application_pages_end_to_end(
+    factory: sessionmaker[Session], client: TestClient, pdf_compiler
+) -> None:  # type: ignore[no-untyped-def]
     jid = _setup(factory, dated=False)
     assert 'data-testid="applications-empty"' in client.get("/applications").text
     assert 'data-testid="start-application"' in client.get(f"/jobs/{jid}").text
@@ -270,7 +272,7 @@ def test_application_pages_end_to_end(factory: sessionmaker[Session], client: Te
     dl = client.get(f"/documents/{doc.id}/download")
     assert (
         dl.status_code == 200
-        and dl.content[:2] == b"PK"
+        and dl.content[:4] == b"%PDF"
         and dl.headers["cache-control"] == "no-store"
     )
     post_form(client, f"/documents/{doc.id}/acknowledge")

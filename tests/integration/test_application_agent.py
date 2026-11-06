@@ -28,6 +28,11 @@ def factory(app: FastAPI) -> sessionmaker[Session]:
     return app.state.session_factory  # type: ignore[no-any-return]
 
 
+@pytest.fixture(autouse=True)
+def compiler_for_agent(pdf_compiler):  # type: ignore[no-untyped-def]
+    pass
+
+
 def start(factory: sessionmaker[Session]) -> tuple[str, str]:
     job_id = _setup(factory)
     with factory() as session:
@@ -68,7 +73,7 @@ def test_prepares_private_verified_drafts_without_approval(
     assert "Application draft preparation" in page.text and "Open saved document" in page.text
     assert client.get("/agents/application").status_code == 200
     assert client.get(f"/applications/{app_id}").headers["cache-control"] == "no-store"
-    assert "does not preserve the exact layout" in client.get(f"/applications/{app_id}").text
+    assert "Download tailored PDF" in client.get(f"/applications/{app_id}").text
 
 
 def test_duplicate_requests_and_reruns_reuse_drafts(
@@ -150,3 +155,21 @@ def test_on_demand_rollback_leaves_no_mission(factory: sessionmaker[Session]) ->
         session.rollback()
         assert session.scalars(select(Mission)).all() == []
         assert session.scalars(select(Task)).all() == []
+
+
+def test_pdf_compiler_failure_retries_without_a_word_resume(factory, app, monkeypatch):  # type: ignore[no-untyped-def]
+    from careeros.modules.documents import latex
+
+    app_id, mission_id = start(factory)
+
+    def unavailable(*args, **kwargs):
+        raise latex.LatexError("Compiler unavailable")
+
+    monkeypatch.setattr(latex, "compile_pdf", unavailable)
+    assert Worker(factory, data_dir=Path(app.state.settings.data_dir)).run_once()
+    with factory() as session:
+        run = service.runs_for(session, mission_id)[0]
+        assert run.status == "retrying"
+        assert session.scalars(select(Document)).all() == []
+        assert session.scalars(select(Approval)).all() == []
+        assert session.get(Application, app_id).status == "preparing"

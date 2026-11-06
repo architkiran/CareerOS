@@ -144,7 +144,21 @@ def generate(
     candidate = load_candidate(session)
     builder = build_resume if doc_type == "resume" else build_cover_letter
     content = builder(candidate, job.title, company.canonical_name, job.description_text, lane_name)
-    content.context["qa_version"] = "qa-v2"
+    content.context["qa_version"] = "qa-v3"
+    if doc_type == "resume":
+        from careeros.modules.documents.tailoring import plan, report_dict
+
+        tailoring = plan(
+            candidate, job.title, job.description_text, project_limit, experience_limit
+        )
+        content.context["tailoring"] = json.dumps(report_dict(tailoring), sort_keys=True)
+        for name, claims in content.sections:
+            if name in ("Projects", "Experience"):
+                claims[:] = [
+                    claim
+                    for claim in claims
+                    if all(ref in tailoring.source_refs for ref in claim.refs)
+                ]
     if render_format == "pdf":
         if doc_type != "resume" or project_limit not in (2, 3, 4) or experience_limit not in (2, 3):
             raise DocumentError("Choose a resume with 2–4 projects and 2–3 experiences.")
