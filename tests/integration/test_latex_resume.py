@@ -128,3 +128,15 @@ def test_current_profile_verification_is_rechecked_at_approval(app):  # type: ig
         skill.verified_status = "unverified"
         with pytest.raises(gate.ApprovalError, match="fact checks"):
             gate.application_payload(session, application.id, False)
+
+
+def test_experience_without_bullets_has_no_empty_latex_list():
+    from careeros.modules.documents.content import Claim, DocumentContent
+
+    content = DocumentContent(
+        "resume",
+        "General",
+        ["Candidate"],
+        [("Experience", [Claim("Experience", "Analyst, Example", ["experience:a"])])],
+    )
+    assert "\\begin{itemize}\n\\end{itemize}" not in latex.source(content)

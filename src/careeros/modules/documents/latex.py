@@ -118,7 +118,9 @@ def source(content: DocumentContent) -> str:
                     lines.append(r"\item " + escape(claim.text))
             if current is not None:
                 lines.append(r"\end{itemize}")
-    return "\n".join(lines + [r"\end{document}", ""])
+    return "\n".join(lines + [r"\end{document}", ""]).replace(
+        "\\begin{itemize}\n\\end{itemize}", ""
+    )
 
 
 def compile_pdf(content: DocumentContent, path: Path) -> list[Finding]:
