@@ -188,3 +188,37 @@ def test_generated_preview_is_a_private_png_and_rejects_tampered_pdf(app, client
     assert response.headers["cache-control"] == "no-store"
     Path(d.storage_path).write_bytes(b"tampered")
     assert client.get(f"/documents/{d.id}/preview").status_code == 409
+
+
+def test_pinned_project_outside_automatic_shortlist_is_not_discarded(app, pdf_compiler):  # type: ignore[no-untyped-def]
+    from careeros.modules.profile import service as profiles
+    from careeros.modules.profile.schemas import ProjectIn
+
+    app_id = setup_workbench(app)
+    with app.state.session_factory() as s:
+        for i in range(6):
+            profiles.add_project(
+                s,
+                ProjectIn(
+                    name=f"Extra project {i}",
+                    description="Verified work",
+                    verified_status="verified",
+                ),
+            )
+        candidate = documents.load_candidate(s)
+        pinned = next(p for p in candidate.projects if p.text.startswith("Extra project 5|"))
+        choices = Choices(
+            project_refs=[pinned.ref],
+            experience_refs=[e.ref for e in candidate.experience],
+            skills=[x.text for x in candidate.skills],
+        )
+        doc = documents.generate(
+            s,
+            app_id,
+            "resume",
+            Path(app.state.settings.data_dir),
+            render_format="pdf",
+            choices=choices,
+        )
+        projects = dict(documents.load_content(doc).sections)["Projects"]
+        assert projects and all(p.refs == [pinned.ref] for p in projects)

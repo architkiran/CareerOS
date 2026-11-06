@@ -22,3 +22,5 @@ body{font-size:14px;line-height:1.6;background:var(--paper);}a{color:var(--accen
 .editor-save{position:static}.evidence-panel>details{padding:12px 16px;background:var(--soft);border:1px solid var(--line);border-radius:10px}.evidence-panel>details>summary{font-size:13px;color:var(--ink)}.resume-editor>.actions{margin:10px 0 18px}.workbench-grid>.evidence-panel{margin-bottom:2px}
 
 img.pdf-preview.rendered-pdf,.preview-panel img.pdf-preview.rendered-pdf{height:auto;max-width:100%;display:block;background:#fff;object-fit:contain}
+
+.table-scroll{max-width:100%;overflow-x:auto}

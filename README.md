@@ -1,11 +1,12 @@
 # CareerOS
 
-The current interface centers on **Today, Opportunities and Applications**, with a
-live agent activity board and a quieter neutral design. Resume preparation selects
-verified evidence for each job and exports your master LaTeX layout as a PDF, with
-an explanation and preview. Discovery includes public employer feeds, Remotive,
-Jobicy and user-assisted imports from other boards. See the
-[Focus redesign and validation](docs/FOCUS_REDESIGN.md).
+The current interface centers on **Today, Opportunities and Applications**. The
+[evidence workbench](docs/EVIDENCE_WORKBENCH.md) preserves master-resume evidence,
+lets you edit role-specific content and project/skill selections, and previews the
+actual PDF. Application evidence and networking agents prepare inspectable briefs.
+Local monitoring separates source publication from first discovery and follows
+provider-specific refresh limits. See the
+[cited product research](reports/CareerOS%20evidence%20and%20discovery.md).
 
 Start locally with `./Start\ CareerOS.command` (port 8766). For a fresh clone, install
 Python dependencies first, then run `.venv/bin/python scripts/setup_latex.py` once
