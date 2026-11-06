@@ -1,5 +1,14 @@
 # CareerOS
 
+The latest product update groups the app into five workspaces and adds master-layout
+LaTeX PDF resumes, consistent download names, live cross-mission activity, source
+intelligence and a US SmartRecruiters adapter. See [product workspaces](docs/PRODUCT_WORKSPACES.md).
+
+Start locally with `./Start\ CareerOS.command` (port 8766). For a fresh clone, install
+Python dependencies first, then run `.venv/bin/python scripts/setup_latex.py` once
+to install the free local compiler and cache its support files. Resume generation
+uses cached resources only.
+
 A local-first, cost-minimal personal career operating system. CareerOS discovers relevant full-time jobs, explains fit, tracks evidence and work-authorization uncertainty, prepares truthful application materials, and routes every external action through a human approval gate.
 
 ## Non-negotiable principles

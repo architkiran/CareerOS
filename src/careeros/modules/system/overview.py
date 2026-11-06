@@ -48,7 +48,9 @@ def build_overview(session: Session, settings: Settings) -> Overview:
     )
     failing = int(
         session.scalar(
-            select(func.count()).select_from(Source).where(Source.last_error.is_not(None))
+            select(func.count())
+            .select_from(Source)
+            .where(Source.enabled.is_(True), Source.last_error.is_not(None))
         )
         or 0
     )
