@@ -291,3 +291,18 @@ def recommended_jobs(session: Session, limit: int = 3) -> list[JobRow]:
         if len(selected) >= limit:
             break
     return selected
+
+
+def public_board_links(session: Session, job_ids: list[str]) -> dict[str, list[tuple[str, str]]]:
+    """One query for original public-board attribution on any opportunity surface."""
+    links: dict[str, list[tuple[str, str]]] = {}
+    if job_ids:
+        for job_id, kind, url in session.execute(
+            select(JobSourceRecord.job_id, Source.source_type, JobSourceRecord.source_url)
+            .join(Source, Source.id == JobSourceRecord.source_id)
+            .where(
+                JobSourceRecord.job_id.in_(job_ids), Source.source_type.in_(("remotive", "jobicy"))
+            )
+        ):
+            links.setdefault(job_id, []).append((kind, url))
+    return links

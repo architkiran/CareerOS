@@ -153,3 +153,30 @@ def test_background_matching_is_visible_in_activity_and_today(app, client):  # t
     assert "Refreshing saved job scores" in client.get("/agents").text
     today = client.get("/mission-control").text
     assert "Refreshing job scores" in today and "Ready when you are" not in today
+
+
+def test_public_board_attribution_is_visible_on_today_and_opportunities(app, client):  # type: ignore[no-untyped-def]
+    from careeros.db.models import JobSourceRecord
+    from careeros.modules.matching.service import score_jobs
+    from careeros.modules.sources.registry import SourceIn, add_source
+
+    job_id = _setup(app.state.session_factory)
+    original = "https://jobicy.com/jobs/123-analyst"
+    with app.state.session_factory() as s:
+        source = add_source(s, SourceIn(type="jobicy", token="usa", name="Jobicy"))
+        s.add(
+            JobSourceRecord(
+                job_id=job_id,
+                source_id=source.id,
+                external_id="123",
+                source_url=original,
+                raw_json={},
+                raw_hash="x",
+            )
+        )
+        profiles.add_default_lanes(s)
+        score_jobs(s)
+        s.commit()
+    for path in ("/mission-control", "/jobs?view=recommended&sort=score"):
+        page = client.get(path).text
+        assert original in page and "Source: Jobicy" in page

@@ -16,7 +16,7 @@ from careeros.modules.applications import service as application_service
 from careeros.modules.approvals import service as approval_service
 from careeros.modules.backup.service import latest_backup
 from careeros.modules.events.service import latest_events
-from careeros.modules.jobs.service import recommended_jobs
+from careeros.modules.jobs.service import public_board_links, recommended_jobs
 from careeros.modules.market.contracts import MarketReport
 from careeros.modules.market.service import latest_brief
 from careeros.modules.models.gateway import usage_summary
@@ -128,6 +128,7 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         "events": events,
         "cursor": events[0].id if events else 0,
         "opportunities": opportunities[:5],
+        "board_links": public_board_links(session, [row.job.id for row in opportunities]),
         "profile": profile_summary(session),
         "followups": approval_service.open_follow_ups(session, due_within_days=3)[:3],
         "application_rows": application_service.list_applications(session)[:3],

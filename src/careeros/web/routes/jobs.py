@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from careeros.db.models import Job, JobSourceRecord, Source
+from careeros.db.models import Job
 from careeros.modules.applications import service as apps_service
 from careeros.modules.jobs import service as jobs
 from careeros.modules.matching import service as matching
@@ -126,19 +126,7 @@ def inbox(
             "pages": pages,
             "query": urlencode(params),
             "any_jobs": session.scalar(select(Job.id).limit(1)) is not None,
-            "board_links": {
-                row.job.id: list(
-                    session.execute(
-                        select(Source.source_type, JobSourceRecord.source_url)
-                        .join(JobSourceRecord)
-                        .where(
-                            JobSourceRecord.job_id == row.job.id,
-                            Source.source_type.in_(("remotive", "jobicy")),
-                        )
-                    ).all()
-                )
-                for row in rows
-            },
+            "board_links": jobs.public_board_links(session, [row.job.id for row in rows]),
         },
     )
 
