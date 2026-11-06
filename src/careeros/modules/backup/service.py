@@ -21,7 +21,7 @@ from sqlalchemy.engine import make_url
 from careeros import __version__
 from careeros.common.fs import private_dir
 
-PRIVATE_DIRS = ("documents", "approvals", "outreach")
+PRIVATE_DIRS = ("documents", "approvals", "outreach", "resume_references")
 DB_NAME = "careeros.db"
 MANIFEST = "manifest.json"
 

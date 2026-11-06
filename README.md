@@ -313,3 +313,18 @@ Every rate shows its count and a 95% range. Groups with fewer than 10 applicatio
 | `tests/` | Unit and integration tests (recorded fixtures in `tests/fixtures/sources/`) |
 
 Data lives in `./data` and generated files in `./exports`; both are created with owner-only permissions and are gitignored.
+
+## Role-specific resume references and safe workspace copies
+
+`/resumes` keeps original PDF variants separate from verified profile claims and
+from generated application packages. References are immutable, hash-checked on
+download, stored in private folders and included in backups. Their review notes
+explain unresolved metrics and editable-source limitations. Registering a PDF
+never marks its claims verified or changes an employment title.
+
+`modules.backup.workspace.clone_workspace` provides a read-only SQLite snapshot,
+a verified backup, restoration into a new destination, explicit migration and
+private-artifact path rebasing (including an explicitly provided legacy Docker
+storage alias). It refuses an existing destination and never changes the source.
+Copied pending work is cancelled in the copy to avoid replaying another worker's
+actions. The source's historical records and confirmed verification labels remain.
