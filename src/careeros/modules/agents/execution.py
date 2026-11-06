@@ -148,6 +148,9 @@ def _local_step(session: Session, key: str) -> AgentOutput:
             warnings=warnings,
         )
     if key == "research":
+        from careeros.modules.companies.service import ensure_watchlist
+
+        company_workspaces = ensure_watchlist(session)
         ids = list(
             session.scalars(
                 select(Job.id).where(Job.status == "active", Job.triage_status == "shortlisted")
@@ -159,8 +162,13 @@ def _local_step(session: Session, key: str) -> AgentOutput:
                 open_research(session, job_id)
                 created += 1
         return AgentOutput(
-            summary=f"Checked {len(ids)} shortlisted jobs; opened {created} evidence reviews.",
-            metrics={"shortlisted_jobs": len(ids), "new_reviews": created},
+            summary=f"Checked {len(ids)} shortlisted jobs; opened {created} evidence reviews "
+            f"and {company_workspaces} company workspaces.",
+            metrics={
+                "shortlisted_jobs": len(ids),
+                "new_reviews": created,
+                "new_company_workspaces": company_workspaces,
+            },
         )
     if key == "analytics":
         analytics = compute(session)

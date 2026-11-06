@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v2"  # v2: employment type read from explicit description text
+ALGORITHM_VERSION = "match-v3"  # v3: stale employer evidence cannot establish current policy
 
 
 @dataclass(frozen=True)

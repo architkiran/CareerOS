@@ -2,6 +2,7 @@
 {% from "_macros.html" import csrf, alerts with context %}
 {% block title %}{{ d.job.title }} · CareerOS{% endblock %}
 {% block content %}
+<p><a href="/companies/{{ d.company.id }}">Research {{ d.company.canonical_name }} →</a></p>
 <form method="post" action="/interviews/prepare/{{ d.job.id }}" class="actions">{{ csrf() }}<button class="secondary">Prepare interview practice</button></form>
 {% set j = d.job %}
 <p><a href="/jobs">← Job inbox</a></p>

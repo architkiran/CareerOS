@@ -291,7 +291,7 @@ def test_job_detail_shows_breakdown(scored: sessionmaker[Session], client: TestC
     html = client.get(f"/jobs/{job.id}").text
     assert html.count('data-testid="lane-match"') == 6
     assert 'data-testid="filters-table"' in html and 'data-testid="score-table"' in html
-    assert "Skills alignment" in html and "match-v2" in html
+    assert "Skills alignment" in html and "match-v3" in html
     assert "Compensation" in html and "work authorization" in html
     assert "1 unverified skills were not counted." in html
 
@@ -375,7 +375,7 @@ def test_stale_algorithm_version_triggers_rescore(world: sessionmaker[Session]) 
     w.run_once()
     with world() as s:
         assert not matching.has_stale_scores(s)
-        assert {m.algorithm_version for m in s.scalars(select(JobLaneMatch))} == {"match-v2"}
+        assert {m.algorithm_version for m in s.scalars(select(JobLaneMatch))} == {"match-v3"}
 
 
 def test_greenhouse_full_time_from_description_can_pass(world: sessionmaker[Session]) -> None:

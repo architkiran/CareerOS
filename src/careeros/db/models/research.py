@@ -49,7 +49,7 @@ class Evidence(Base):
     retrieved_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     confidence: Mapped[str] = mapped_column(String(10), nullable=False)
     short_excerpt: Mapped[str | None] = mapped_column(Text)
-    origin: Mapped[str] = mapped_column(String(20), nullable=False)  # job_posting | user
+    origin: Mapped[str] = mapped_column(String(20), nullable=False)  # job_posting | user | research
     reviewer_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

@@ -22,6 +22,7 @@ from careeros.web.routes import (
     analytics,
     applications,
     approvals,
+    companies,
     events,
     interviews,
     jobs,
@@ -100,6 +101,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(resumes.router)
     app.include_router(market.router)
     app.include_router(interviews.router)
+    app.include_router(companies.router)
     app.include_router(sources.router)
     app.include_router(jobs.router)
     app.include_router(events.router)

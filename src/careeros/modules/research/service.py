@@ -10,8 +10,9 @@ Rules (docs/PRODUCT_SPEC.md, "Work authorization intelligence"):
 """
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
@@ -63,8 +64,13 @@ class EvidenceIn(BaseModel):
     @field_validator("source_url")
     @classmethod
     def _http(cls, v: str) -> str:
-        if not v.startswith(("https://", "http://")):
-            raise ValueError("Source URL must start with http:// or https://")
+        parsed = urlsplit(v)
+        if (
+            parsed.scheme not in ("https", "http")
+            or not parsed.hostname
+            or parsed.username is not None
+        ):
+            raise ValueError("Source URL must use HTTP(S), name a host and omit credentials.")
         return v
 
     @field_validator("source_date")
@@ -246,8 +252,17 @@ class PolicySummary:
         return f"{ev.claim_text} ({ev.source_url})"
 
 
+def _reference_time(ev: Evidence) -> datetime:
+    published = (
+        datetime.combine(ev.source_date, datetime.min.time(), tzinfo=UTC)
+        if ev.source_date
+        else ev.retrieved_at
+    )
+    return min(published, ev.retrieved_at)
+
+
 def _is_stale(ev: Evidence, now: datetime) -> bool:
-    return now - ev.retrieved_at > STALE_AFTER
+    return now - _reference_time(ev) > STALE_AFTER
 
 
 def employer_policy(session: Session, company_id: str, job_id: str | None = None) -> PolicySummary:
@@ -265,7 +280,10 @@ def employer_policy(session: Session, company_id: str, job_id: str | None = None
     rows = [e for e in rows if e.job_id is None or e.job_id == job_id]
     authoritative = [e for e in rows if e.source_kind in AUTHORITATIVE]
     leads = [e for e in rows if e.source_kind not in AUTHORITATIVE]
-    citizenship = any(e.claim_type == "citizenship_required" for e in authoritative)
+    now = utcnow()
+    citizenship = any(
+        e.claim_type == "citizenship_required" and not _is_stale(e, now) for e in authoritative
+    )
     scoped = [e for e in authoritative if e.job_id == job_id and e.claim_type in _POLICY_CLAIMS]
     if not scoped:
         scoped = [e for e in authoritative if e.job_id is None and e.claim_type in _POLICY_CLAIMS]
@@ -281,10 +299,12 @@ def employer_policy(session: Session, company_id: str, job_id: str | None = None
     rank = {"high": 3, "medium": 2, "low": 1}
     confidence = max((e.confidence for e in scoped), key=lambda c: rank.get(c, 0))
     stale = all(_is_stale(e, now) for e in scoped)
-    if stale and confidence == "high":
-        confidence = "medium"
+    if stale:
+        return PolicySummary(
+            "unknown", "low", scoped, leads, stale=True, citizenship_required=citizenship
+        )
     return PolicySummary(
-        status, confidence, scoped, leads, stale=stale, citizenship_required=citizenship
+        status, confidence, scoped, leads, stale=False, citizenship_required=citizenship
     )
 
 
@@ -331,4 +351,4 @@ def research_queue(session: Session, status: str | None = None) -> list[QueueRow
 
 
 def evidence_age_days(ev: Evidence) -> int:
-    return (utcnow() - ev.retrieved_at).days
+    return max(0, (utcnow() - _reference_time(ev)).days)

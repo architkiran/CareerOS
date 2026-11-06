@@ -85,3 +85,5 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 4px; }
 @media (max-width: 700px) { .container:has(.mc-header) { padding: 22px 16px 48px; } .mc-header { flex-direction: column; align-items: flex-start; gap: 16px; } .mc-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mc-metrics a { padding: 18px; } .mc-secondary, .mc-agent-grid { grid-template-columns: minmax(0, 1fr); } .mc-panel { padding: 18px; } .mc-agents > li { flex-wrap: wrap; } .agent-copy { flex-basis: calc(100% - 50px); } .mc-agents .state { margin-left: 45px; } .mc-section-head > a { white-space: normal; text-align: right; } .mc-opportunity { flex-direction: column; } .mc-score { flex-direction: row; align-items: center; } .theme-toggle { margin: 8px 4px 0; } }
 
 .practice-answer { width: 100%; min-height: 150px; }
+
+.mc-metrics .mc-policy-label { font-size: 19px; line-height: 1.3; }

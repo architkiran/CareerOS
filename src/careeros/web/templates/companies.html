@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Companies · CareerOS{% endblock %}
+{% block content %}
+<header class="mc-header"><div><p class="eyebrow">Understand the employer</p><h1>Companies</h1><p class="muted">Your watchlist, tracked openings, and evidence you can inspect.</p></div><form method="post" action="/companies/watchlist">{{ csrf() }}<button class="secondary">Prepare preference watchlist</button></form></header>
+<p class="muted">Counts cover saved public-source postings only. Zero tracked openings does not mean an employer is not hiring. Watchlist membership does not establish sponsorship or candidate eligibility.</p>
+<section class="mc-panel">{% for row in rows %}<a class="mc-history-row" href="/companies/{{ row.company.id }}"><div><strong>{{ row.company.canonical_name }}</strong><span>{{ row.active_jobs }} tracked active postings · {{ 'Your watchlist' if row.watchlist else 'Observed source employer' }}</span></div><span aria-hidden="true">↗</span></a>{% else %}<p class="empty">Add company feeds or prepare your preference watchlist to start employer research.</p>{% endfor %}</section>
+{% endblock %}

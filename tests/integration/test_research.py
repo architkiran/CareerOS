@@ -180,14 +180,14 @@ def test_other_jobs_evidence_does_not_apply(factory: sessionmaker[Session]) -> N
         assert research.employer_policy(s, item.company_id, b).status == "unknown"
 
 
-def test_stale_evidence_downgrades_confidence(factory: sessionmaker[Session]) -> None:
+def test_stale_evidence_cannot_establish_current_policy(factory: sessionmaker[Session]) -> None:
     jid = _job(factory)
     with factory() as s:
         item = research.open_research(s, jid)
         ev = research.add_evidence(s, item.id, _ev(confidence="high"))
         ev.retrieved_at = utcnow() - timedelta(days=400)
         p = research.employer_policy(s, item.company_id, jid)
-        assert p.stale and p.confidence == "medium"
+        assert p.stale and p.confidence == "low" and p.status == "unknown"
 
 
 def test_citizenship_flag(factory: sessionmaker[Session]) -> None:
