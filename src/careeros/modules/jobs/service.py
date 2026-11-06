@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
@@ -140,6 +140,38 @@ def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]
     return [
         JobRow(job, company, names.get(job.id, []), matches.get(job.id)) for job, company in rows
     ], int(total)
+
+
+def recent_jobs(session: Session, limit: int = 5) -> list[JobRow]:
+    """Bounded Mission Control feed with the same eligibility/override rules as the inbox."""
+    from careeros.modules.matching.service import best_match_summary
+
+    ranked = best_match_summary()
+    rows = session.execute(
+        select(Job, Company.canonical_name)
+        .join(Company, Company.id == Job.company_id)
+        .outerjoin(ranked, and_(ranked.c.job_id == Job.id, ranked.c.rank == 1))
+        .where(
+            Job.status == "active",
+            Job.triage_status != "rejected",
+            or_(ranked.c.eligibility.is_(None), ranked.c.eligibility != "fail"),
+        )
+        .order_by(Job.first_seen_at.desc(), Job.title, Job.id)
+        .limit(max(1, min(limit, PAGE_SIZE)))
+    ).all()
+    ids = [job.id for job, _ in rows]
+    matches = _match_for(session, ids, None)
+    names: dict[str, list[str]] = {}
+    if ids:
+        for job_id, name in session.execute(
+            select(JobSourceRecord.job_id, Source.display_name + " (" + Source.source_type + ")")
+            .join(Source, Source.id == JobSourceRecord.source_id)
+            .where(JobSourceRecord.job_id.in_(ids))
+        ):
+            names.setdefault(job_id, []).append(name)
+    return [
+        JobRow(job, company, names.get(job.id, []), matches.get(job.id)) for job, company in rows
+    ]
 
 
 @dataclass

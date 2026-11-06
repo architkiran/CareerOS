@@ -3,8 +3,9 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from sqlalchemy import delete, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Subquery
 
 from careeros.common.clock import utcnow
 from careeros.db.models import Company, Job, JobLaneMatch, MatchOverride, RoleLane
@@ -266,6 +267,7 @@ def best_matches(session: Session, job_ids: list[str]) -> dict[str, LaneMatchVie
         select(JobLaneMatch, RoleLane)
         .join(RoleLane, RoleLane.id == JobLaneMatch.role_lane_id)
         .where(JobLaneMatch.job_id.in_(job_ids), RoleLane.enabled.is_(True))
+        .order_by(JobLaneMatch.job_id, RoleLane.name, JobLaneMatch.id)
     ).all()
     overrides = {
         (o.job_id, o.role_lane_id): o
@@ -316,32 +318,76 @@ class MatchCounts:
     top_blocker: tuple[str, int] | None = None
 
 
-def match_counts(session: Session) -> MatchCounts:
-    ids = list(
-        session.scalars(
-            select(Job.id).where(Job.status == "active", Job.triage_status != "rejected")
+def best_match_summary() -> Subquery:
+    """Rank minimal columns in SQLite; avoid materializing every lane's JSON in Python.
+
+    Ties use lane name then match ID, matching best_matches' explicit ordering.
+    Unknown eligibility remains distinct from pass and outranks fail only through
+    the same non-fail flag the existing inbox uses.
+    """
+    eligibility = func.coalesce(MatchOverride.eligibility, JobLaneMatch.eligibility)
+    score = func.coalesce(MatchOverride.score, JobLaneMatch.score)
+    return (
+        select(
+            JobLaneMatch.id.label("match_id"),
+            JobLaneMatch.job_id,
+            JobLaneMatch.classified,
+            eligibility.label("eligibility"),
+            score.label("score"),
+            func.row_number()
+            .over(
+                partition_by=JobLaneMatch.job_id,
+                order_by=(
+                    JobLaneMatch.classified.desc(),
+                    (eligibility != "fail").desc(),
+                    score.desc(),
+                    RoleLane.name,
+                    JobLaneMatch.id,
+                ),
+            )
+            .label("rank"),
         )
+        .join(RoleLane, RoleLane.id == JobLaneMatch.role_lane_id)
+        .outerjoin(
+            MatchOverride,
+            and_(
+                MatchOverride.job_id == JobLaneMatch.job_id,
+                MatchOverride.role_lane_id == JobLaneMatch.role_lane_id,
+            ),
+        )
+        .where(RoleLane.enabled.is_(True))
+        .subquery()
     )
-    best = best_matches(session, ids)
-    c = MatchCounts(0, 0, 0, 0)
+
+
+def match_counts(session: Session) -> MatchCounts:
+    ranked = best_match_summary()
+    rows = session.execute(
+        select(ranked.c.classified, ranked.c.eligibility, JobLaneMatch.hard_filter_results_json)
+        .select_from(Job)
+        .outerjoin(ranked, and_(ranked.c.job_id == Job.id, ranked.c.rank == 1))
+        .outerjoin(JobLaneMatch, JobLaneMatch.id == ranked.c.match_id)
+        .where(Job.status == "active", Job.triage_status != "rejected")
+    )
+    counts = MatchCounts(0, 0, 0, 0)
     blockers: dict[str, int] = {}
-    for job_id in ids:
-        view = best.get(job_id)
-        if view is None or not view.match.classified:
-            c.unscored += 1
-        elif view.effective_eligibility == "pass":
-            c.passing += 1
-        elif view.effective_eligibility == "unknown":
-            c.needs_review += 1
-            for f in view.match.hard_filter_results_json:
-                if f.get("decision") == "unknown":
-                    blockers[f["name"]] = blockers.get(f["name"], 0) + 1
+    for classified, eligibility, filters in rows:
+        if not classified:
+            counts.unscored += 1
+        elif eligibility == "pass":
+            counts.passing += 1
+        elif eligibility == "unknown":
+            counts.needs_review += 1
+            for result in filters or []:
+                if result.get("decision") == "unknown":
+                    name = result["name"]
+                    blockers[name] = blockers.get(name, 0) + 1
         else:
-            c.filtered_out += 1
+            counts.filtered_out += 1
     if blockers:
-        name, n = max(blockers.items(), key=lambda kv: kv[1])
-        c.top_blocker = (name.replace("_", " "), n)
-    return c
+        name, count = max(blockers.items(), key=lambda item: item[1])
+        counts.top_blocker = (name.replace("_", " "), count)
+    return counts
 
 
 # ---------- overrides ----------

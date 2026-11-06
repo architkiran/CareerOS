@@ -438,3 +438,48 @@ def test_match_counts_reports_top_blocker(world: sessionmaker[Session], client: 
         assert 'data-testid="top-blocker"' in client.get("/partials/overview").text
     else:
         assert c.top_blocker is None
+
+
+def test_dashboard_sql_counts_match_inbox_with_overrides(world: sessionmaker[Session]) -> None:
+    from careeros.modules.jobs.service import JobFilters, list_jobs, recent_jobs
+
+    with world() as s:
+        matching.score_jobs(s)
+        s.commit()
+        jobs = list(
+            s.scalars(select(Job).where(Job.status == "active", Job.triage_status != "rejected"))
+        )
+        first = jobs[0]
+        candidate = matching.matches_for_job(s, first.id)[0]
+        matching.set_override(
+            s, first.id, candidate.lane_id, eligibility="pass", score=99, reason="test review"
+        )
+        s.commit()
+        views = matching.best_matches(s, [j.id for j in jobs])
+        expected = {"pass": 0, "unknown": 0, "fail": 0, "unscored": 0}
+        for job in jobs:
+            view = views.get(job.id)
+            key = view.effective_eligibility if view and view.match.classified else "unscored"
+            expected[key] += 1
+        counts = matching.match_counts(s)
+        assert (counts.passing, counts.needs_review, counts.filtered_out, counts.unscored) == (
+            expected["pass"],
+            expected["unknown"],
+            expected["fail"],
+            expected["unscored"],
+        )
+        inbox, _ = list_jobs(s, JobFilters())
+        bounded = recent_jobs(s, limit=2)
+        assert [r.job.id for r in bounded] == [r.job.id for r in inbox[:2]]
+        assert all(r.match is None or r.match.effective_eligibility != "fail" for r in bounded)
+
+
+def test_dashboard_counts_when_every_lane_disabled(world: sessionmaker[Session]) -> None:
+    with world() as s:
+        matching.score_jobs(s)
+        for lane in profile_service.list_lanes(s):
+            lane.enabled = False
+        s.commit()
+        counts = matching.match_counts(s)
+        assert counts.unscored == 7
+        assert counts.passing == counts.needs_review == counts.filtered_out == 0

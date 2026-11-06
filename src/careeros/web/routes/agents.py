@@ -14,7 +14,7 @@ from careeros.modules.agents import service
 from careeros.modules.agents.registry import AGENTS, BY_KEY, PLANNED
 from careeros.modules.backup.service import latest_backup
 from careeros.modules.events.service import latest_events
-from careeros.modules.jobs.service import JobFilters, list_jobs
+from careeros.modules.jobs.service import recent_jobs
 from careeros.modules.market.contracts import MarketReport
 from careeros.modules.market.service import latest_brief
 from careeros.modules.models.gateway import usage_summary
@@ -52,7 +52,7 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
     runs = service.runs_for(session, current.id) if current else []
     by_key = {run.agent_key: run for run in runs}
     events = latest_events(session)
-    opportunities, _ = list_jobs(session, JobFilters(sort="newest"))
+    opportunities = recent_jobs(session)
     heartbeat = get_setting(session, "worker.last_seen_at")
     seen = datetime.fromisoformat(heartbeat) if isinstance(heartbeat, str) else None
     scheduled = get_setting(session, service.LAST_SCHEDULED_KEY)

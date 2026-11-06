@@ -46,3 +46,17 @@ Segment by role lane, source, company, resume version, and time cohort. Always s
 ## User value
 
 Optimize for qualified interviews, not raw application count. Early operating target: a small number of high-quality, well-researched applications per day rather than hundreds of generic submissions. Measure outcomes before changing weights or workflow.
+
+## Mission Control query cost
+
+With the copied personal workspace (~3,800 jobs and eight lanes), the original
+Mission Control implementation loaded all lane-score JSON twice on every poll.
+The dashboard now ranks minimal matching columns in SQLite, loads filter evidence
+only for each winning lane, and fetches full job/match records only for the bounded
+recent-opportunity feed. Best-lane ties use lane name and match ID consistently.
+
+A local TestClient check measured approximately 3.5 seconds before and 0.34 seconds
+after, with the live fragment at 0.26 seconds. These are development observations,
+not a controlled benchmark or performance guarantee. Integration tests compare
+counts/feed choices against the existing inbox behavior, including overrides and
+disabled lanes. No cache, Redis, denormalized user data or new service was added.
