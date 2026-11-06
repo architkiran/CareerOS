@@ -11,6 +11,9 @@ formatting (206 files) and strict mypy (117 source files). Later pagination and
 query-equivalence coverage passes 82 focused matching/inbox/analytics tests.
 The final consolidated suite output is supplied with the review package.
 
+Final consolidated validation: **583 tests passed in 33.41 seconds**. Ruff,
+formatting (207 files), strict mypy (117 source files) and whitespace checks pass.
+
 Real-data checks used a private copy of the original SQLite workspace, not the
 original database. The copy preserved 3,783 jobs, two applications, verified
 profile evidence and private documents. A live review refreshed 17 enabled public
@@ -28,6 +31,8 @@ A TestClient smoke pass checked 67 real-data routes/downloads: all returned HTTP
 original PDF references and new draft binaries. This is server-side functional
 verification, not a substitute for a full cross-device visual/accessibility audit.
 Earlier browser validation and its capture limitations remain documented.
+The final workspace contains 20 pending company-research leads, including an
+explicit rate-limit coverage gap; none was accepted automatically.
 
 Measured service/query timings on 3,799 local jobs:
 
