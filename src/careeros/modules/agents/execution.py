@@ -22,7 +22,8 @@ from careeros.modules.sources.http import Fetcher
 def execute(
     factory: sessionmaker[Session], payload: dict[str, Any], fetcher_factory: Callable[[], Fetcher]
 ) -> dict[str, Any]:
-    run_id = AgentTaskInput.model_validate(payload).agent_run_id
+    inputs = AgentTaskInput.model_validate(payload)
+    run_id = inputs.agent_run_id
     with factory() as session:
         run = session.get(AgentRun, run_id)
         if run is None or run.status != "running":
@@ -34,11 +35,29 @@ def execute(
             raise AgentExecutionError("Mission cancelled before this step started.")
         key = run.agent_key
     if key == "discovery":
-        fetcher = fetcher_factory()
-        try:
-            results = run_all(factory, fetcher)
-        finally:
-            fetcher.close()
+
+        def cancelled() -> bool:
+            with factory() as check:
+                current = check.get(Mission, run.mission_id)
+                return current is None or current.status == "cancelled"
+
+        with factory() as check:
+            enabled_count = int(
+                check.scalar(
+                    select(func.count()).select_from(Source).where(Source.enabled.is_(True))
+                )
+                or 0
+            )
+        if inputs.source_ids == []:
+            results = []
+        else:
+            fetcher = fetcher_factory()
+            try:
+                results = run_all(
+                    factory, fetcher, source_ids=inputs.source_ids, should_stop=cancelled
+                )
+            finally:
+                fetcher.close()
         failed = sum(r.status == "failed" for r in results)
         if results and failed == len(results):
             raise AgentExecutionError("All configured feeds failed. Check Sources before retrying.")
@@ -50,14 +69,18 @@ def execute(
             "invalid_jobs": sum(r.invalid for r in results),
         }
         warnings = []
-        if not results:
+        if not results and not enabled_count:
             warnings.append("No enabled sources. Add a company feed in Sources to discover jobs.")
         if failed:
             warnings.append("Some feeds failed. Results cover only feeds checked successfully.")
         if metrics["invalid_jobs"]:
             warnings.append("Some postings could not be normalized. Inspect source run details.")
         return AgentOutput(
-            summary=f"Checked {len(results)} feeds and discovered {metrics['new_jobs']} new jobs.",
+            summary=(
+                "No feeds are due under their scheduled refresh policies."
+                if inputs.source_ids == [] and enabled_count
+                else f"Checked {len(results)} feeds and discovered {metrics['new_jobs']} new jobs."
+            ),
             metrics=metrics,
             warnings=warnings,
         ).model_dump()

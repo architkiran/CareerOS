@@ -1,5 +1,7 @@
 """Structured, bounded agent outputs; no raw source or candidate text in run metadata."""
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -7,6 +9,9 @@ class AgentTaskInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     agent_run_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    source_ids: list[Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]] | None = Field(
+        default=None, max_length=2000
+    )
 
 
 class AgentOutput(BaseModel):

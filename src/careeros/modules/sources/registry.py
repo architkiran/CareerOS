@@ -2,13 +2,15 @@
 
 import tomllib
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from careeros.common.clock import utcnow
 from careeros.db.models import Source, SourceRun
 from careeros.modules.events.service import record_event
 from careeros.modules.ingestion.service import get_or_create_company
@@ -17,7 +19,14 @@ from careeros.modules.sources.adapters.base import validate_token
 SourceType = Literal["greenhouse", "lever", "ashby"]
 
 
-class SourceIn(BaseModel):
+class SourcePolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rate_limit_seconds: float = Field(default=2.0, ge=0.5, le=60)
+    refresh_interval_minutes: int | None = Field(default=None, ge=15, le=10_080)
+
+
+class SourceIn(SourcePolicy):
     model_config = ConfigDict(extra="forbid")
 
     type: SourceType
@@ -50,6 +59,11 @@ def add_source(session: Session, data: SourceIn) -> Source:
         company_id=company.id,
         enabled=data.enabled,
         rate_limit_seconds=data.rate_limit_seconds,
+        config_json=(
+            {"refresh_interval_minutes": data.refresh_interval_minutes}
+            if data.refresh_interval_minutes is not None
+            else {}
+        ),
     )
     session.add(source)
     session.flush()
@@ -128,3 +142,55 @@ def sync_watchlist(session: Session, entries: list[SourceIn]) -> SyncResult:
             set_source_enabled(session, source.id, False)
             disabled += 1
     return SyncResult(added, existing, disabled)
+
+
+def source_policy(source: Source) -> SourcePolicy:
+    value = (source.config_json or {}).get("refresh_interval_minutes")
+    if isinstance(value, bool) or not isinstance(value, int) or not 15 <= value <= 10_080:
+        value = None
+    return SourcePolicy(
+        rate_limit_seconds=source.rate_limit_seconds, refresh_interval_minutes=value
+    )
+
+
+def set_source_policy(session: Session, source_id: str, policy: SourcePolicy) -> Source:
+    source = session.get(Source, source_id)
+    if source is None:
+        raise LookupError("Source not found")
+    source.rate_limit_seconds = policy.rate_limit_seconds
+    config = dict(source.config_json or {})
+    if policy.refresh_interval_minutes is None:
+        config.pop("refresh_interval_minutes", None)
+    else:
+        config["refresh_interval_minutes"] = policy.refresh_interval_minutes
+    source.config_json = config
+    record_event(
+        session,
+        "source.policy_updated",
+        "Source refresh policy updated.",
+        entity_type="source",
+        entity_id=source.id,
+    )
+    return source
+
+
+def due_source_ids(session: Session, now: datetime | None = None) -> list[str]:
+    """Optional per-source minimum gaps apply to scheduled missions, not explicit manual runs."""
+    now = now or utcnow()
+    last_attempt = (
+        select(SourceRun.source_id, func.max(SourceRun.started_at).label("checked_at"))
+        .group_by(SourceRun.source_id)
+        .subquery()
+    )
+    rows = session.execute(
+        select(Source, last_attempt.c.checked_at)
+        .outerjoin(last_attempt, last_attempt.c.source_id == Source.id)
+        .where(Source.enabled.is_(True))
+    )
+    due = []
+    for source, checked_at in rows:
+        minutes = source_policy(source).refresh_interval_minutes
+        reference = checked_at or source.last_success_at
+        if minutes is None or reference is None or now - reference >= timedelta(minutes=minutes):
+            due.append(source.id)
+    return due

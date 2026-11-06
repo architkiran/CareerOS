@@ -338,3 +338,11 @@ verified skill overlap. Briefings retain source links, observed/source dates,
 eligibility uncertainty and coverage limits. Daily comparisons require matching
 coverage and candidate inputs; a single snapshot never establishes a hiring trend.
 See [the implementation and source policy](docs/MARKET_INTELLIGENCE.md).
+
+
+Scheduled discovery can run every 15 minutes or longer using
+`SCHEDULE_INTERVAL_HOURS` (0.25 means 15 minutes). Each source's **Refresh policy**
+can set a longer minimum gap and request delay. The Sources page also distinguishes
+configured feeds from target employers that still need official careers-page
+research. Preferred-company labels never verify sponsorship. Scheduling remains
+off until explicitly enabled.

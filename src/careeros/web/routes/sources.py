@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from careeros.modules.sources import registry
+from careeros.modules.system.settings_store import get_setting
 from careeros.web import forms
 from careeros.web.csrf import verify_csrf
 from careeros.web.deps import error_messages, get_session
@@ -16,7 +17,24 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 def _ctx(session: Session) -> dict[str, Any]:
     rows = [(s, registry.last_run(session, s.id)) for s in registry.list_sources(session)]
-    return {"rows": rows}
+    preferences = get_setting(session, "career.preferences", {})
+    targets = preferences.get("target_companies", []) if isinstance(preferences, dict) else []
+    coverage = []
+    if isinstance(targets, list):
+        for target in targets[:50]:
+            if isinstance(target, str):
+                connected = [
+                    source.display_name
+                    for source, _ in rows
+                    if source.enabled and source.display_name.casefold() == target.casefold()
+                ]
+                coverage.append((target, connected))
+    return {
+        "rows": rows,
+        "policies": {source.id: registry.source_policy(source) for source, _ in rows},
+        "coverage": coverage,
+        "covered_targets": sum(bool(names) for _, names in coverage),
+    }
 
 
 def _render(request: Request, ctx: dict[str, Any], status_code: int = 200) -> HTMLResponse:
@@ -42,6 +60,7 @@ async def add_source(request: Request, session: SessionDep) -> Response:
             token=forms.text(f, "token") or "",
             name=forms.text(f, "name") or "",
             rate_limit_seconds=forms.text(f, "rate_limit_seconds") or 2.0,
+            refresh_interval_minutes=forms.text(f, "refresh_interval_minutes"),
         )
         registry.add_source(session, data)
     except ValidationError as exc:
@@ -63,3 +82,21 @@ async def toggle_source(source_id: str, request: Request, session: SessionDep) -
         raise HTTPException(404, str(exc)) from exc
     session.commit()
     return RedirectResponse("/sources", status_code=303)
+
+
+@router.post("/sources/{source_id}/policy")
+async def update_policy(source_id: str, request: Request, session: SessionDep) -> Response:
+    form = await request.form()
+    try:
+        policy = registry.SourcePolicy(
+            rate_limit_seconds=forms.text(form, "rate_limit_seconds") or 2,
+            refresh_interval_minutes=forms.text(form, "refresh_interval_minutes"),
+        )
+        registry.set_source_policy(session, source_id, policy)
+    except ValidationError as exc:
+        session.rollback()
+        return _render(request, _ctx(session) | {"errors": error_messages(exc)}, 422)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    session.commit()
+    return RedirectResponse("/sources?saved=policy", status_code=303)

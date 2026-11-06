@@ -94,3 +94,13 @@ def test_container_mode_counts_as_local_only_for_wildcard() -> None:
     assert make(container=True, app_host="0.0.0.0").is_localhost_bound  # noqa: S104
     assert not make(container=False, app_host="0.0.0.0").is_localhost_bound  # noqa: S104
     assert not make(container=True, app_host="192.168.1.5").is_localhost_bound
+
+
+@pytest.mark.parametrize("hours", [0.25, 0.5, 1, 3, 6, 12, 24])
+def test_supported_discovery_cadences(hours: float) -> None:
+    assert make(schedule_interval_hours=hours).schedule_interval_hours == hours
+
+
+def test_refuses_excessively_frequent_schedule() -> None:
+    with pytest.raises(ValidationError):
+        make(schedule_interval_hours=0.1)

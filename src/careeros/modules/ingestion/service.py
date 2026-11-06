@@ -11,6 +11,7 @@ Source provenance is never discarded: every source sighting keeps its record.
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
@@ -340,7 +341,11 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
 
 
 def run_all(
-    factory: sessionmaker[Session], fetcher: Fetcher, *, source_ids: list[str] | None = None
+    factory: sessionmaker[Session],
+    fetcher: Fetcher,
+    *,
+    source_ids: list[str] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> list[RunSummary]:
     """Run every enabled source in its own session so one failure can't affect another."""
     with factory() as session:
@@ -350,6 +355,8 @@ def run_all(
         ids = [i for i in ids if i in source_ids]
     results = []
     for sid in ids:
+        if should_stop is not None and should_stop():
+            break
         with factory() as session:
             source = session.get(Source, sid)
             if source is None:

@@ -42,10 +42,16 @@ def _event(session: Session, mission: Mission, kind: str, message: str) -> None:
 
 
 def _queue_run(session: Session, run: AgentRun) -> None:
+    payload: dict[str, Any] = {"agent_run_id": run.id}
+    mission = session.get(Mission, run.mission_id)
+    if run.agent_key == "discovery" and mission and mission.trigger == "schedule":
+        from careeros.modules.sources.registry import due_source_ids
+
+        payload["source_ids"] = due_source_ids(session)
     task, _ = queue.enqueue(
         session,
         TASK_TYPE,
-        {"agent_run_id": run.id},
+        payload,
         idempotency_key=f"agent:{run.id}",
     )
     run.task_id, run.status = task.id, "queued"

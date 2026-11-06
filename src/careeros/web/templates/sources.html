@@ -26,7 +26,8 @@
       {% if not s.enabled %}<input type="hidden" name="enabled" value="on">{% endif %}
       <button class="link">{{ 'Disable' if s.enabled else 'Enable' }}</button></form>
       {% if s.enabled %}<form method="post" action="/sources/{{ s.id }}/run">{{ csrf() }}<button class="link">Run now</button></form>{% endif %}
-      <a class="link-sm" href="/jobs?source_id={{ s.id }}&status=all">Jobs</a></td>
+      <a class="link-sm" href="/jobs?source_id={{ s.id }}&status=all">Jobs</a>
+      <details><summary>Refresh policy</summary><form method="post" action="/sources/{{ s.id }}/policy" class="grid">{{ csrf() }}<label>Minimum scheduled gap (minutes)<input name="refresh_interval_minutes" type="number" min="15" max="10080" value="{{ policies[s.id].refresh_interval_minutes or '' }}" placeholder="Inherit review cadence"></label><label>Request delay (seconds)<input name="rate_limit_seconds" type="number" min="0.5" max="60" step="0.5" value="{{ policies[s.id].rate_limit_seconds }}"></label><button class="secondary">Save policy</button></form></details></td>
   </tr>
   {% endfor %}
   </tbody>
@@ -39,7 +40,10 @@
   <label>Board token <input name="token" required maxlength="100" placeholder="e.g. stripe"></label>
   <label>Company name <input name="name" required maxlength="200"></label>
   <label>Delay between requests (s) <input name="rate_limit_seconds" type="number" step="0.5" min="0.5" max="60" value="2"></label>
+  <label>Minimum scheduled gap (minutes)<input name="refresh_interval_minutes" type="number" min="15" max="10080" placeholder="Inherit review cadence"></label>
   <div><button>Add source</button></div>
 </form></details>
+<p class="muted">Scheduled career reviews support a global cadence as short as 15 minutes. Optional source gaps limit how frequently a feed is checked during those reviews; they do not create a faster schedule. Manual runs bypass the gap and still honor request delays. Scheduling pauses when the computer sleeps.</p>
+{% if coverage %}<section class="card"><h2>Target-company coverage</h2><p>{{ covered_targets }} of {{ coverage|length }} target employers have an enabled feed with a matching company name.</p><ul class="items">{% for target, names in coverage %}<li><strong>{{ target }}</strong> <span class="muted">{{ 'Configured public feed' if names else 'No matching feed; official careers-page research needed' }}</span></li>{% endfor %}</ul><p class="muted">Feed coverage is independent of sponsorship evidence. A preferred-employer label is not a verified sponsorship policy.</p></section>{% endif %}
 <p class="muted">Use <em>Run now</em>, the Overview's <em>Run discovery now</em>, or <code>careeros ingest</code> in a terminal.</p>
 {% endblock %}

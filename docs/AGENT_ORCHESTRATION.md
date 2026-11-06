@@ -95,8 +95,8 @@ Mission detail is refreshed manually. Current product gaps are labelled, not sim
 
 Set `MISSION_SCHEDULER_ENABLED=true` for the full workflow and keep the legacy
 `SCHEDULER_ENABLED=false` unless independent discovery-only runs are intentional.
-`SCHEDULE_INTERVAL_HOURS` currently accepts 1–168 hours. Fifteen/thirty-minute
-intervals and per-source schedules are deferred with expanded discovery work.
+`SCHEDULE_INTERVAL_HOURS` accepts 0.25–168 hours. Optional source-specific minimum gaps are configured
+on Sources; they limit scheduled refresh frequency rather than creating independent clocks.
 The persisted last-enqueued tick survives restarts; missed intervals coalesce into
 one review. A paused or active mission is reused instead of creating duplicates.
 A local machine that is asleep or shut down does not execute scheduled work.
@@ -115,3 +115,18 @@ New missions add an evidence-backed market step between matching and research.
 The registry supports both version 1 and version 2; persisted version-1 edges
 continue unchanged. Market reports use only configured public-feed postings and
 verified skills. Full details and limits are in `MARKET_INTELLIGENCE.md`.
+
+## Discovery cadence and cancellation
+
+The global schedule now accepts 0.25–168 hours, supporting 15/30-minute and longer
+cadences. Optional source-specific minimum gaps (15–10,080 minutes) are editable
+on Sources and stored in source configuration. They apply to scheduled missions;
+manual runs remain explicit requests and still honor HTTP rate limits. A source
+minimum gap never creates a schedule faster than the global review interval.
+
+A scheduled discovery task freezes its due-source IDs when it is queued, so retries
+keep the same scope. Sources with a recent attempt are not selected merely because
+the last attempt failed. A no-feeds-due result is distinct from no enabled sources.
+Cancellation is checked between source requests, so a cancelled mission does not
+continue fetching the rest of the company list. In-flight requests keep their
+bounded timeout and results already saved remain preserved.
