@@ -58,3 +58,9 @@ All changes are on a feature branch in an isolated local clone. The Desktop main
 checkout, personal database, documents, source watchlist and ignored configuration
 were not altered. The branch was not pushed or merged. A patch and verified Git
 bundle make the implementation reviewable and portable.
+
+A final populated-data assertion also renders Mission Control after fixture-backed
+agent discovery/matching. This confirms job cards, source dates, first-seen times
+and last source refresh render with nonempty data. The agent and Mission Control
+suites passed together: **23 passed in 2.20 seconds**. No runtime code changed
+after the 501-test full-suite run.

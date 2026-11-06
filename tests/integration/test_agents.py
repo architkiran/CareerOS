@@ -5,6 +5,7 @@ import httpx
 import pytest
 import respx
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -67,7 +68,9 @@ def test_mission_deduplicates_and_handoffs_survive_restart(factory: sessionmaker
 
 
 @respx.mock
-def test_real_discovery_matching_pipeline(factory: sessionmaker[Session]) -> None:
+def test_real_discovery_matching_pipeline(
+    factory: sessionmaker[Session], client: TestClient
+) -> None:
     from careeros.modules.profile import service as profile
     from careeros.modules.profile.schemas import ProfileIn, SkillIn
 
@@ -92,6 +95,10 @@ def test_real_discovery_matching_pipeline(factory: sessionmaker[Session]) -> Non
         assert runs[1].result_json["metrics"]["scored"] > 0
         assert runs[3].result_json["metrics"]["discovered"] == 3
         assert all(r.status == "succeeded" for r in runs)
+    populated = client.get("/mission-control")
+    assert populated.status_code == 200
+    assert "ExamplePay" in populated.text and "Source date:" in populated.text
+    assert "First seen:" in populated.text and "Last source refresh" in populated.text
 
 
 @respx.mock
