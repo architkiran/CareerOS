@@ -13,6 +13,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
 from careeros.db.models import PipelineRun
+from careeros.modules.agents import service as agents
+from careeros.modules.agents.contracts import AgentExecutionError, AgentOutput
+from careeros.modules.agents.execution import execute as execute_agent
+from careeros.modules.agents.registry import TASK_TYPE
 from careeros.modules.events.service import record_event
 from careeros.modules.ingestion.service import RunSummary, run_all
 from careeros.modules.scheduler import queue
@@ -24,7 +28,9 @@ logger = logging.getLogger(__name__)
 DISCOVERY = "discovery"
 LAST_SCHEDULED_KEY = "scheduler.last_enqueued_at"
 
-Handler = Callable[[sessionmaker[Session], dict[str, Any], Callable[[], Fetcher]], None]
+Handler = Callable[
+    [sessionmaker[Session], dict[str, Any], Callable[[], Fetcher]], dict[str, Any] | None
+]
 
 
 def _discovery(
@@ -111,6 +117,7 @@ def handle_match_all(
 
 
 HANDLERS: dict[str, Handler] = {
+    TASK_TYPE: execute_agent,
     "ingest.all": handle_ingest_all,
     "ingest.source": handle_ingest_source,
     "match.all": handle_match_all,
@@ -206,6 +213,7 @@ class Worker:
         factory: sessionmaker[Session],
         *,
         scheduler_enabled: bool = False,
+        mission_scheduler_enabled: bool = False,
         schedule_interval_hours: float = 24,
         poll_seconds: float = 2.0,
         fetcher_factory: Callable[[], Fetcher] = Fetcher,
@@ -213,6 +221,7 @@ class Worker:
     ) -> None:
         self.factory = factory
         self.scheduler_enabled = scheduler_enabled
+        self.mission_scheduler_enabled = mission_scheduler_enabled
         self.schedule_interval_hours = schedule_interval_hours
         self.poll_seconds = poll_seconds
         self.fetcher_factory = fetcher_factory
@@ -230,30 +239,84 @@ class Worker:
                 enqueue_rescore(session, "matching algorithm updated")
                 session.commit()
 
+    def _heartbeat(self, stop: threading.Event, task_id: str, attempt: int) -> None:
+        while not stop.wait(30):
+            try:
+                with self.factory() as session:
+                    renewed = queue.renew_lease(session, task_id, self.worker_id, attempt)
+                    if renewed:
+                        set_setting(session, "worker.last_seen_at", utcnow().isoformat())
+                    session.commit()
+                if not renewed:
+                    return
+            except Exception:
+                logger.warning("Could not renew task lease %s", task_id)
+
     def run_once(self) -> bool:
-        """Schedule if due, then run at most one task. Returns True if a task ran."""
+        """Schedule if due, then execute at most one bounded task with a renewable lease."""
         with self.factory() as session:
+            set_setting(session, "worker.last_seen_at", utcnow().isoformat())
+            session.commit()
             if self.scheduler_enabled:
                 maybe_schedule(session, self.schedule_interval_hours)
+            if self.mission_scheduler_enabled:
+                agents.maybe_schedule(session, self.schedule_interval_hours)
             task = queue.claim(session, self.worker_id)
             if task is None:
                 return False
+            task_id, attempt = task.id, task.attempts
+            is_agent = task.task_type == TASK_TYPE
+            agents.begin_task(session, task)
+            session.commit()
             handler = self.handlers.get(task.task_type)
+            stop = threading.Event()
+            heartbeat = threading.Thread(
+                target=self._heartbeat, args=(stop, task_id, attempt), daemon=True
+            )
+            heartbeat.start()
+            result = None
+            error = None
             try:
+                if task.attempts > task.max_attempts:
+                    raise AgentExecutionError(
+                        "Worker lease expired too many times. Retry this step."
+                    )
                 if handler is None:
                     raise ValueError(f"No handler for task type {task.task_type!r}")
-                handler(self.factory, dict(task.payload_json), self.fetcher_factory)
+                result = handler(self.factory, dict(task.payload_json), self.fetcher_factory)
+                if is_agent:
+                    result = AgentOutput.model_validate(result).model_dump()
             except Exception as exc:
-                logger.exception("Task %s (%s) failed", task.id, task.task_type)
+                if is_agent:
+                    # Untrusted input and candidate values must not escape into operational logs.
+                    logger.error("Agent task %s failed (%s)", task_id, type(exc).__name__)
+                    error = (
+                        str(exc)
+                        if isinstance(exc, AgentExecutionError)
+                        else (
+                            f"{type(exc).__name__}: Agent execution failed. "
+                            "Check configuration and retry."
+                        )
+                    )
+                else:
+                    logger.exception("Task %s (%s) failed", task_id, task.task_type)
+                    error = f"{type(exc).__name__}: {exc}"
+            finally:
+                stop.set()
+                heartbeat.join(timeout=5)
+            session.rollback()
+            if not queue.renew_lease(session, task_id, self.worker_id, attempt):
                 session.rollback()
-                fresh = session.get(queue.Task, task.id)
-                if fresh is not None:
-                    queue.fail(session, fresh, f"{type(exc).__name__}: {exc}")
-                session.commit()
+                logger.warning("Discarding completion from expired owner of task %s", task_id)
                 return True
-            fresh = session.get(queue.Task, task.id)
-            if fresh is not None:
+            fresh = session.get(queue.Task, task_id, populate_existing=True)
+            assert fresh is not None
+            if error:
+                queue.fail(session, fresh, error)
+                agents.finish_task(session, fresh, error=error)
+            else:
                 queue.complete(session, fresh)
+                agents.finish_task(session, fresh, result=result)
             session.commit()
             return True
 

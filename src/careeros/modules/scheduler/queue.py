@@ -188,3 +188,26 @@ def active_task_keys(session: Session) -> set[str]:
         Task.status.in_((QUEUED, RUNNING)), Task.idempotency_key.is_not(None)
     )
     return {k for k in session.scalars(stmt) if k}
+
+
+def renew_lease(
+    session: Session, task_id: str, worker_id: str, attempt: int, *, lease_seconds: int = 600
+) -> bool:
+    """Fence writes by owner AND attempt; expired owners cannot resurrect or finish a task.
+
+    The caller commits. At completion this write also serializes claim/control with
+    the atomic task completion and downstream handoff transaction.
+    """
+    now = utcnow()
+    result = session.execute(
+        update(Task)
+        .where(
+            Task.id == task_id,
+            Task.status == RUNNING,
+            Task.locked_by == worker_id,
+            Task.attempts == attempt,
+            Task.locked_until > now,
+        )
+        .values(locked_until=now + timedelta(seconds=lease_seconds))
+    )
+    return bool(result.rowcount == 1)  # type: ignore[attr-defined]

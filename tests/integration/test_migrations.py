@@ -136,3 +136,46 @@ def test_migrations_dir_resolution(tmp_path, monkeypatch) -> None:  # type: igno
     monkeypatch.chdir(tmp_path)
     with _pytest.raises(FileNotFoundError, match="CAREEROS_MIGRATIONS_DIR"):
         m.migrations_dir()
+
+
+def test_0011_preserves_existing_profile_and_operations(settings: Settings) -> None:
+    """Schema-only upgrade/downgrade must leave prior user rows byte-for-byte unchanged."""
+    from sqlalchemy import text
+    from sqlalchemy.orm import Session
+
+    from careeros.modules.profile.schemas import FactIn, ProfileIn
+    from careeros.modules.profile.service import add_fact, update_profile
+
+    settings.ensure_private_dirs()
+    cfg = alembic_config(settings.database_url)
+    command.upgrade(cfg, "0010")
+    engine = create_sqlite_engine(settings.database_url)
+    with Session(engine) as session:
+        update_profile(session, ProfileIn(display_name="Preserve Me", email="test@example.com"))
+        add_fact(
+            session,
+            FactIn(
+                category="education",
+                fact_key="degree",
+                fact_value="Verified degree",
+                verified_status="verified",
+            ),
+        )
+        session.commit()
+    old_tables = set(inspect(engine).get_table_names()) - {"alembic_version"}
+
+    def snapshot() -> dict[str, list[tuple[object, ...]]]:
+        with engine.connect() as connection:
+            return {
+                name: [tuple(row) for row in connection.execute(text(f'SELECT * FROM "{name}"'))]  # noqa: S608
+                for name in old_tables
+            }
+
+    before = snapshot()
+    command.upgrade(cfg, "head")
+    assert snapshot() == before
+    command.downgrade(cfg, "0010")
+    assert snapshot() == before
+    command.upgrade(cfg, "head")
+    assert snapshot() == before
+    engine.dispose()
