@@ -82,4 +82,4 @@ def test_example_watchlist_is_valid() -> None:
     from careeros.modules.sources.registry import load_watchlist
 
     entries = load_watchlist(Path(__file__).parents[2] / "config" / "sources.example.toml")
-    assert {e.type for e in entries} == {"greenhouse", "lever", "ashby"}
+    assert {e.type for e in entries} == {"greenhouse", "lever", "ashby", "smartrecruiters"}

@@ -138,6 +138,8 @@ def _source_date(record: JobSourceRecord, source: Source) -> tuple[datetime | No
         return parse_iso(raw.get("first_published")), "publication_if_provided"
     if source.source_type == "ashby":
         return parse_iso(raw.get("publishedAt")), "publication_if_provided"
+    if source.source_type == "smartrecruiters":
+        return parse_iso(raw.get("releasedDate")), "publication_if_provided"
     if source.source_type == "lever":
         return parse_epoch_ms(raw.get("createdAt")), "source_creation"
     return None, "not_provided"

@@ -16,7 +16,7 @@ from careeros.modules.events.service import record_event
 from careeros.modules.ingestion.service import get_or_create_company
 from careeros.modules.sources.adapters.base import validate_token
 
-SourceType = Literal["greenhouse", "lever", "ashby"]
+SourceType = Literal["greenhouse", "lever", "ashby", "smartrecruiters"]
 
 
 class SourcePolicy(BaseModel):

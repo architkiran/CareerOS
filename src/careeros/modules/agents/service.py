@@ -50,6 +50,8 @@ def mission_label(mission: Mission) -> str:
         return "Interview preparation"
     if mission.workflow.startswith("application:"):
         return "Application draft preparation"
+    if mission.workflow.startswith("sources:"):
+        return "Source coverage review"
     return "Career review"
 
 
@@ -287,9 +289,10 @@ def control_mission(session: Session, mission_id: str, action: str) -> None:
         mission,
         action,
         {
-            "pause": "Career review paused. The current step may finish; no new steps will start.",
-            "resume": "Career review resumed.",
-            "cancel": "Career review cancelled. An in-flight step may finish; "
+            "pause": f"{mission_label(mission)} paused. "
+            "The current step may finish; no new steps will start.",
+            "resume": f"{mission_label(mission)} resumed.",
+            "cancel": f"{mission_label(mission)} cancelled. An in-flight step may finish; "
             "no new steps will start.",
         }[action],
     )
@@ -363,3 +366,7 @@ def _start_on_demand(
         f"{mission_label(mission)} queued. No application or message will be sent.",
     )
     return mission, True
+
+
+def start_source_mission(session: Session) -> tuple[Mission, bool]:
+    return _start_on_demand(session, "sources", "catalog", {})

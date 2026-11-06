@@ -2,8 +2,10 @@
 {% from "_macros.html" import csrf, alerts with context %}
 {% block title %}Sources · CareerOS{% endblock %}
 {% block content %}
-<h1>Sources</h1>
-<p class="muted">Public ATS job boards only (Greenhouse, Lever, Ashby). Each source is fetched politely with a per-domain delay; one that returns repeated 403/429 is disabled automatically.</p>
+<header class="mc-header"><div><p class="eyebrow">Opportunity discovery</p><h1>Sources &amp; coverage</h1></div><form method="post" action="/sources/audit">{{ csrf() }}<button>Review source coverage with agent</button></form></header>
+{% if proposals %}<section class="mc-panel"><h2>Recommended public feeds</h2><p class="muted">Reviewed API sources that are not connected yet. Connecting is local and reversible.</p>{% for proposal in proposals %}<article class="mc-opportunity"><div><h3>{{ proposal.name }}</h3><p>{{ proposal.scope }}</p><a href="{{ proposal.url }}" target="_blank" rel="noopener noreferrer">Inspect source ↗</a></div><form method="post" action="/sources/connect/{{ proposal.key }}">{{ csrf() }}<button class="secondary">Connect feed</button></form></article>{% endfor %}</section>{% endif %}
+{% if coverage_report %}<p class="muted">Last source audit: {{ coverage_report.generated_at }} · {{ coverage_report.scope }}</p>{% endif %}
+<p class="muted">Public ATS job boards only (Greenhouse, Lever, Ashby, SmartRecruiters US). Each source is fetched politely with a per-domain delay; one that returns repeated 403/429 is disabled automatically.</p>
 {{ alerts(errors, saved) }}
 {% if request.query_params.get('queued') == '1' %}<div class="alert alert-ok" role="status">Fetch queued. Watch progress on the Overview.</div>
 {% elif request.query_params.get('queued') == 'already' %}<div class="alert alert-warn" role="status">That source is already queued or running.</div>{% endif %}
@@ -36,7 +38,7 @@
 <details class="card"><summary><strong>Add a source</strong></summary>
 <form method="post" action="/sources" class="grid">
   {{ csrf() }}
-  <label>Type <select name="type"><option>greenhouse</option><option>lever</option><option>ashby</option></select></label>
+  <label>Type <select name="type"><option>greenhouse</option><option>lever</option><option>ashby</option><option>smartrecruiters</option></select></label>
   <label>Board token <input name="token" required maxlength="100" placeholder="e.g. stripe"></label>
   <label>Company name <input name="name" required maxlength="200"></label>
   <label>Delay between requests (s) <input name="rate_limit_seconds" type="number" step="0.5" min="0.5" max="60" value="2"></label>

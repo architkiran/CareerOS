@@ -13,7 +13,7 @@
 #
 # Not here because they don't publish a public Greenhouse/Lever/Ashby board (they use Workday
 # or their own sites, which CareerOS doesn't scrape): State Street, Fidelity, Wellington,
-# McKinsey, KPMG, Deloitte, Bain, Bloomberg, Wise, Amazon, Microsoft, Google, Meta.
+# McKinsey, KPMG, Deloitte, Bain, Bloomberg, Amazon, Microsoft, Google, Meta.
 
 # ---- fintech / payments
 [[source]]
@@ -110,3 +110,9 @@ name = "HubSpot"
 type = "greenhouse"
 token = "datadog"
 name = "Datadog"
+
+# Public SmartRecruiters API, scoped to US postings. Verified 2026-11-06.
+[[source]]
+type = "smartrecruiters"
+token = "wise"
+name = "Wise"

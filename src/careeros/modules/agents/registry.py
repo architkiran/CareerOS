@@ -19,6 +19,11 @@ class AgentSpec:
     @property
     def tools(self) -> tuple[str, ...]:
         return {
+            "sources": (
+                "Inspect configured feed health",
+                "Read reviewed public feed catalog",
+                "Write source coverage recommendations",
+            ),
             "discovery": ("Read configured public ATS feeds", "Normalize and persist jobs"),
             "matching": ("Read verified profile and lanes", "Write explainable job scores"),
             "interview": (
@@ -83,9 +88,15 @@ AGENTS = (
 )
 ON_DEMAND_AGENTS = (
     AgentSpec(
+        "sources",
+        "Source intelligence",
+        "Find coverage gaps and propose reviewed public feeds.",
+        "/sources",
+    ),
+    AgentSpec(
         "application",
         "Application drafts",
-        "Prepare verified-fact template drafts; exact master layout and approval stay separate.",
+        "Prepare verified-fact drafts and hand off layout and fact checks for your review.",
         "/applications",
     ),
     AgentSpec(
@@ -98,7 +109,4 @@ ON_DEMAND_AGENTS = (
 BY_KEY = {agent.key: agent for agent in (*AGENTS, *ON_DEMAND_AGENTS)}
 
 # These are product gaps, not runnable placeholders.
-PLANNED = (
-    ("Resume specialist", "Exact master resume format preservation"),
-    ("Recruiter intelligence", "Evidence-backed recruiter discovery and networking drafts"),
-)
+PLANNED = (("Recruiter intelligence", "Evidence-backed recruiter discovery and networking drafts"),)

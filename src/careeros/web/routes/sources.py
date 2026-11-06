@@ -29,7 +29,11 @@ def _ctx(session: Session) -> dict[str, Any]:
                     if source.enabled and source.display_name.casefold() == target.casefold()
                 ]
                 coverage.append((target, connected))
+    from careeros.modules.sources.intelligence import REPORT_KEY, proposals
+
     return {
+        "proposals": proposals(session),
+        "coverage_report": get_setting(session, REPORT_KEY),
         "rows": rows,
         "policies": {source.id: registry.source_policy(source) for source, _ in rows},
         "coverage": coverage,
@@ -100,3 +104,26 @@ async def update_policy(source_id: str, request: Request, session: SessionDep) -
         raise HTTPException(404, str(exc)) from exc
     session.commit()
     return RedirectResponse("/sources?saved=policy", status_code=303)
+
+
+@router.post("/sources/audit")
+def audit_sources(session: SessionDep) -> Response:
+    from careeros.modules.agents.service import start_source_mission
+
+    mission, _ = start_source_mission(session)
+    session.commit()
+    return RedirectResponse(f"/missions/{mission.id}", status_code=303)
+
+
+@router.post("/sources/connect/{key}")
+def connect_proposal(key: str, session: SessionDep) -> Response:
+    from careeros.modules.sources.intelligence import proposal_input
+
+    try:
+        data = proposal_input(key)
+        if registry.find_source(session, data.type, data.token) is None:
+            registry.add_source(session, data)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    session.commit()
+    return RedirectResponse("/sources?saved=1", status_code=303)
