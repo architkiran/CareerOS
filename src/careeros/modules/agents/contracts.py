@@ -3,6 +3,12 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class AgentTaskInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    agent_run_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+
+
 class AgentOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

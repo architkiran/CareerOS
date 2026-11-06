@@ -18,6 +18,7 @@ from careeros.db.session import create_sqlite_engine, make_session_factory
 from careeros.web import errors
 from careeros.web.csrf import csrf_middleware
 from careeros.web.routes import (
+    agents,
     analytics,
     applications,
     approvals,
@@ -57,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             worker = Worker(
                 app.state.session_factory,
                 scheduler_enabled=settings.scheduler_enabled,
+                mission_scheduler_enabled=settings.mission_scheduler_enabled,
                 schedule_interval_hours=settings.schedule_interval_hours,
                 poll_seconds=settings.worker_poll_seconds,
             )
@@ -90,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(csrf_middleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(system.router)
+    app.include_router(agents.router)
     app.include_router(profile.router)
     app.include_router(sources.router)
     app.include_router(jobs.router)
@@ -136,6 +139,7 @@ def _worker(settings: Settings) -> int:
     worker = Worker(
         _session_factory(settings),
         scheduler_enabled=settings.scheduler_enabled,
+        mission_scheduler_enabled=settings.mission_scheduler_enabled,
         schedule_interval_hours=settings.schedule_interval_hours,
         poll_seconds=settings.worker_poll_seconds,
     )

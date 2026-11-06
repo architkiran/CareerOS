@@ -1,0 +1,56 @@
+{% if not mc %}
+<div class="empty"><h2>Set up your local workspace</h2><p>Mission Control is available after database migrations are applied. Run <code>careeros migrate</code>, then refresh.</p></div>
+{% else %}
+{% set ov = mc.ov %}
+<div class="mc-metrics">
+  <a href="/jobs?days=1"><span>Discovered today</span><strong>{{ ov.jobs.new_today }}</strong><small>New to your workspace</small></a>
+  <a href="/jobs?eligibility=pass"><span>Eligible opportunities</span><strong>{{ ov.matching.passing }}</strong><small>Passed deterministic filters</small></a>
+  <a href="/jobs?triage=shortlisted"><span>Your shortlist</span><strong>{{ ov.jobs.shortlisted }}</strong><small>Ready for a closer look</small></a>
+  <a href="/approvals"><span>Awaiting your action</span><strong>{{ ov.approvals_waiting }}</strong><small>Approvals and approved packages</small></a>
+</div>
+<div class="mc-layout">
+  <div class="mc-primary">
+    <section class="mc-panel">
+      <div class="mc-section-head"><h2>Agent operations</h2><a href="/agents">Explore agents ↗</a></div>
+      {% if mc.mission %}
+      <div class="mc-mission-line"><div><a href="/missions/{{ mc.mission.id }}"><strong>Career review</strong></a><p class="muted">{{ mc.completed }} of {{ mc.runs|length }} steps complete · Started {{ mc.mission.created_at|localtime }}</p></div><span class="state state-{{ mc.mission.status }}">{{ mc.mission.status }}</span></div>
+      <progress max="{{ mc.runs|length }}" value="{{ mc.completed }}" aria-label="Career review steps completed">{{ mc.completed }}/{{ mc.runs|length }}</progress>
+      {% set mission = mc.mission %}{% include "_mission_controls.html" %}
+      {% else %}<p class="muted mc-intro">Your agents are ready. Start a career review to check sources, score opportunities, and organize your next steps.</p>{% endif %}
+      <ol class="mc-agents">
+      {% for spec, run in mc.cards %}
+        <li><span class="agent-number">{{ '%02d'|format(loop.index) }}</span><div class="agent-copy"><a href="/agents/{{ spec.key }}"><strong>{{ spec.name }}</strong></a><p>{{ spec.description }}</p>{% if run and run.summary %}<p class="agent-result">{{ run.summary }}</p>{% endif %}{% if run and run.last_error %}<p class="bad">{{ run.last_error }}</p>{% endif %}{% if run %}{% for warning in run.result_json.get('warnings', []) %}<p class="warnc">{{ warning }}</p>{% endfor %}{% endif %}</div><span class="state state-{{ run.status if run else 'idle' }}">{{ run.status if run else 'Ready' }}</span></li>
+      {% endfor %}
+      </ol>
+    </section>
+    <section class="mc-panel">
+      <div class="mc-section-head"><h2>Recent opportunities</h2><a href="/jobs">Open inbox ↗</a></div>
+      {% for row in mc.opportunities %}
+      <article class="mc-opportunity"><div><p class="eyebrow">{{ row.company }}</p><h3><a href="/jobs/{{ row.job.id }}">{{ row.job.title }}</a></h3><p class="muted">{{ row.job.location_text or 'Location not stated' }} · {{ row.sources|join(', ') or 'Source not available' }}</p>{% if row.job.salary_min or row.job.salary_max %}<p class="muted">{{ row.job.salary_currency or '' }} {{ row.job.salary_min or '—' }}–{{ row.job.salary_max or '—' }} {{ row.job.salary_interval or '' }}</p>{% endif %}<p class="muted">Source date: {{ row.job.posted_at|localtime if row.job.posted_at else 'Not provided' }} · First seen: {{ row.job.first_seen_at|localtime }}</p>{% if row.match %}<p class="muted">{{ row.match.match.explanation }}</p>{% endif %}</div><div class="mc-score">{% if row.match %}<strong>{{ row.match.effective_score }}<small>/100</small></strong><span class="pill pill-elig-{{ row.match.effective_eligibility }}">{{ row.match.effective_eligibility }}</span>{% else %}<span class="muted">Not scored</span>{% endif %}</div></article>
+      {% else %}<div class="mc-empty"><span class="empty-symbol" aria-hidden="true">↗</span><h3>Your next opportunity starts here</h3><p>Add company feeds, verify your profile, then run a career review.</p><a href="/sources">Configure sources →</a></div>{% endfor %}
+    </section>
+    <section class="mc-panel"><div class="mc-section-head"><h2>Mission history</h2><span class="muted">Latest 20</span></div>{% for mission in mc.missions %}<a class="mc-history-row" href="/missions/{{ mission.id }}"><div><strong>Career review</strong><span>{{ mission.created_at|localtime }} · {{ mission.trigger }}</span></div><span class="state state-{{ mission.status }}">{{ mission.status }}</span></a>{% else %}<p class="muted">No missions yet. Completed reviews and recovery history will appear here.</p>{% endfor %}</section>
+  </div>
+  <aside class="mc-secondary">
+    <section class="mc-panel"><p class="eyebrow">Make your next move</p><h2>Needs your attention</h2>
+      <a class="mc-action" href="/approvals"><strong>{{ ov.approvals_waiting }} packages to review <span>↗</span></strong><small>Every external action stays in your hands.</small></a>
+      <a class="mc-action" href="/follow-ups"><strong>{{ ov.follow_ups_due }} follow-ups due soon <span>↗</span></strong><small>{{ ov.follow_ups_overdue }} overdue. Keep conversations moving.</small></a>
+      <a class="mc-action" href="/jobs?eligibility=unknown"><strong>{{ ov.matching.needs_review }} eligibility reviews <span>↗</span></strong><small>Unknown information stays visible.</small></a>
+      {% if mc.profile.gaps or mc.profile.unverified %}<a class="mc-action" href="/profile"><strong>Strengthen your profile <span>↗</span></strong><small>{{ mc.profile.verified }} verified items · {{ mc.profile.unverified }} unverified</small></a>{% endif %}
+    </section>
+    <section class="mc-panel"><div class="mc-section-head"><h2>Local system</h2><span class="state state-{{ status.status }}">{{ status.status }}</span></div><dl class="mc-health">
+      <dt>Worker heartbeat</dt><dd class="{{ 'ok' if mc.worker_recent else 'warnc' }}">{{ 'Recent' if mc.worker_recent else 'Not observed recently' }}</dd>
+      <dt>Last seen</dt><dd>{{ mc.worker_seen|localtime }}</dd>
+      <dt>Queue</dt><dd>{{ ov.queue.queued }} waiting · {{ ov.queue.running }} running</dd>
+      <dt>Failed tasks</dt><dd><a href="/">{{ ov.queue.dead }} need recovery</a></dd>
+      <dt>Sources</dt><dd><a href="/sources">{{ ov.sources.enabled }} enabled · {{ ov.sources.failing }} with errors</a></dd>
+      <dt>Last source refresh</dt><dd>{{ mc.last_source_refresh|localtime }}</dd>
+      <dt>Local AI</dt><dd><a href="/settings">{{ status.model_provider }}</a></dd>
+      <dt>API spend · 30d</dt><dd>${{ '%.2f'|format(mc.usage.spent_30d) }}</dd>
+      <dt>Latest backup</dt><dd>{{ mc.backup[1]|localtime if mc.backup else 'No backup recorded' }}</dd>
+    </dl><p class="muted">{% if mc.schedule_enabled %}Career reviews are scheduled. Next due: {{ mc.next_run|localtime if mc.next_run else 'At the next worker check' }}.{% else %}Career review schedule is off. Run reviews when you need them.{% endif %} Local work pauses while your Mac sleeps.</p>{% if not mc.worker_recent %}<p class="warnc">No recent worker heartbeat. Start the local worker to process queued work.</p>{% endif %}</section>
+    <section class="mc-panel"><div class="mc-section-head"><h2>Activity</h2><span class="muted">Latest events</span></div><ul class="mc-activity">{% for event in mc.events[:8] %}<li><p>{{ event.message }}</p><time>{{ event.created_at|localtime }}</time></li>{% else %}<li><p class="muted">Activity appears when real work happens.</p></li>{% endfor %}</ul></section>
+    <section class="mc-note"><p class="eyebrow">Built on trust</p><p>Verified facts. Traceable sources. Your approval.</p><small>These agents use deterministic tools. Optional local AI is available for job summaries in Settings.</small></section>
+  </aside>
+</div>
+{% endif %}

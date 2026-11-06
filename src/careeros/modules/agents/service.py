@@ -264,7 +264,7 @@ def control_mission(session: Session, mission_id: str, action: str) -> None:
         {
             "pause": "Career review paused. The current step may finish; no new steps will start.",
             "resume": "Career review resumed.",
-            "cancel": "Career review cancelled. An in-flight read may finish; "
+            "cancel": "Career review cancelled. An in-flight step may finish; "
             "no new steps will start.",
         }[action],
     )

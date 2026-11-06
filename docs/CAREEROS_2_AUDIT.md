@@ -74,3 +74,13 @@ not prompts, resume text or authorization answers.
 2. Durable orchestration, dependency handoffs, retries and meaningful integration tests.
 3. Mission Control UI, live updates, migration preservation checks and usage docs.
 4. Full regression/lint/types; produce a review patch and an exact validation report.
+
+
+## Additional audit finding
+
+Greenhouse normalization previously fell back from `first_published` to
+`updated_at` for the stored posting date. Updates are not publication evidence.
+New ingestion now accepts only `first_published`; a regression test covers the
+missing-publication case. Mission Control labels existing dates as source dates,
+since legacy records may contain update times. Existing records are not rewritten
+by the schema migration; a subsequent ingestion refreshes their normalized fields.

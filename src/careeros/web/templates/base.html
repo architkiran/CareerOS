@@ -6,6 +6,8 @@
   <title>{% block title %}CareerOS{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', path='favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='mission.css') }}">
+  <script src="{{ url_for('static', path='theme.js') }}"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -19,6 +21,8 @@
       <a class="brand" href="/"><img src="{{ url_for('static', path='favicon.svg') }}" alt="" width="22" height="22"> CareerOS</a>
       <nav aria-label="Main">
         <p class="nav-group">Pipeline</p>
+        {{ nav('/mission-control', 'Mission Control') }}
+        {{ nav('/agents', 'Agents') }}
         {{ nav('/', 'Overview') }}
         {{ nav('/jobs', 'Jobs') }}
         {{ nav('/research', 'Research') }}
@@ -33,6 +37,7 @@
         {{ nav('/sources', 'Sources') }}
         {{ nav('/settings', 'Settings') }}
       </nav>
+      <button class="theme-toggle" data-theme-toggle type="button">Switch to light mode</button>
     </aside>
     <main class="container" id="main" tabindex="-1">
       {% block content %}{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Mission Control · CareerOS{% endblock %}
+{% block content %}
+<header class="mc-header">
+  <div><p class="eyebrow">Your career, in motion</p><h1>Mission Control</h1><p class="muted">A clear view of your opportunities, agents, and next moves.</p></div>
+  <form method="post" action="/missions">{% from "_macros.html" import csrf with context %}{{ csrf() }}<button {% if not status.schema.up_to_date %}disabled{% endif %}>Run career review <span aria-hidden="true">↗</span></button></form>
+</header>
+<p class="muted" data-mission-live-status role="status">Connecting to local state…</p>
+<div data-mission-live="/partials/mission-control">{% include "_mission_control.html" %}</div>
+<script src="{{ url_for('static', path='mission.js') }}" defer></script>
+{% endblock %}

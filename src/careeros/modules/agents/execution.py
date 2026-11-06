@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
 from careeros.db.models import AgentRun, Approval, Job, Mission, Source
-from careeros.modules.agents.contracts import AgentExecutionError, AgentOutput
+from careeros.modules.agents.contracts import AgentExecutionError, AgentOutput, AgentTaskInput
 from careeros.modules.agents.registry import VERSION
 from careeros.modules.analytics.service import compute
 from careeros.modules.ingestion.service import run_all
@@ -22,9 +22,7 @@ from careeros.modules.sources.http import Fetcher
 def execute(
     factory: sessionmaker[Session], payload: dict[str, Any], fetcher_factory: Callable[[], Fetcher]
 ) -> dict[str, Any]:
-    run_id = payload.get("agent_run_id")
-    if not isinstance(run_id, str):
-        raise AgentExecutionError("Agent run ID is required.")
+    run_id = AgentTaskInput.model_validate(payload).agent_run_id
     with factory() as session:
         run = session.get(AgentRun, run_id)
         if run is None or run.status != "running":

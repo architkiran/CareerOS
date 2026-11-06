@@ -5,13 +5,15 @@
 @font-face { font-family: "Plex"; src: url("fonts/plex-sans-600.woff2") format("woff2"); font-weight: 600 700; font-display: swap; }
 
 :root {
-  --paper: #F3F5F2; --surface: #FFFFFF; --ink: #16201B; --muted: #5B6A63; --line: #D9DFDA; --soft: #E9EDE9;
-  --accent: #2F5D8A; --accent-soft: #E3ECF5; --ok: #23784A; --warn: #9A6200; --bad: #B0261C;
+  color-scheme: dark;
+  --paper: #101216; --surface: #171A20; --ink: #EBEEF3; --muted: #9CA6B6; --line: #303640; --soft: #222730;
+  --accent: #A9BFFF; --accent-soft: #242E46; --ok: #7BD7AF; --warn: #E8BE70; --bad: #FA9A9A;
   --radius-s: 6px; --radius-m: 10px; --side: 216px;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --paper: #111614; --surface: #19201D; --ink: #E4EAE6; --muted: #92A099; --line: #2A3430; --soft: #222B27;
-    --accent: #8DB4E2; --accent-soft: #1F2C3A; --ok: #5FCB8C; --warn: #E2B04A; --bad: #F2786B; }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --paper: #F3F5F8; --surface: #FFFFFF; --ink: #172032; --muted: #56647A; --line: #D7DDE7; --soft: #E9EDF4;
+  --accent: #345B9C; --accent-soft: #E3EBF8; --ok: #206C49; --warn: #8C5D00; --bad: #AC2727;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

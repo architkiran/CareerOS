@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Career review · CareerOS{% endblock %}
+{% block content %}
+<a class="link-sm" href="/mission-control">← Mission Control</a>
+<header class="mc-header"><div><p class="eyebrow">Career review · v{{ mission.version }}</p><h1>One mission. Every step visible.</h1><p class="muted">{{ mission.created_at|localtime }} · {{ mission.trigger }} · <span class="state state-{{ mission.status }}">{{ mission.status }}</span></p></div>{% include "_mission_controls.html" %}</header>
+<p class="muted">Refresh to see new progress. Pause and cancellation take effect between steps; an in-flight step may finish.</p>
+<ol class="mc-timeline">
+{% for run in runs %}{% set spec = specs[run.agent_key] %}{% set task = tasks.get(run.task_id) %}
+<li class="mc-panel" id="step-{{ run.id }}"><div class="mc-section-head"><h2><span class="agent-number">{{ '%02d'|format(loop.index) }}</span> <a href="/agents/{{ spec.key }}">{{ spec.name }}</a></h2><span class="state state-{{ run.status }}">{{ run.status }}</span></div><p>{{ spec.description }}</p><p class="muted">{% for dep in dependencies if dep.run_id == run.id %}After <a href="#step-{{ dep.depends_on_id }}">{{ specs[by_id[dep.depends_on_id].agent_key].name }}</a>. {% else %}Starts this mission.{% endfor %}Started: {{ run.started_at|localtime }} · Finished: {{ run.finished_at|localtime }}</p>
+{% if run.summary %}<p class="agent-result">{{ run.summary }}</p>{% endif %}
+{% if run.last_error %}<div class="alert alert-error">{{ run.last_error }}{% if run.status == 'retrying' and task %}<p>Next retry: {{ task.run_after|localtime }} · {{ task.attempts }}/{{ task.max_attempts }} attempts used</p>{% endif %}</div>{% endif %}
+{% for warning in run.result_json.get('warnings', []) %}<p class="warnc">{{ warning }}</p>{% endfor %}
+{% if run.result_json.get('metrics') %}<dl class="mc-run-metrics">{% for key, value in run.result_json.metrics.items() %}<div><dt>{{ key|replace('_', ' ') }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>{% endif %}
+<div class="actions"><a href="{{ spec.destination }}">Review results →</a>{% if run.status == 'failed' %}<form method="post" action="/agent-runs/{{ run.id }}/retry">{{ csrf() }}<button>Retry this step</button></form>{% endif %}</div>
+<details><summary>Execution history</summary><ul class="items">{% for attempt in attempts if attempt.run_id == run.id %}<li>Attempt {{ attempt.number }} · <strong>{{ attempt.status }}</strong> · {{ attempt.started_at|localtime }} → {{ attempt.finished_at|localtime }}{% if attempt.error %}<p class="bad">{{ attempt.error }}</p>{% endif %}</li>{% else %}<li class="muted">This step has not started.</li>{% endfor %}</ul></details>
+</li>{% endfor %}
+</ol>
+{% endblock %}

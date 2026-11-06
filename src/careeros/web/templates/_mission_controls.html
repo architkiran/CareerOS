@@ -1,0 +1,6 @@
+{% from "_macros.html" import csrf with context %}
+<div class="actions">
+  {% if mission.status in ('queued', 'running') %}<form method="post" action="/missions/{{ mission.id }}/pause">{{ csrf() }}<button class="secondary">Pause</button></form>{% endif %}
+  {% if mission.status == 'paused' %}<form method="post" action="/missions/{{ mission.id }}/resume">{{ csrf() }}<button>Resume</button></form>{% endif %}
+  {% if mission.status in ('queued', 'running', 'paused') %}<form method="post" action="/missions/{{ mission.id }}/cancel">{{ csrf() }}<button class="link danger">Cancel review</button></form>{% endif %}
+</div>

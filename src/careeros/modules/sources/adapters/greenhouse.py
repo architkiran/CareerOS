@@ -121,6 +121,7 @@ class GreenhouseAdapter:
             salary_interval=interval,
             department=department,
             description_text=html_to_text(raw.get("content")),
-            posted_at=parse_iso(raw.get("first_published")) or parse_iso(raw.get("updated_at")),
+            # An update timestamp is not evidence of publication time.
+            posted_at=parse_iso(raw.get("first_published")),
             raw=raw,
         )

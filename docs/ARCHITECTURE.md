@@ -177,3 +177,12 @@ Do not prebuild for imaginary scale. Upgrade only when measurements justify it:
 - HTMX → React only if UI complexity justifies it.
 - local model → API provider only if quality improvement is measurable and user approves cost.
 - local files → encrypted object storage only if remote deployment requires it.
+
+
+## CareerOS 2.0 bounded orchestration
+
+The first extension retains this modular monolith and reuses the task queue.
+`modules/agents` owns code-defined capabilities, validated output contracts and
+persisted state transitions. `mission`, `agent_run`, `agent_dependency` and
+`agent_attempt` extend the schema through migration 0011. Mission Control is a
+server-rendered view of these tables. See `AGENT_ORCHESTRATION.md`.

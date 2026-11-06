@@ -299,3 +299,33 @@ def test_expired_owner_cannot_complete_after_new_attempt(factory: sessionmaker[S
     with factory() as session:
         assert queue.claim(session, "same-worker")
         assert not queue.renew_lease(session, task_id, "same-worker", attempt)
+
+
+@respx.mock
+def test_healthy_review_succeeds_and_preserves_verified_profile(
+    factory: sessionmaker[Session],
+) -> None:
+    from careeros.modules.profile import service as profile
+    from careeros.modules.profile.schemas import ProfileIn, SkillIn, WorkAuthorizationIn
+
+    with factory() as session:
+        registry.add_source(
+            session, registry.SourceIn(type="greenhouse", token="examplepay", name="ExamplePay")
+        )
+        profile.update_profile(session, ProfileIn(display_name="Test Candidate"))
+        profile.add_skill(session, SkillIn(name="SQL", verified_status="verified"))
+        profile.add_default_lanes(session)
+        profile.save_work_authorization(session, WorkAuthorizationIn(confirmed=True))
+        session.commit()
+        before = profile.export_profile(session).model_dump(exclude={"exported_at"})
+    # Only a valid posting: the general fixture deliberately contains one invalid item.
+    raw = load_fixture("greenhouse_jobs.json")
+    raw["jobs"] = raw["jobs"][:1]
+    respx.get(GH_URL).mock(return_value=httpx.Response(200, json=raw))
+    mission_id = start(factory)
+    for _ in range(5):
+        assert worker(factory).run_once()
+    with factory() as session:
+        assert session.get(Mission, mission_id).status == "succeeded"
+        assert profile.export_profile(session).model_dump(exclude={"exported_at"}) == before
+        assert all(not r.result_json["warnings"] for r in service.runs_for(session, mission_id))

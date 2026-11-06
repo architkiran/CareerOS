@@ -12,6 +12,42 @@ A local-first, cost-minimal personal career operating system. CareerOS discovers
 6. **Respect access rules:** Use public ATS feeds, official career pages, permitted APIs, and user-assisted workflows. Do not bypass CAPTCHAs, authentication, rate limits, or site terms.
 7. **Portable:** Local development and operation first; cloud deployment is an optional later deployment target, not a prerequisite.
 
+## CareerOS 2.0: first operational slice
+
+**Mission Control** is available at `/mission-control`; the existing Overview stays at `/`.
+Run a career review to coordinate five real, deterministic specialists: discovery,
+matching, posting-evidence research, analytics and verification. Results come from
+persisted work, not demo data. `/agents` lists capabilities and gaps; each agent has
+its own history and permission description. Mission detail shows dependency links,
+results, warnings, retry timing and every execution attempt.
+
+- Missions and agent runs persist in SQLite (migration `0011`). Completion and
+  downstream handoff commit together. Duplicate start requests reuse the active mission.
+- Pause/resume/cancel apply between steps. An in-flight step may finish and already
+  persisted results remain available. Failed steps retry with backoff up to three
+  times, then require manual retry. Manual retries preserve the previous attempts.
+- Worker leases renew every 30 seconds. Completion is fenced by owner and claim
+  attempt; interrupted work can be reclaimed after its 10-minute lease expires.
+- The dark-first interface has a saved light-mode option, keyboard focus states,
+  responsive layouts and same-origin live polling every five seconds.
+- No paid services or AI are required. There are no send, submit, approval-decision
+  or profile-edit tools in the agent executor. Existing approval gates remain human-operated.
+
+To schedule the full review, set `MISSION_SCHEDULER_ENABLED=true` and
+`SCHEDULE_INTERVAL_HOURS=24` in `.env`. Keep `SCHEDULER_ENABLED=false` to avoid also
+running the legacy discovery-only schedule. Both are disabled by default outside
+Docker; Docker currently enables its legacy discovery schedule by default, so set
+it explicitly to false when enabling mission scheduling. Local scheduling needs a
+running worker and pauses while your Mac sleeps. A paused mission blocks another
+career review until resumed or cancelled.
+
+The audit, implementation limits and next stages are in
+[the CareerOS 2.0 audit](docs/CAREEROS_2_AUDIT.md) and
+[orchestration architecture](docs/AGENT_ORCHESTRATION.md).
+This slice does not implement market intelligence, interview coaching or exact
+master-resume template preservation. Existing generic document generation remains
+available, with its verified-fact and QA gates.
+
 ## First run
 
 Read `CLAUDE.md` before changing anything. Then read `docs/ARCHITECTURE.md`, `docs/PRODUCT_SPEC.md`, and `docs/ROADMAP.md`.

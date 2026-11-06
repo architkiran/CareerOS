@@ -165,3 +165,9 @@ def test_greenhouse_metadata_garbage_is_ignored() -> None:
     ]
     job = GH.normalize(raw, "X")
     assert job.employment_type is None and job.salary_min is None
+
+
+def test_greenhouse_update_time_is_not_publication_time() -> None:
+    raw = load_fixture("greenhouse_jobs.json")["jobs"][1]
+    assert raw.get("updated_at") and not raw.get("first_published")
+    assert GH.normalize(raw, "ExamplePay").posted_at is None

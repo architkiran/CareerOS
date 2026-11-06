@@ -228,8 +228,19 @@ def run_source_now(source_id: str, session: SessionDep) -> Response:
 
 @router.post("/tasks/{task_id}/retry")
 def retry_task(task_id: str, session: SessionDep) -> Response:
+    from sqlalchemy import select
+
+    from careeros.db.models import AgentRun
+    from careeros.modules.agents import service as agent_service
+
     try:
-        queue.retry_dead(session, task_id)
+        run = session.scalars(select(AgentRun).where(AgentRun.task_id == task_id)).first()
+        if run:
+            agent_service.retry_run(session, run.id)
+        else:
+            queue.retry_dead(session, task_id)
+    except agent_service.MissionConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     session.commit()

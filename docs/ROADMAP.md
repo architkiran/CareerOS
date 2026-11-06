@@ -101,9 +101,24 @@ Acceptance: all core flows work with model gateway disabled and with zero spend.
 - auto-submit;
 - auto-send outreach;
 - LinkedIn automation;
-- multi-agent swarm;
+- unconstrained multi-agent swarm (bounded CareerOS 2.0 missions are implemented separately);
 - vector DB;
 - paid API dependencies;
 - multi-user SaaS;
 - mobile app;
 - Kubernetes/microservices.
+
+
+## CareerOS 2.0 staged extension
+
+- Audit: existing 476-test baseline and actual capability assessment recorded.
+- Foundation: five bounded specialists coordinated through durable missions,
+  persisted dependency edges, attempts, queue leases and recoverable handoffs.
+- Mission Control: persisted progress, results, errors, approvals, opportunity
+  summaries, history, agent workspaces and dark/light presentation.
+- Next: evidence-backed market intelligence and role suggestions, followed by
+  permitted discovery coverage/freshness improvements and master DOCX fidelity.
+- Later: application preparation coordination, recruiter intelligence, interview
+  practice and measured strategy feedback.
+
+See `AGENT_ORCHESTRATION.md` for exact implemented behavior and remaining limits.
