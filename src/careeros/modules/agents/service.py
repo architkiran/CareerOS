@@ -8,7 +8,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
-from careeros.db.models import AgentAttempt, AgentDependency, AgentRun, Job, Mission, Task
+from careeros.db.models import (
+    AgentAttempt,
+    AgentDependency,
+    AgentRun,
+    Application,
+    Job,
+    Mission,
+    Task,
+)
 from careeros.modules.agents.contracts import AgentOutput
 from careeros.modules.agents.registry import AGENTS, BY_KEY, TASK_TYPE, VERSION, WORKFLOW
 from careeros.modules.events.service import record_event
@@ -38,7 +46,11 @@ def active_mission(session: Session) -> Mission | None:
 
 
 def mission_label(mission: Mission) -> str:
-    return "Interview preparation" if mission.workflow.startswith("interview:") else "Career review"
+    if mission.workflow.startswith("interview:"):
+        return "Interview preparation"
+    if mission.workflow.startswith("application:"):
+        return "Application draft preparation"
+    return "Career review"
 
 
 def _event(session: Session, mission: Mission, kind: str, message: str) -> None:
@@ -299,10 +311,27 @@ def maybe_schedule(session: Session, hours: float, now: datetime | None = None) 
 
 def start_interview_mission(session: Session, job_id: str) -> tuple[Mission, bool]:
     """One on-demand interview preparation at a time per job; no application side effects."""
-    _write_lock(session)
     if session.get(Job, job_id) is None:
         raise LookupError("Job not found")
-    workflow = f"interview:{job_id}"
+    return _start_on_demand(session, "interview", job_id, {"job_id": job_id})
+
+
+def start_application_mission(session: Session, application_id: str) -> tuple[Mission, bool]:
+    app = session.get(Application, application_id)
+    if app is None:
+        raise LookupError("Application not found")
+    if app.status not in ("preparing", "ready"):
+        raise MissionConflict("Draft preparation is available for applications being prepared.")
+    return _start_on_demand(
+        session, "application", application_id, {"application_id": application_id}
+    )
+
+
+def _start_on_demand(
+    session: Session, key: str, target_id: str, inputs: dict[str, Any]
+) -> tuple[Mission, bool]:
+    _write_lock(session)
+    workflow = f"{key}:{target_id}"
     existing = session.scalars(
         select(Mission).where(Mission.workflow == workflow, Mission.status.in_(ACTIVE))
     ).first()
@@ -317,13 +346,13 @@ def start_interview_mission(session: Session, job_id: str) -> tuple[Mission, boo
         return session.scalars(
             select(Mission).where(Mission.workflow == workflow, Mission.status.in_(ACTIVE))
         ).one(), False
-    run = AgentRun(mission_id=mission.id, agent_key="interview", position=0)
+    run = AgentRun(mission_id=mission.id, agent_key=key, position=0)
     session.add(run)
     session.flush()
     task, _ = queue.enqueue(
         session,
         TASK_TYPE,
-        {"agent_run_id": run.id, "job_id": job_id},
+        {"agent_run_id": run.id, **inputs},
         idempotency_key=f"agent:{run.id}",
     )
     run.task_id, run.status = task.id, "queued"
@@ -331,6 +360,6 @@ def start_interview_mission(session: Session, job_id: str) -> tuple[Mission, boo
         session,
         mission,
         "queued",
-        "Interview preparation queued. No application or message will be sent.",
+        f"{mission_label(mission)} queued. No application or message will be sent.",
     )
     return mission, True

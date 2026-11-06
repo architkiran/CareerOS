@@ -6,6 +6,8 @@ import threading
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from functools import partial
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -218,6 +220,7 @@ class Worker:
         poll_seconds: float = 2.0,
         fetcher_factory: Callable[[], Fetcher] = Fetcher,
         handlers: dict[str, Handler] | None = None,
+        data_dir: Path | None = None,
     ) -> None:
         self.factory = factory
         self.scheduler_enabled = scheduler_enabled
@@ -225,7 +228,9 @@ class Worker:
         self.schedule_interval_hours = schedule_interval_hours
         self.poll_seconds = poll_seconds
         self.fetcher_factory = fetcher_factory
-        self.handlers = handlers or HANDLERS
+        self.handlers = dict(HANDLERS if handlers is None else handlers)
+        if handlers is None:
+            self.handlers[TASK_TYPE] = partial(execute_agent, data_dir=data_dir)
         self.worker_id = f"{socket.gethostname()}:{uuid.uuid4().hex[:8]}"
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None

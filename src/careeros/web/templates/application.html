@@ -12,6 +12,7 @@
   <p class="muted">Built from verified profile items only, with templates (no AI). Every line links to the profile items behind it. Errors block a version; warnings need your acknowledgment.</p>
   <p class="muted">This Word template does not preserve the exact layout of your master PDF. Compare your <a href="/resumes">role-family resume references</a> before using a generated file.</p>
   <div class="actions">
+    {% if a.status in ('preparing', 'ready') %}<form method="post" action="/applications/{{ a.id }}/prepare" class="inline">{{ csrf() }}<button>Prepare both template drafts with agent</button></form>{% endif %}
     {% for t in ['resume', 'cover_letter'] %}
     <form method="post" action="/applications/{{ a.id }}/documents" class="inline">{{ csrf() }}<input type="hidden" name="document_type" value="{{ t }}"><button>{{ 'Regenerate' if docs[t] else 'Generate' }} {{ labels[t].lower() }}</button></form>
     {% endfor %}

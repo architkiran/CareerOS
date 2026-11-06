@@ -6,10 +6,12 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Resp
 from sqlalchemy.orm import Session
 
 from careeros.db.models import Application, Company, Document, Job, RoleLane
+from careeros.modules.agents import service as agents
 from careeros.modules.applications import service as apps
 from careeros.modules.approvals import service as gate
 from careeros.modules.documents import service as docs
 from careeros.modules.outreach import service as outreach
+from careeros.modules.system.status import get_system_status
 from careeros.web import forms
 from careeros.web.csrf import verify_csrf
 from careeros.web.deps import get_session
@@ -24,6 +26,7 @@ def _render(
     response: HTMLResponse = request.app.state.templates.TemplateResponse(
         request, template, ctx, status_code=status_code
     )
+    response.headers["Cache-Control"] = "no-store"
     return response
 
 
@@ -95,6 +98,22 @@ def start(job_id: str, session: SessionDep) -> Response:
 @router.get("/applications/{app_id}", response_class=HTMLResponse)
 def workspace(app_id: str, request: Request, session: SessionDep) -> HTMLResponse:
     return _workspace(request, session, app_id)
+
+
+@router.post("/applications/{app_id}/prepare")
+def prepare(app_id: str, request: Request, session: SessionDep) -> Response:
+    if not get_system_status(
+        request.app.state.settings, request.app.state.engine
+    ).schema.up_to_date:
+        raise HTTPException(409, "Run careeros migrate before starting draft preparation.")
+    try:
+        mission, _ = agents.start_application_mission(session, app_id)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except agents.MissionConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    session.commit()
+    return RedirectResponse(f"/missions/{mission.id}", status_code=303)
 
 
 def _sync(session: Session, app_id: str) -> None:

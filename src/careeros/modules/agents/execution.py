@@ -2,13 +2,14 @@
 
 from collections.abc import Callable
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
-from careeros.db.models import AgentRun, Approval, Job, Mission, Source
+from careeros.db.models import AgentRun, Application, Approval, Job, Mission, Source
 from careeros.modules.agents.contracts import (
     AgentExecutionError,
     AgentOutput,
@@ -25,7 +26,11 @@ from careeros.modules.sources.http import Fetcher
 
 
 def execute(
-    factory: sessionmaker[Session], payload: dict[str, Any], fetcher_factory: Callable[[], Fetcher]
+    factory: sessionmaker[Session],
+    payload: dict[str, Any],
+    fetcher_factory: Callable[[], Fetcher],
+    *,
+    data_dir: Path | None = None,
 ) -> dict[str, Any]:
     inputs = AgentTaskInput.model_validate(payload)
     run_id = inputs.agent_run_id
@@ -39,6 +44,9 @@ def execute(
         if mission.status == "cancelled":
             raise AgentExecutionError("Mission cancelled before this step started.")
         key = run.agent_key
+        target = inputs.application_id if key == "application" else inputs.job_id
+        if key in ("application", "interview") and mission.workflow != f"{key}:{target}":
+            raise AgentExecutionError("The saved task target does not match its mission.")
     if key == "discovery":
 
         def cancelled() -> bool:
@@ -90,7 +98,13 @@ def execute(
             warnings=warnings,
         ).model_dump()
     with factory() as session:
-        if key == "interview":
+        if key == "application":
+            if inputs.application_id is None or data_dir is None:
+                raise AgentExecutionError(
+                    "Draft preparation needs an application and configured data directory."
+                )
+            output = _prepare_application(session, inputs.application_id, data_dir)
+        elif key == "interview":
             from careeros.modules.interviews.contracts import Preparation
             from careeros.modules.interviews.service import prepare_plan
 
@@ -111,6 +125,41 @@ def execute(
             output = _local_step(session, key)
         session.commit()
         return output.model_dump()
+
+
+def _prepare_application(session: Session, application_id: str, data_dir: Path) -> AgentOutput:
+    from careeros.modules.applications import service as applications
+    from careeros.modules.documents import service as documents
+
+    app = session.get(Application, application_id)
+    if app is None or app.status not in ("preparing", "ready"):
+        raise AgentExecutionError("This application is no longer available for draft preparation.")
+    try:
+        resume = documents.generate(session, app.id, "resume", data_dir)
+        letter = documents.generate(session, app.id, "cover_letter", data_dir)
+        for doc in (resume, letter):
+            documents.verify_integrity(doc)
+    except documents.DocumentError as exc:
+        raise AgentExecutionError(
+            "Draft preparation failed. Review your profile and document workspace."
+        ) from exc
+    applications.sync_ready(session, app, resume.status == "ready")
+    needs_review = sum(d.status != "ready" for d in (resume, letter))
+    warnings = [
+        "These Word drafts use a generic template and do not preserve your master PDF layout.",
+        "Review every statement and layout before requesting approval; nothing was submitted.",
+    ]
+    if needs_review:
+        warnings.append(
+            "Document QA requires your attention. Warnings were not acknowledged automatically."
+        )
+    return AgentOutput(
+        summary="Prepared a resume and cover-letter draft for your review.",
+        metrics={"drafts": 2, "drafts_needing_review": needs_review},
+        artifacts=[ArtifactRef(kind="application", id=app.id)]
+        + [ArtifactRef(kind="document", id=d.id) for d in (resume, letter)],
+        warnings=warnings,
+    )
 
 
 def _local_step(session: Session, key: str) -> AgentOutput:

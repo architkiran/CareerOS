@@ -25,6 +25,7 @@ def _render(
     response: HTMLResponse = request.app.state.templates.TemplateResponse(
         request, template, ctx, status_code=status_code
     )
+    response.headers["Cache-Control"] = "no-store"
     return response
 
 

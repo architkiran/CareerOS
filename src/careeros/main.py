@@ -65,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 mission_scheduler_enabled=settings.mission_scheduler_enabled,
                 schedule_interval_hours=settings.schedule_interval_hours,
                 poll_seconds=settings.worker_poll_seconds,
+                data_dir=settings.data_dir,
             )
             worker.start()
         app.state.worker = worker
@@ -150,6 +151,7 @@ def _worker(settings: Settings) -> int:
         mission_scheduler_enabled=settings.mission_scheduler_enabled,
         schedule_interval_hours=settings.schedule_interval_hours,
         poll_seconds=settings.worker_poll_seconds,
+        data_dir=settings.data_dir,
     )
     worker.start()
     print("Worker running. Press Ctrl+C to stop.")

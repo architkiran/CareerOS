@@ -26,6 +26,12 @@ class AgentSpec:
                 "Read verified project references",
                 "Prepare private practice questions",
             ),
+            "application": (
+                "Read verified candidate facts",
+                "Generate private template drafts",
+                "Verify document content and binary hashes",
+                "Hand off warnings for human review",
+            ),
             "market": (
                 "Read saved public postings",
                 "Read verified skills",
@@ -77,6 +83,12 @@ AGENTS = (
 )
 ON_DEMAND_AGENTS = (
     AgentSpec(
+        "application",
+        "Application drafts",
+        "Prepare verified-fact template drafts; exact master layout and approval stay separate.",
+        "/applications",
+    ),
+    AgentSpec(
         "interview",
         "Interview practice",
         "Prepare role-specific questions grounded in verified project evidence.",
@@ -88,6 +100,5 @@ BY_KEY = {agent.key: agent for agent in (*AGENTS, *ON_DEMAND_AGENTS)}
 # These are product gaps, not runnable placeholders.
 PLANNED = (
     ("Resume specialist", "Exact master resume format preservation"),
-    ("Application preparation", "Coordinated document preparation and approval handoff"),
     ("Recruiter intelligence", "Evidence-backed recruiter discovery and networking drafts"),
 )

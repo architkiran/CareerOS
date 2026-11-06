@@ -10,6 +10,7 @@ class AgentTaskInput(BaseModel):
 
     agent_run_id: str = Field(pattern=r"^[0-9a-f]{32}$")
     job_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    application_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
     source_ids: list[Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]] | None = Field(
         default=None, max_length=2000
     )
@@ -18,7 +19,7 @@ class AgentTaskInput(BaseModel):
 class ArtifactRef(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["market_brief", "interview_plan", "resume_reference"]
+    kind: Literal["market_brief", "interview_plan", "resume_reference", "document", "application"]
     id: str = Field(pattern=r"^[0-9a-f]{32}$")
 
     @property
@@ -27,6 +28,8 @@ class ArtifactRef(BaseModel):
             "market_brief": f"/market-intelligence?brief_id={self.id}",
             "interview_plan": f"/interviews/{self.id}",
             "resume_reference": f"/resumes/{self.id}/download",
+            "document": f"/documents/{self.id}/download",
+            "application": f"/applications/{self.id}#documents",
         }[self.kind]
 
 

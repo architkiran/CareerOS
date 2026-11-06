@@ -55,6 +55,9 @@ Assistant research stays pending; stale official policy evidence stays unknown.
 See [company research](docs/COMPANY_RESEARCH.md). Generated Word downloads and
 approvals now verify both the content and binary hashes; legacy files require a
 new version. See [document integrity](docs/DOCUMENT_INTEGRITY.md).
+Applications can also request an on-demand agent to prepare both template drafts
+and hand them back for review. It never acknowledges warnings or creates an
+approval. [Exact behavior and limitations](docs/APPLICATION_DRAFT_AGENT.md).
 
 ## First run
 
