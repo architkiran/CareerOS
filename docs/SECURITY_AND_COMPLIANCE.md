@@ -59,3 +59,12 @@ The user enters their own status and dates. The app does not determine legal eli
 ## Prompt injection defense
 
 Model prompts must state that source content is untrusted. Never pass tools that can submit forms, send email, or change accounts to a model. The model gateway returns data only. Validate every structured output. The approval service, not the model, controls side effects.
+
+## Bounded source response reads
+
+Public-feed responses are streamed and capped while reading, rather than fully
+buffered before checking their size. Oversized declared Content-Length values are
+rejected before body consumption; chunked responses stop once the byte cap is
+exceeded, and streams close on success or failure. Error bodies are not consumed.
+The configured timeout applies even when a caller supplies its own HTTPX client.
+Retry-After supports both seconds and HTTP dates, with nonnegative capped waits.

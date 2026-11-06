@@ -161,3 +161,54 @@ def test_ashby_skips_unlisted() -> None:
     )
     items, _ = ADAPTERS["ashby"].fetch_raw(make_fetcher(), "examplecard", 0.5)
     assert [i["title"] for i in items] == ["Product Analyst", "Analytics Engineer"]
+
+
+@respx.mock
+def test_chunked_oversize_stops_reading_and_closes_stream() -> None:
+    class Chunks(httpx.SyncByteStream):
+        def __init__(self) -> None:
+            self.read = 0
+            self.closed = False
+
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            for _ in range(100):
+                self.read += 1
+                yield b"x" * 8
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = Chunks()
+    respx.get(URL).mock(return_value=httpx.Response(200, stream=stream))
+    with pytest.raises(FetchError, match="size limit"):
+        make_fetcher(max_response_bytes=20).get_json(URL)
+    assert stream.read < 100 and stream.closed
+
+
+@respx.mock
+def test_content_length_limit_rejects_before_reading_body() -> None:
+    class ForbiddenBody(httpx.SyncByteStream):
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            raise AssertionError("An oversized declared body must not be read")
+            yield b""
+
+    respx.get(URL).mock(
+        return_value=httpx.Response(
+            200, headers={"Content-Length": "100000"}, stream=ForbiddenBody()
+        )
+    )
+    with pytest.raises(FetchError, match="size limit"):
+        make_fetcher(max_response_bytes=50).get_json(URL)
+
+
+def test_retry_after_http_date_and_negative_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import UTC, datetime
+
+    from careeros.modules.sources import http
+
+    monkeypatch.setattr(http, "utcnow", lambda: datetime(2026, 11, 6, 12, 0, 0, tzinfo=UTC))
+    fetcher = make_fetcher(max_retry_after_seconds=60)
+    assert fetcher._backoff(1, "Fri, 06 Nov 2026 12:00:10 GMT") == 10
+    assert fetcher._backoff(1, "Fri, 06 Nov 2026 13:00:00 GMT") == 60
+    assert fetcher._backoff(1, "-7") == 0
+    assert fetcher._backoff(1, "not-a-date") >= 1

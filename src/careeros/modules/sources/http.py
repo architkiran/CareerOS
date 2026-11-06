@@ -14,12 +14,15 @@ import random
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
 
 from careeros import __version__
+from careeros.common.clock import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +85,44 @@ class Fetcher:
     def _backoff(self, attempt: int, retry_after: str | None) -> float:
         if retry_after:
             try:
-                return min(float(retry_after), self.policy.max_retry_after_seconds)
+                return max(0.0, min(float(retry_after), self.policy.max_retry_after_seconds))
             except ValueError:
-                pass
+                try:
+                    when = parsedate_to_datetime(retry_after)
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=UTC)
+                    delay = (when - utcnow()).total_seconds()
+                    return max(0.0, min(delay, self.policy.max_retry_after_seconds))
+                except (ValueError, TypeError, OverflowError):
+                    pass
         base = self.policy.backoff_base_seconds * (2 ** (attempt - 1))
         jitter = random.uniform(0, base / 2)  # noqa: S311 (not crypto)
         return float(min(base + jitter, self.policy.backoff_max_seconds))
+
+    def _read_response(
+        self,
+        url: str,
+        params: dict[str, Any] | None,
+    ) -> tuple[int, httpx.Headers, bytes]:
+        assert self.client is not None
+        with self.client.stream(
+            "GET", url, params=params, timeout=self.policy.timeout_seconds
+        ) as response:
+            status, headers = response.status_code, response.headers
+            # Error bodies are irrelevant to retry decisions and may be unbounded/untrusted.
+            if status >= 400:
+                return status, headers, b""
+            length = headers.get("content-length")
+            if length and length.isdigit() and int(length) > self.policy.max_response_bytes:
+                raise FetchError("Response exceeded size limit", status)
+            content = bytearray()
+            for chunk in response.iter_bytes(
+                chunk_size=min(65_536, self.policy.max_response_bytes + 1)
+            ):
+                if len(content) + len(chunk) > self.policy.max_response_bytes:
+                    raise FetchError("Response exceeded size limit", status)
+                content.extend(chunk)
+            return status, headers, bytes(content)
 
     def get_json(
         self, url: str, *, params: dict[str, Any] | None = None, min_interval: float = 2.0
@@ -99,7 +134,7 @@ class Fetcher:
         for attempt in range(1, self.policy.max_attempts + 1):
             self._respect_rate_limit(host, min_interval)
             try:
-                response = self.client.get(url, params=params)
+                status, headers, content = self._read_response(url, params)
             except httpx.TimeoutException:
                 last_error = FetchError(f"Timed out after {self.policy.timeout_seconds}s")
                 retry_after = None
@@ -107,7 +142,6 @@ class Fetcher:
                 last_error = FetchError(f"Network error: {type(exc).__name__}")
                 retry_after = None
             else:
-                status = response.status_code
                 if status == 403:
                     raise SourceBlockedError("Source returned 403 Forbidden", status)
                 if status == 404:
@@ -118,14 +152,12 @@ class Fetcher:
                         if status == 429
                         else FetchError(f"Server error {status}", status)
                     )
-                    retry_after = response.headers.get("Retry-After")
+                    retry_after = headers.get("Retry-After")
                 elif status >= 400:
                     raise FetchError(f"Unexpected HTTP {status}", status)
                 else:
-                    if len(response.content) > self.policy.max_response_bytes:
-                        raise FetchError("Response exceeded size limit", status)
                     try:
-                        return response.json(), status
+                        return json.loads(content), status
                     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                         raise FetchError("Response was not valid JSON", status) from exc
             if attempt < self.policy.max_attempts:
