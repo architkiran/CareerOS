@@ -58,7 +58,7 @@ def test_lanes_page_empty_state(client: TestClient) -> None:
 
 
 def test_nav_links_present(client: TestClient) -> None:
-    html = client.get("/").text
+    html = client.get("/resumes").text
     assert 'href="/profile"' in html and 'href="/lanes"' in html
 
 

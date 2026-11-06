@@ -7,6 +7,7 @@
   <link rel="icon" href="{{ url_for('static', path='favicon.svg') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='mission.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='workspaces.css') }}">
   <script src="{{ url_for('static', path='theme.js') }}"></script>
 </head>
 <body>
@@ -18,32 +19,25 @@
   {%- endmacro %}
   <div class="shell">
     <aside class="side">
-      <a class="brand" href="/"><img src="{{ url_for('static', path='favicon.svg') }}" alt="" width="22" height="22"> CareerOS</a>
-      <nav aria-label="Main">
-        <p class="nav-group">Pipeline</p>
-        {{ nav('/mission-control', 'Mission Control') }}
-        {{ nav('/agents', 'Agents') }}
-        {{ nav('/', 'Overview') }}
-        {{ nav('/jobs', 'Jobs') }}
-        {{ nav('/companies', 'Companies') }}
-        {{ nav('/research', 'Research') }}
-        {{ nav('/applications', 'Applications') }}
-        {{ nav('/resumes', 'Resume references') }}
-        {{ nav('/interviews', 'Interviews') }}
-        {{ nav('/approvals', 'Approvals') }}
-        {{ nav('/follow-ups', 'Follow-ups') }}
-        <p class="nav-group">Insight</p>
-        {{ nav('/market-intelligence', 'Career intelligence') }}
-        {{ nav('/analytics', 'Analytics') }}
-        <p class="nav-group">Setup</p>
-        {{ nav('/profile', 'Profile') }}
-        {{ nav('/lanes', 'Role lanes') }}
-        {{ nav('/sources', 'Sources') }}
-        {{ nav('/settings', 'Settings') }}
+      <a class="brand" href="/mission-control"><img src="{{ url_for('static', path='favicon.svg') }}" alt="" width="22" height="22"> CareerOS</a>
+      {% set area = 'home' %}
+      {% if path == '/' or path.startswith('/settings') %}{% set area = 'system' %}
+      {% elif path.startswith(('/jobs','/sources','/companies','/research')) %}{% set area = 'opportunities' %}
+      {% elif path.startswith(('/applications','/documents','/interviews','/approvals','/follow-ups','/outreach')) %}{% set area = 'applications' %}
+      {% elif path.startswith(('/market-intelligence','/analytics')) %}{% set area = 'insights' %}
+      {% elif path.startswith(('/profile','/lanes','/resumes','/resume-studio')) %}{% set area = 'career' %}{% endif %}
+      <p class="workspace-label">Your workspace</p>
+      <nav aria-label="Main" data-testid="workspace-nav">
+        {% for href, label, key, number in [('/mission-control','Home','home','01'),('/jobs','Opportunities','opportunities','02'),('/applications','Applications','applications','03'),('/market-intelligence','Insights','insights','04'),('/resumes','Career library','career','05')] %}
+        <a href="{{ href }}" class="{{ 'on' if area == key }}" {% if area == key %}aria-current="page"{% endif %}><span class="nav-number" aria-hidden="true">{{ number }}</span>{{ label }}</a>
+        {% endfor %}
       </nav>
+      <div class="side-bottom"><a class="system-link {{ 'on' if area == 'system' }}" href="/settings">System &amp; settings</a><p class="muted">Local. Private. Yours.</p></div>
       <button class="theme-toggle" data-theme-toggle type="button">Switch to light mode</button>
     </aside>
     <main class="container" id="main" tabindex="-1">
+      {% set tabs = {'home':[('/mission-control','Overview'),('/agents','Agent team')], 'opportunities':[('/jobs','Job inbox'),('/companies','Companies'),('/sources','Discovery sources')], 'applications':[('/applications','Pipeline'),('/interviews','Interview practice'),('/approvals','Review queue'),('/follow-ups','Follow-ups')], 'insights':[('/market-intelligence','Market brief'),('/analytics','Outcomes')], 'career':[('/resumes','Resume studio'),('/profile','Verified profile'),('/lanes','Search preferences')], 'system':[('/settings','Settings'),('/','System status')]} %}
+      <nav class="workspace-tabs" aria-label="Workspace sections">{% for href,label in tabs[area] %}{{ nav(href,label) }}{% endfor %}</nav>
       {% block content %}{% endblock %}
     </main>
   </div>

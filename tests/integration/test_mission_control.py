@@ -93,3 +93,27 @@ def test_pending_migration_has_honest_empty_state(settings: Settings) -> None:
 @pytest.mark.parametrize("path", ["/missions", "/missions/x/pause", "/agent-runs/x/retry"])
 def test_every_mission_mutation_requires_csrf(client: TestClient, path: str) -> None:
     assert client.post(path).status_code == 403
+
+
+def test_five_workspace_navigation_and_on_demand_activity(client, app):  # type: ignore[no-untyped-def]
+    from careeros.modules.agents.service import start_application_mission
+    from careeros.modules.applications.service import start_application
+    from tests.integration.test_documents import _setup
+
+    factory = app.state.session_factory
+    job_id = _setup(factory)
+    with factory() as session:
+        application = start_application(session, job_id)
+        mission, _ = start_application_mission(session, application.id)
+        session.commit()
+    response = client.get("/mission-control")
+    assert response.status_code == 200
+    html = response.text
+    main_nav = html.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
+    assert main_nav.count("<a ") == 5
+    assert "Career library" in main_nav and "Resume references" not in main_nav
+    assert "What your team is doing" in html and "1 active tasks" in html
+    assert f"/missions/{mission.id}" in html and "Application drafts" in html
+    assert "Past work and mission history" in html
+    for path in ["/jobs", "/applications", "/profile", "/sources", "/companies", "/interviews"]:
+        assert 'aria-label="Workspace sections"' in client.get(path).text

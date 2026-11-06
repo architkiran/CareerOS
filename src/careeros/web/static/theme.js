@@ -2,8 +2,8 @@
   "use strict";
   var root = document.documentElement;
   try {
-    if (localStorage.getItem("careeros-theme") === "light") root.dataset.theme = "light";
-  } catch (error) { /* Storage may be disabled; dark remains the default. */ }
+    root.dataset.theme = localStorage.getItem("careeros-theme") === "dark" ? "dark" : "light";
+  } catch (error) { root.dataset.theme = "light"; }
   document.addEventListener("DOMContentLoaded", function () {
     var button = document.querySelector("[data-theme-toggle]");
     if (!button) return;

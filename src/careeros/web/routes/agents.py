@@ -65,6 +65,19 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
     )
     market = latest_brief(session)
     ctx["mc"] = {
+        "active_runs": list(
+            session.execute(
+                select(AgentRun, Mission)
+                .join(Mission)
+                .where(
+                    Mission.status.in_(("queued", "running")),
+                    AgentRun.status.in_(("queued", "running", "retrying")),
+                )
+                .order_by(AgentRun.started_at, AgentRun.position)
+                .limit(20)
+            ).all()
+        ),
+        "specs": BY_KEY,
         "market_brief": market,
         "market_report": MarketReport.model_validate(market.report_json) if market else None,
         "mission": current,
