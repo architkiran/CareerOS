@@ -16,7 +16,12 @@ from careeros.modules.applications import service as application_service
 from careeros.modules.approvals import service as approval_service
 from careeros.modules.backup.service import latest_backup
 from careeros.modules.events.service import latest_events
-from careeros.modules.jobs.service import public_board_links, recommended_jobs
+from careeros.modules.jobs.service import (
+    JobFilters,
+    list_jobs,
+    public_board_links,
+    recommended_jobs,
+)
 from careeros.modules.market.contracts import MarketReport
 from careeros.modules.market.service import latest_brief
 from careeros.modules.models.gateway import usage_summary
@@ -57,6 +62,12 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
     by_key = {run.agent_key: run for run in runs}
     events = latest_events(session)
     opportunities = recommended_jobs(session)
+    arrivals, arrivals_total = list_jobs(
+        session, JobFilters(recommended=True, sort="newest", days=7, min_score=50)
+    )
+    published, published_total = list_jobs(
+        session, JobFilters(recommended=True, sort="newest", published_minutes=1440, min_score=50)
+    )
     heartbeat = get_setting(session, "worker.last_seen_at")
     seen = datetime.fromisoformat(heartbeat) if isinstance(heartbeat, str) else None
     scheduled = get_setting(session, service.LAST_SCHEDULED_KEY)
@@ -127,8 +138,14 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         "ov": build_overview(session, state.settings),
         "events": events,
         "cursor": events[0].id if events else 0,
-        "opportunities": opportunities[:5],
-        "board_links": public_board_links(session, [row.job.id for row in opportunities]),
+        "published_arrivals": published[:4],
+        "published_total": published_total,
+        "arrivals": arrivals[:4],
+        "arrivals_total": arrivals_total,
+        "opportunities": opportunities[:3],
+        "board_links": public_board_links(
+            session, [row.job.id for row in [*opportunities, *published, *arrivals]]
+        ),
         "profile": profile_summary(session),
         "followups": approval_service.open_follow_ups(session, due_within_days=3)[:3],
         "application_rows": application_service.list_applications(session)[:3],
@@ -138,6 +155,7 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         "schedule_enabled": state.settings.mission_scheduler_enabled,
         "next_run": next_run,
         "backup": latest_backup(state.settings.backup_dir),
+        "monitor_enabled": get_setting(session, "watch.enabled", False),
         "last_source_refresh": session.scalar(select(func.max(Source.last_success_at))),
     }
     return ctx

@@ -162,7 +162,11 @@ def test_public_board_attribution_is_visible_on_today_and_opportunities(app, cli
 
     job_id = _setup(app.state.session_factory)
     original = "https://jobicy.com/jobs/123-analyst"
+    from careeros.common.clock import utcnow
+    from careeros.db.models import Job
+
     with app.state.session_factory() as s:
+        s.get(Job, job_id).posted_at = utcnow()
         source = add_source(s, SourceIn(type="jobicy", token="usa", name="Jobicy"))
         s.add(
             JobSourceRecord(
@@ -177,6 +181,9 @@ def test_public_board_attribution_is_visible_on_today_and_opportunities(app, cli
         profiles.add_default_lanes(s)
         score_jobs(s)
         s.commit()
+    today = client.get("/mission-control").text
+    primary = today.split("<h2>Recently posted matches</h2>")[1].split("New to your feed")[0]
+    assert original in primary and "Source: Jobicy" in primary
     for path in ("/mission-control", "/jobs?view=recommended&sort=score"):
         page = client.get(path).text
         assert original in page and "Source: Jobicy" in page

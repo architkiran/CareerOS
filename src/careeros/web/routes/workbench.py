@@ -1,17 +1,22 @@
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
 from careeros.common.fs import private_dir
-from careeros.db.models import Application, Company, Job
+from careeros.db.models import Application, Company, Job, Mission
+from careeros.modules.agents import service as agents
 from careeros.modules.agents.support import evidence, load_report
 from careeros.modules.applications.service import sync_ready
+from careeros.modules.documents import rewriter
 from careeros.modules.documents import service as docs
 from careeros.modules.documents.content import build_resume, experience_paragraphs
 from careeros.modules.documents.tailoring import plan
@@ -66,7 +71,20 @@ def context(session: Session, app_id: str, data_dir: Path) -> dict[str, Any]:
             for e in candidate.experience
         }
     feedback_path = data_dir / "documents" / app_id / "feedback.json"
+    mission = session.scalars(
+        select(Mission)
+        .where(Mission.workflow == "tailoring:" + app_id)
+        .order_by(Mission.created_at.desc())
+        .limit(1)
+    ).first()
+    proposal = rewriter.load(data_dir, app_id)
     return {
+        "proposal": proposal,
+        "proposal_time": datetime.fromisoformat(proposal["created_at"]) if proposal else None,
+        "proposal_stale": proposal is not None
+        and proposal["fingerprint"] != rewriter.fingerprint(session, app_id),
+        "rewrite_mission": mission,
+        "rewrite_run": agents.runs_for(session, mission.id)[0] if mission else None,
         "a": app,
         "job": job,
         "company": session.get(Company, job.company_id),
@@ -76,6 +94,7 @@ def context(session: Session, app_id: str, data_dir: Path) -> dict[str, Any]:
             for p in profiles.list_projects(session, profiles.get_or_create_profile(session).id)
             if p.verified_status != "verified"
         ],
+        "source_fingerprint": rewriter.fingerprint(session, app_id),
         "choices": selections,
         "projects": inventory(candidate, job.title + " " + job.description_text),
         "evidence": evidence(session, app_id),
@@ -110,6 +129,21 @@ def render(
 
 @router.get("/applications/{app_id}/workbench")
 def page(app_id: str, request: Request, session: SessionDep) -> HTMLResponse:
+    token = request.query_params.get("review")
+    if token:
+        proposal = reviewed_proposal(
+            session, app_id, Path(request.app.state.settings.data_dir), token
+        )
+        return render(
+            request,
+            session,
+            app_id,
+            {
+                "choices": Choices.model_validate(proposal["choices"]),
+                "notice": "Proposed edits loaded below. Review or change them, then save your PDF. "
+                "Your master remains unchanged.",
+            },
+        )
     return render(request, session, app_id)
 
 
@@ -137,6 +171,24 @@ async def revise(app_id: str, request: Request, session: SessionDep) -> Response
         raise HTTPException(404, "Application not found")
     if app.status not in ("preparing", "ready"):
         raise HTTPException(409, "This application has moved beyond draft preparation.")
+    if form.get("source_fingerprint") and str(form["source_fingerprint"]) != rewriter.fingerprint(
+        session, app_id
+    ):
+        return render(
+            request,
+            session,
+            app_id,
+            {
+                "errors": [
+                    (
+                        "Profile or posting changed. Reload before saving; "
+                        "your current edits are shown below."
+                    )
+                ],
+                "choices": chosen,
+            },
+            409,
+        )
     latest = docs.latest(session, app_id, "resume")
     if str(form.get("base_version", "0")) != str(latest.version if latest else 0):
         return render(
@@ -188,3 +240,69 @@ async def revise(app_id: str, request: Request, session: SessionDep) -> Response
         session.rollback()
         return render(request, session, app_id, {"errors": [str(exc)], "choices": chosen}, 422)
     return RedirectResponse(f"/applications/{app_id}/workbench?saved=1", 303)
+
+
+@router.post("/applications/{app_id}/rewrite")
+async def rewrite(app_id: str, request: Request, session: SessionDep) -> Response:
+    form = await request.form()
+    feedback = str(form.get("feedback", "")).strip()
+    if len(feedback) > 3000:
+        raise HTTPException(422, "Keep instructions under 3000 characters.")
+    if request.app.state.settings.model_provider == "disabled":
+        return render(
+            request,
+            session,
+            app_id,
+            {
+                "errors": [
+                    "Local AI is disabled. Configure the local model before requesting a rewrite."
+                ]
+            },
+            409,
+        )
+    try:
+        mission, created = agents.start_rewrite_mission(session, app_id)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    if created:
+        folder = Path(request.app.state.settings.data_dir) / "documents" / app_id
+        private_dir(folder)
+        path = folder / (mission.id + "-rewrite.json")
+        path.write_text(json.dumps({"feedback": feedback}))
+        path.chmod(0o600)
+    session.commit()
+    return RedirectResponse(f"/applications/{app_id}/workbench#rewrite", 303)
+
+
+def reviewed_proposal(session: Session, app_id: str, root: Path, token: str) -> dict[str, Any]:
+    proposal = rewriter.load(root, app_id)
+    if not proposal or proposal["created_at"] != token:
+        raise HTTPException(409, "A newer proposal exists. Refresh before reviewing.")
+    if proposal["fingerprint"] != rewriter.fingerprint(session, app_id):
+        raise HTTPException(409, "Profile or posting changed. Request a fresh rewrite.")
+    return proposal
+
+
+@router.post("/applications/{app_id}/rewrite/review")
+async def review_rewrite(app_id: str, request: Request, session: SessionDep) -> RedirectResponse:
+    form = await request.form()
+    token = str(form.get("proposal", ""))
+    reviewed_proposal(session, app_id, Path(request.app.state.settings.data_dir), token)
+    return RedirectResponse(
+        f"/applications/{app_id}/workbench?" + urlencode({"review": token}), 303
+    )
+
+
+@router.get("/applications/{app_id}/rewrite/status")
+def rewrite_status(app_id: str, session: SessionDep) -> JSONResponse:
+    if session.get(Application, app_id) is None:
+        raise HTTPException(404, "Application not found")
+    mission = session.scalars(
+        select(Mission)
+        .where(Mission.workflow == "tailoring:" + app_id)
+        .order_by(Mission.created_at.desc())
+        .limit(1)
+    ).first()
+    return JSONResponse(
+        {"status": mission.status if mission else "idle"}, headers={"Cache-Control": "no-store"}
+    )

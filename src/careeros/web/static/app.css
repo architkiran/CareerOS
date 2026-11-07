@@ -194,3 +194,5 @@ details.lane > summary { display: flex; flex-wrap: wrap; gap: 10px; align-items:
 @media (max-width: 700px) { .hide-sm { display: none !important; } }
 .error-page { max-width: 60ch; padding: 32px 0; }
 .error-page h1 { margin-bottom: 10px; }
+
+.rewrite-panel {border:1px solid var(--border, #deded8); padding:24px; border-radius:16px; background:var(--surface, #fff); margin-bottom:24px} .rewrite-comparison {display:grid;grid-template-columns:1fr 1fr;gap:24px} .rewrite-panel textarea {width:100%;margin:8px 0 12px} @media(max-width:760px){.rewrite-comparison{grid-template-columns:1fr}}

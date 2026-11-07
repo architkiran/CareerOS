@@ -118,3 +118,78 @@ def test_three_primary_actions_and_on_demand_activity(client, app):  # type: ign
     assert "View task" in client.get("/agents").text
     for path in ["/applications", "/sources", "/companies", "/interviews"]:
         assert 'aria-label="Workspace sections"' in client.get(path).text
+
+
+def test_fresh_arrivals_surface_new_match_before_old_high_score(app, client):  # type: ignore[no-untyped-def]
+    from datetime import timedelta
+
+    from careeros.common.clock import utcnow
+    from careeros.db.models import Job, JobLaneMatch
+    from careeros.modules.matching.service import score_jobs
+    from careeros.modules.profile.service import add_default_lanes
+    from tests.integration.test_documents import _setup
+
+    job_id = _setup(app.state.session_factory)
+    with app.state.session_factory() as session:
+        old = session.get(Job, job_id)
+        old.title = "Older analyst"
+        old.first_seen_at = utcnow() - timedelta(days=10)
+        fresh = Job(
+            company_id=old.company_id,
+            title="Fresh analyst",
+            normalized_title="data analyst",
+            description_text="SQL Python Data Analyst",
+            description_hash="new",
+            dedupe_key="fresh",
+            canonical_url="https://acme.example/new",
+            first_seen_at=utcnow(),
+            posted_at=None,
+        )
+        session.add(fresh)
+        add_default_lanes(session)
+        session.flush()
+        score_jobs(session)
+        for match in session.scalars(select(JobLaneMatch)):
+            match.classified = True
+            match.eligibility = "unknown"
+            match.score = 95 if match.job_id == old.id else 65
+        session.commit()
+    html = client.get("/mission-control").text
+    arrivals = html.split("<h2>Fresh arrivals</h2>")[1].split("Highest-scoring matches")[0]
+    assert "Fresh analyst" in arrivals and "Older analyst" not in arrivals
+    assert "Publication time unknown" in arrivals
+    assert "does not prove the employer just posted it" in arrivals
+    assert "Older analyst" in html
+
+
+def test_recent_publication_section_excludes_older_or_unknown_dates(app, client):  # type: ignore[no-untyped-def]
+    from datetime import timedelta
+
+    from careeros.common.clock import utcnow
+    from careeros.db.models import Job, JobLaneMatch
+    from careeros.modules.matching.service import score_jobs
+    from careeros.modules.profile.service import add_default_lanes
+    from tests.integration.test_documents import _setup
+
+    job_id = _setup(app.state.session_factory)
+    with app.state.session_factory() as session:
+        job = session.get(Job, job_id)
+        job.title = "Dated analyst"
+        add_default_lanes(session)
+        score_jobs(session)
+        for match in session.scalars(select(JobLaneMatch)):
+            match.classified, match.score, match.eligibility = True, 70, "unknown"
+        session.commit()
+        for posted, included in [
+            (None, False),
+            (utcnow() - timedelta(days=5), False),
+            (utcnow() - timedelta(hours=2), True),
+        ]:
+            job.posted_at = posted
+            session.commit()
+            main = (
+                client.get("/mission-control")
+                .text.split("<h2>Recently posted matches</h2>")[1]
+                .split("New to your feed")[0]
+            )
+            assert ("Dated analyst" in main) == included

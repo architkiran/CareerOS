@@ -11,8 +11,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 def build_templates(display_timezone: str) -> Jinja2Templates:
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     tz = ZoneInfo(display_timezone)
-    templates.env.globals["asset_version"] = lambda: str(
-        (STATIC_DIR / "focus.css").stat().st_mtime_ns
+    templates.env.globals["asset_version"] = lambda name="focus.css": str(
+        (STATIC_DIR / name).stat().st_mtime_ns
     )
 
     def localtime(value: datetime | None) -> str:

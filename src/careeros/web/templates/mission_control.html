@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% from "_macros.html" import csrf with context %}
 {% block title %}Today · CareerOS{% endblock %}{% block content %}
-<header class="focus-header"><div><p class="eyebrow">A little clarity for your next move</p><h1>Your search. In focus.</h1><p>Good opportunities, clear next steps, and a team working in the background.</p></div><form method="post" action="/missions">{{ csrf() }}<button {% if not status.schema.up_to_date %}disabled{% endif %}>Find opportunities <span aria-hidden="true">↗</span></button></form></header>
+<header class="focus-header"><div><p class="eyebrow">Your local career workspace</p><h1>Your next opportunity.</h1><p>Fresh arrivals, applications to finish, and agent activity in one place.</p></div><form method="post" action="/missions">{{ csrf() }}<button {% if not status.schema.up_to_date %}disabled{% endif %}>Find opportunities <span aria-hidden="true">↗</span></button></form></header>
 <p class="sync-status" data-mission-live-status role="status">Connecting to your workspace…</p><div data-mission-live="/partials/mission-control">{% include "_mission_control.html" %}</div><script src="{{ url_for('static',path='mission.js') }}" defer></script>
 {% endblock %}
