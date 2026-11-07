@@ -195,3 +195,20 @@ def test_citizenship_requirement_still_unknown_when_no_sponsorship_needed() -> N
         job(description="Must be a U.S. citizen."), profile(needs_sponsorship="no")
     )
     assert r.decision == "unknown"
+
+
+@pytest.mark.parametrize(
+    "place",
+    ["Belgrade, Serbia", "Prague, Czech Republic", "Bucharest, Romania", "Cape Town, South Africa"],
+)
+def test_explicit_non_us_locations_fail_us_search(place: str) -> None:
+    assert (
+        location_filter(job(location_text=place), lane(), profile(open_to_relocation=True)).decision
+        == "fail"
+    )
+    assert (
+        location_filter(
+            job(location_text=place + "; Boston, MA"), lane(), profile(open_to_relocation=True)
+        ).decision
+        == "pass"
+    )

@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v4"  # v4: distinguish clinical consulting and Luxembourg locations
+ALGORITHM_VERSION = "match-v5"  # v5: recognize additional explicit non-US locations
 
 
 @dataclass(frozen=True)
