@@ -9,6 +9,14 @@ from careeros.modules.system.settings_store import get_setting, set_setting
 
 CATALOG = (
     {
+        "key": "klaviyo",
+        "type": "greenhouse",
+        "token": "klaviyo",
+        "name": "Klaviyo",
+        "url": "https://boards-api.greenhouse.io/v1/boards/klaviyo/jobs",
+        "scope": "Boston-based analytics and marketing technology; official public hiring feed.",
+    },
+    {
         "key": "wwr",
         "type": "wwr",
         "token": "all",
