@@ -14,6 +14,7 @@ from careeros.common.fs import private_dir
 from careeros.config import Settings
 from careeros.db.models import Application, Job
 from careeros.modules.documents.content import Candidate, experience_paragraphs
+from careeros.modules.documents.qa import numeric_tokens
 from careeros.modules.documents.service import load_candidate
 from careeros.modules.documents.workbench import Choices, validate_edit, validate_summary
 from careeros.modules.models.gateway import (
@@ -167,7 +168,8 @@ def propose(
     for rewritten in value.experience:
         source = expected[rewritten.ref]
         before = experience_paragraphs(source.text.split("|", 2)[-1])
-        text = "\n".join(rewritten.bullets)
+        bullets = rewritten.bullets
+        text = "\n".join(bullets)
         try:
             validate_role(text, rewritten.bullets, source.text, before)
         except ValueError:
@@ -202,9 +204,7 @@ def propose(
                             "ref": source.ref,
                             "bullets": before,
                             "focus": shared,
-                            "required_number_tokens": sorted(
-                                set(re.findall(r"\d[\d,.]*%?", " ".join(before)))
-                            ),
+                            "required_number_tokens": sorted(numeric_tokens(" ".join(before))),
                         }
                     ),
                     schema=RoleRewrite,
@@ -213,15 +213,17 @@ def propose(
                 refined = RoleRewrite.model_validate(focused.value)
                 if refined.ref != source.ref:
                     raise ValueError("Role identity changed.")
-                text = "\n".join(refined.bullets)
+                bullets = refined.bullets
+                text = "\n".join(bullets)
                 validate_role(text, refined.bullets, source.text, before)
             except (ValueError, ModelOutputError, ModelUnavailable):
+                bullets = before
                 text = "\n".join(before)
                 warnings.append(
                     source.text.split("|")[1]
                     + ": kept original bullets because proposed wording failed evidence checks."
                 )
-        edits[source.ref] = text
+        edits[source.ref] = "\n".join("- " + bullet for bullet in bullets)
     if not set(value.project_refs) <= eligible_projects:
         raise ValueError(
             "Choose projects with usable verified source descriptions; "
@@ -283,8 +285,8 @@ def validate_role(text: str, bullets: list[str], source: str, before: list[str])
     if len(bullets) != len(before):
         raise ValueError("Source bullet count changed.")
     validate_edit(text, source)
-    original_numbers = set(re.findall(r"\d[\d,.]*%?", " ".join(before)))
-    if not original_numbers <= set(re.findall(r"\d[\d,.]*%?", text)):
+    original_numbers = numeric_tokens(" ".join(before))
+    if not original_numbers <= numeric_tokens(text):
         raise ValueError("Source metrics were omitted.")
     source_body = " ".join(before)
     for alias, canonical in (("google cloud platform", "GCP"), ("amazon web services", "AWS")):

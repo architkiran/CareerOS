@@ -119,3 +119,7 @@ preserving every experience and leadership activity and keeping fonts/margins
 unchanged. The proposal names each removed project; the editor can override
 selection. A failed preflight never silently applies a partial selection change.
 The final PDF still receives its own QA before approval.
+
+Numeric QA compares values with their scale (K/M/B and percentages), so 200K
+may be written as 200,000 but not 200M. Coverage checks also flag reduced work
+experience bullets, including sparse older versions after source enrichment.

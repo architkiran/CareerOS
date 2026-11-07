@@ -110,9 +110,10 @@ def validate_edit(text: str, evidence: str) -> None:
     # Reject factual additions rather than trusting a fluent paraphrase. Existing
     # numeric and ownership QA independently checks the saved claims as well.
     from careeros.modules.agents.support import TERMS
+    from careeros.modules.documents.qa import numeric_tokens
     from careeros.modules.matching.text import contains_term
 
-    numbers = set(re.findall(r"\d[\d,.]*%?", text)) - set(re.findall(r"\d[\d,.]*%?", evidence))
+    numbers = numeric_tokens(text) - numeric_tokens(evidence)
     tools = (
         *TERMS,
         "Rust",

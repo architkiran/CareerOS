@@ -3,12 +3,18 @@
 import re
 from dataclasses import asdict, dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any, Literal
 
 from careeros.modules.documents.content import Candidate, DocumentContent, SourceItem, internal_note
 
 Severity = Literal["error", "warning"]
-_NUMBER = re.compile(r"\d[\d,.]*%?")
+_NUMBER = re.compile(
+    r"(?P<number>\d[\d,]*(?:\.\d+)?)"
+    r"(?:\s*(?P<scale>[kmb](?![a-z])|thousand\b|million\b|billion\b))?"
+    r"(?:\s*(?P<percent>%))?",
+    re.I,
+)
 _OWNERSHIP = re.compile(r"\b(led|headed|owned|managed a team|founded|spearheaded)\b", re.I)
 
 
@@ -23,8 +29,22 @@ class Finding:
         return asdict(self)
 
 
-def _numbers(text: str) -> set[str]:
-    return {n.rstrip(".,").replace(",", "") for n in _NUMBER.findall(text) if n.strip(".,")}
+def numeric_tokens(text: str) -> set[str]:
+    """Compare values, including financial scale, without rejecting equivalent notation."""
+    factors = {
+        "k": 1000,
+        "thousand": 1000,
+        "m": 1000000,
+        "million": 1000000,
+        "b": 1000000000,
+        "billion": 1000000000,
+    }
+    result = set()
+    for match in _NUMBER.finditer(text):
+        number = Decimal(match["number"].replace(",", ""))
+        number *= factors.get((match["scale"] or "").lower(), 1)
+        result.add(format(number.normalize(), "f") + ("%" if match["percent"] else ""))
+    return result
 
 
 def run_qa(content: DocumentContent, candidate: Candidate, today: date) -> list[Finding]:
@@ -73,9 +93,11 @@ def run_qa(content: DocumentContent, candidate: Candidate, today: date) -> list[
             )
             continue
         source_text = " ".join(s.text + " " + " ".join(s.skills) for s in sources)
-        allowed = _numbers(source_text) | _numbers(content.context.get("job_title", ""))
+        allowed = numeric_tokens(source_text) | numeric_tokens(content.context.get("job_title", ""))
         extra = {
-            n for n in _numbers(claim.text) if n not in allowed and not _is_date_part(n, sources)
+            n
+            for n in numeric_tokens(claim.text)
+            if n not in allowed and not _is_date_part(n, sources)
         }
         if extra:
             out.append(

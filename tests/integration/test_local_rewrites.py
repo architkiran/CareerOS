@@ -115,7 +115,9 @@ def test_bad_role_rewrite_preserves_original_with_visible_warning(app, monkeypat
             session, app_id, Path(app.state.settings.data_dir), app.state.settings
         )
         assert report["warnings"]
-        assert report["choices"]["experience_edits"][first["ref"]] == "\n".join(original)
+        assert (
+            experience_paragraphs(report["choices"]["experience_edits"][first["ref"]]) == original
+        )
 
 
 def test_durable_rewrite_uses_private_instructions_and_deduplicates(app, client, monkeypatch):  # type: ignore[no-untyped-def]
@@ -332,3 +334,36 @@ def test_manual_editor_cannot_claim_the_future_degree_is_complete(app, client, m
     assert response.status_code == 422 and "degree still in progress" in response.text
     with app.state.session_factory() as session:
         assert not session.scalars(select(Document)).all()
+
+
+@pytest.mark.parametrize(
+    "changed",
+    ["Detected $8.1B exposure across 1,560 position-days.", "Analyzed 200M records using SQL."],
+)
+def test_metric_scale_cannot_change_during_tailoring(changed):  # type: ignore[no-untyped-def]
+    with pytest.raises(ValueError, match="unverified"):
+        validate_edit(
+            changed,
+            "Detected $8.1M exposure across 1,560 position-days. Analyzed 200K records using SQL.",
+        )
+
+
+def test_equivalent_financial_notation_preserves_metric_value():
+    source = "Detected $8.1M exposure across 1,560 position-days."
+    rewritten = "Detected $8,100,000 exposure across 1,560 position-days."
+    rewriter.validate_role(rewritten, [rewritten], source, [source])
+
+
+def test_lowercase_model_bullets_do_not_merge_and_shorten_experience(app, monkeypatch):  # type: ignore[no-untyped-def]
+    app_id = setup_workbench(app)
+    value = reply(app, app_id)
+    role = next(r for r in value["experience"] if len(r["bullets"]) > 1)
+    role["bullets"] = [b.rstrip(".").lower() for b in role["bullets"]]
+    inject(monkeypatch, value)
+    with app.state.session_factory() as session:
+        report = rewriter.propose(
+            session, app_id, Path(app.state.settings.data_dir), app.state.settings
+        )
+        assert len(
+            experience_paragraphs(report["choices"]["experience_edits"][role["ref"]])
+        ) == len(role["bullets"])

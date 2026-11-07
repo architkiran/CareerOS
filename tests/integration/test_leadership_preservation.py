@@ -164,3 +164,23 @@ def test_master_import_updates_matching_pdf_activity_instead_of_duplicating(app)
         activities = [f for f in load_candidate(session).other_facts if f.kind == "leadership"]
         assert len(activities) == 1 and activities[0].ref == "fact:" + original.id
         assert "SQL and Python" in activities[0].text
+
+
+def test_reducing_experience_is_visible_in_content_coverage(app):  # type: ignore[no-untyped-def]
+    setup_workbench(app)
+    with app.state.session_factory() as session:
+        candidate = load_candidate(session)
+        content = build_resume(candidate, "Data Analyst", "Acme", "SQL", "")
+        exp = next(e for e in candidate.experience if "30%" in e.text)
+        for name, claims in content.sections:
+            if name == "Experience":
+                seen = 0
+                kept = []
+                for claim in claims:
+                    if claim.refs == [exp.ref]:
+                        seen += 1
+                        if seen > 2:
+                            continue
+                    kept.append(claim)
+                claims[:] = kept
+        assert any(f.check == "experience_reduced" for f in coverage_findings(content, candidate))

@@ -33,6 +33,15 @@ def coverage_findings(content: DocumentContent, candidate: Candidate) -> list[Fi
                     "Review this explicit omission.",
                 )
             )
+        elif 0 < counts[exp.ref] - 1 < len(experience_paragraphs(exp.text.split("|", 2)[-1])):
+            findings.append(
+                Finding(
+                    "warning",
+                    "experience_reduced",
+                    f"Experience bullets were reduced for {exp.text.split('|', 1)[0]}. "
+                    "Review these cuts.",
+                )
+            )
     included = {
         ref
         for name, claims in content.sections
