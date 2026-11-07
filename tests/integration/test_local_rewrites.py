@@ -148,6 +148,8 @@ def test_durable_rewrite_uses_private_instructions_and_deduplicates(app, client,
         "Led a team building SQL reports.",
         "Built SQL reports for financial transactions.",
         "Built Rust and SQL reports.",
+        "Built R and SQL reports.",
+        "Built SQL reports as a US citizen.",
     ],
 )
 def test_new_metrics_ownership_domain_or_tools_are_blocked(new):  # type: ignore[no-untyped-def]
@@ -181,3 +183,46 @@ def test_profile_change_during_inference_invalidates_proposal(app, monkeypatch):
     with app.state.session_factory() as session, pytest.raises(ValueError, match="changed during"):
         rewriter.propose(session, app_id, Path(app.state.settings.data_dir), app.state.settings)
     assert not rewriter.load(Path(app.state.settings.data_dir), app_id)
+
+
+def test_requested_verified_skills_outrank_model_omissions(app, monkeypatch):  # type: ignore[no-untyped-def]
+    from careeros.modules.profile.schemas import SkillIn
+    from careeros.modules.profile.service import add_skill
+
+    app_id = setup_workbench(app)
+    with app.state.session_factory() as session:
+        add_skill(session, SkillIn(name="Excel", verified_status="verified"))
+        application = session.get(Application, app_id)
+        session.get(Job, application.job_id).description_text = "Need SQL, Excel and Rust."
+        session.commit()
+    value = reply(app, app_id)
+    value["skills"] = ["Python"]  # a model may omit the employer's actual priorities
+    inject(monkeypatch, value)
+    with app.state.session_factory() as session:
+        proposal = rewriter.propose(
+            session, app_id, Path(app.state.settings.data_dir), app.state.settings
+        )
+        assert set(proposal["choices"]["skills"][:2]) == {"SQL", "Excel"}
+        assert "Python" in proposal["choices"]["skills"]
+        assert "Rust" not in proposal["choices"]["skills"]  # unverified JD demand stays excluded
+
+
+def test_existing_number_does_not_authorize_invented_tenure():
+    with pytest.raises(ValueError, match="unverified"):
+        validate_edit(
+            "Data analyst with 3 years of experience building SQL reports.",
+            "Built SQL reports across 3 business units.",
+        )
+
+
+def test_name_only_project_cannot_pad_a_tailored_resume(app, monkeypatch):  # type: ignore[no-untyped-def]
+    from careeros.modules.profile.schemas import ProjectIn
+    from careeros.modules.profile.service import add_project
+
+    app_id = setup_workbench(app)
+    with app.state.session_factory() as session:
+        add_project(session, ProjectIn(name="Name Only", verified_status="verified"))
+        session.commit()
+    inject(monkeypatch, reply(app, app_id))
+    with app.state.session_factory() as session, pytest.raises(ValueError, match="usable verified"):
+        rewriter.propose(session, app_id, Path(app.state.settings.data_dir), app.state.settings)

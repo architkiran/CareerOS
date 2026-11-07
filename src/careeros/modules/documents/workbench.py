@@ -132,13 +132,29 @@ def validate_edit(text: str, evidence: str) -> None:
         "Prometheus",
     )
     new_tools = [
-        tool
-        for tool in tools
-        if len(tool) > 1 and contains_term(text, tool) and not contains_term(evidence, tool)
+        tool for tool in tools if contains_term(text, tool) and not contains_term(evidence, tool)
     ]
-    ownership = re.search(r"\b(led|headed|founded|spearheaded|managed a team|owned)\b", text, re.I)
-    unsupported_ownership = ownership is not None and not re.search(
-        r"\b" + re.escape(ownership[0]) + r"\b", evidence, re.I
+    ownership = re.findall(r"\b(led|headed|founded|spearheaded|managed a team|owned)\b", text, re.I)
+    unsupported_ownership = any(
+        not re.search(r"\b" + re.escape(claim) + r"\b", evidence, re.I) for claim in ownership
+    )
+    tenure = re.findall(r"\b\d+(?:\.\d+)?\+?\s+(?:years?|yrs?)(?: of experience)?\b", text, re.I)
+    unsupported_tenure = any(claim.lower() not in evidence.lower() for claim in tenure)
+    protected = (
+        "US citizen",
+        "U.S. citizen",
+        "permanent resident",
+        "green card",
+        "unrestricted work authorization",
+        "no sponsorship",
+        "authorized to work",
+        "security clearance",
+        "PhD",
+        "Ph.D",
+        "certified",
+    )
+    unsupported_identity = any(
+        contains_term(text, claim) and not contains_term(evidence, claim) for claim in protected
     )
     domain_terms = {
         "financial",
@@ -169,6 +185,8 @@ def validate_edit(text: str, evidence: str) -> None:
         or new_tools
         or new_domain
         or unsupported_ownership
+        or unsupported_tenure
+        or unsupported_identity
         or (len(content_words) > 4 and overlap < 0.35)
     ):
         raise ValueError(

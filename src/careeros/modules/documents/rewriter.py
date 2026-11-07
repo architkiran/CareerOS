@@ -13,7 +13,7 @@ from careeros.common.clock import utcnow
 from careeros.common.fs import private_dir
 from careeros.config import Settings
 from careeros.db.models import Application, Job
-from careeros.modules.documents.content import experience_paragraphs
+from careeros.modules.documents.content import Candidate, experience_paragraphs
 from careeros.modules.documents.service import load_candidate
 from careeros.modules.documents.workbench import Choices, validate_edit
 from careeros.modules.models.gateway import (
@@ -65,6 +65,7 @@ def propose(
     assert job
     candidate = load_candidate(session)
     source_signature = fingerprint(session, app_id)
+    eligible_projects = {p.ref for p in candidate.projects if usable_project(p.text)}
     payload = {
         "role": job.title,
         "posting": job.description_text[:2200] + "\n" + job.description_text[-2200:],
@@ -77,7 +78,9 @@ def propose(
             for e in candidate.experience
         ],
         "projects": [
-            {"ref": p.ref, "text": p.text[:450], "skills": p.skills} for p in candidate.projects
+            {"ref": p.ref, "text": p.text[:450], "skills": p.skills}
+            for p in candidate.projects
+            if p.ref in eligible_projects
         ],
         "skills": [s.text for s in candidate.skills],
         "education": [e.text for e in candidate.education],
@@ -141,6 +144,12 @@ def propose(
         raise ValueError("Rewrite omitted or duplicated an experience. Original preserved.")
     edits = {}
     warnings = []
+    unavailable = len(candidate.projects) - len(eligible_projects)
+    if unavailable:
+        warnings.append(
+            f"{unavailable} library projects have no usable source description "
+            "and were excluded from automatic selection."
+        )
     for rewritten in value.experience:
         source = expected[rewritten.ref]
         before = experience_paragraphs(source.text.split("|", 2)[-1])
@@ -199,16 +208,19 @@ def propose(
                     + ": kept original bullets because proposed wording failed evidence checks."
                 )
         edits[source.ref] = text
-    if not set(value.project_refs) <= {p.ref for p in candidate.projects} or not set(
-        value.skills
-    ) <= {s.text for s in candidate.skills}:
-        raise ValueError("Rewrite selected unverified project or skill evidence.")
+    if not set(value.project_refs) <= eligible_projects:
+        raise ValueError(
+            "Choose projects with usable verified source descriptions; "
+            "empty placeholders cannot fill a resume."
+        )
+    if not set(value.skills) <= {s.text for s in candidate.skills}:
+        raise ValueError("Rewrite selected unverified skill evidence.")
     choices = Choices(
         summary=value.summary,
         experience_refs=list(expected),
         experience_edits=edits,
         project_refs=value.project_refs,
-        skills=value.skills,
+        skills=role_skills(candidate, value.skills, job.title, job.description_text),
         feedback=feedback,
     )
     session.expire_all()
@@ -271,3 +283,20 @@ def model_call(session: Session, settings: Settings, **kwargs: Any) -> GatewayRe
             return ModelGateway(settings).run(usage, **kwargs)
         finally:
             usage.commit()
+
+
+def role_skills(
+    candidate: Candidate, proposed: list[str], title: str, description: str
+) -> list[str]:
+    """Explicit verified JD tools outrank suggestions; no invented keyword stuffing."""
+    from careeros.modules.matching.text import contains_term
+
+    verified = [skill.text for skill in candidate.skills]
+    requested = [skill for skill in verified if contains_term(title + " " + description, skill)]
+    analyst_core = ("SQL", "Python", "Excel", "Tableau", "Power BI", "Pandas", "DuckDB")
+    core = [s for s in analyst_core if s in verified] if contains_term(title, "analyst") else []
+    return list(dict.fromkeys([*requested, *core, *proposed]))[:18]
+
+
+def usable_project(text: str) -> bool:
+    return bool(experience_paragraphs(text.split("|", 1)[-1].replace("|", "\n")))
