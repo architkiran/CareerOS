@@ -412,7 +412,7 @@ def fit_layout(
         while True:
             selected = selected_candidate(candidate, trial)
             content = build_resume(selected, title, "", posting, "")
-            apply_edits(content, selected, trial)
+            apply_edits(content, candidate, trial)
             try:
                 findings = latex.compile_pdf(content, Path(temporary) / "preview.pdf")
             except latex.LatexError:

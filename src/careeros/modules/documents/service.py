@@ -211,13 +211,14 @@ def generate(
         content.context["tex_hash"] = sha256(latex.source(content))
     if choices is not None:
         try:
-            apply_edits(content, candidate, choices)
+            # Selection controls display; factual support spans the verified profile.
+            apply_edits(content, original_candidate, choices)
         except ValueError as exc:
             raise DocumentError(str(exc)) from exc
     # Edits change the rendered source; approval hashes always cover final text.
     if render_format == "pdf":
         content.context["tex_hash"] = sha256(latex.source(content))
-    findings = run_qa(content, candidate, utcnow().date())
+    findings = run_qa(content, original_candidate, utcnow().date())
     if doc_type == "resume":
         from careeros.modules.documents.coverage import coverage_findings
 

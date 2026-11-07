@@ -184,3 +184,67 @@ def test_reducing_experience_is_visible_in_content_coverage(app):  # type: ignor
                     kept.append(claim)
                 claims[:] = kept
         assert any(f.check == "experience_reduced" for f in coverage_findings(content, candidate))
+
+
+def test_summary_can_reference_verified_evidence_not_selected_for_project_space(app, pdf_compiler):  # type: ignore[no-untyped-def]
+    from careeros.modules.applications.service import start_application
+    from careeros.modules.documents import service as documents
+    from tests.integration.test_documents import _setup
+
+    job_id = _setup(app.state.session_factory)
+    with app.state.session_factory() as session:
+        add_project(
+            session,
+            ProjectIn(
+                name="Fraud Scoring",
+                description="Built fraud scoring pipelines in Python.",
+                technologies=["Python"],
+                verified_status="verified",
+            ),
+        )
+        candidate = load_candidate(session)
+        # A true profile fact remains usable when a different project is shown.
+        chosen = Choices(
+            project_refs=[p.ref for p in candidate.projects if "Recon" in p.text],
+            experience_refs=[e.ref for e in candidate.experience],
+            skills=[s.text for s in candidate.skills],
+            summary="Data analyst building SQL reports and Python fraud scoring pipelines.",
+        )
+        app_record = start_application(session, job_id)
+        doc = documents.generate(
+            session,
+            app_record.id,
+            "resume",
+            Path(app.state.settings.data_dir),
+            render_format="pdf",
+            choices=chosen,
+        )
+        assert not any(f["check"] == "unsupported_claim" for f in doc.qa_json)
+        content = documents.load_content(doc)
+        assert "fraud scoring" in content.as_text() and "Fraud Scoring (" not in content.as_text()
+
+
+def test_full_profile_validation_still_rejects_edits_to_an_excluded_role(app):  # type: ignore[no-untyped-def]
+    import pytest
+
+    from careeros.modules.documents import service as documents
+
+    app_id = setup_workbench(app)
+    with app.state.session_factory() as session:
+        candidate = load_candidate(session)
+        first, second = candidate.experience[:2]
+        chosen = Choices(
+            project_refs=[p.ref for p in candidate.projects],
+            experience_refs=[first.ref],
+            skills=[s.text for s in candidate.skills],
+            experience_edits={second.ref: second.text.split("|", 2)[-1]},
+        )
+        with pytest.raises(documents.DocumentError, match="selected verified role"):
+            documents.generate(
+                session,
+                app_id,
+                "resume",
+                Path(app.state.settings.data_dir),
+                render_format="pdf",
+                choices=chosen,
+            )

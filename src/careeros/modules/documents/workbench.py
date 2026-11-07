@@ -235,6 +235,8 @@ def apply_edits(content: DocumentContent, candidate: Candidate, choices: Choices
                 0, ("Summary", [Claim("Summary", choices.summary.strip(), refs)])
             )
     for ref, text in choices.experience_edits.items():
+        if ref not in choices.experience_refs:
+            raise ValueError("An experience edit must refer to a selected verified role.")
         exp = next((e for e in candidate.experience if e.ref == ref), None)
         if exp is None:
             raise ValueError("An experience edit must refer to a selected verified role.")
