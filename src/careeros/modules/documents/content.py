@@ -234,6 +234,11 @@ def build_resume(
         ]
     if proj_claims:
         sections.append(("Projects", proj_claims))
+    leadership = [
+        Claim("Leadership", f.text, [f.ref]) for f in c.other_facts if f.kind == "leadership"
+    ]
+    if leadership:
+        sections.append(("Leadership", leadership))
     return DocumentContent(
         "resume",
         lane,

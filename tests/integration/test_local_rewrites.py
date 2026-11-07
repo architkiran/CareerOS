@@ -18,6 +18,13 @@ from tests.integration.test_evidence_workbench import setup_workbench
 from tests.integration.test_gateway import FakeProvider
 
 
+# These tests cover model validation. Native layout compilation is exercised
+# separately with a controlled compiler and with a real local PDF smoke check.
+@pytest.fixture(autouse=True)
+def skip_native_preflight(monkeypatch):  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(rewriter, "fit_layout", lambda *args: [])
+
+
 def reply(app, app_id):  # type: ignore[no-untyped-def]
     with app.state.session_factory() as session:
         c = documents.load_candidate(session)

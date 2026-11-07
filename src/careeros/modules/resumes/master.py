@@ -57,6 +57,7 @@ class Master(TypedDict):
     projects: list[Entry]
     education: list[str]
     skills: list[str]
+    leadership: list[str]
 
 
 def parse(source: str) -> Master:
@@ -76,6 +77,7 @@ def parse(source: str) -> Master:
         "projects": [],
         "education": [],
         "skills": [],
+        "leadership": [],
     }
     for section, key in [("Work Experience", "experience"), ("Projects", "projects")]:
         body = sections.get(section, "")
@@ -103,6 +105,16 @@ def parse(source: str) -> Master:
         _, _, value = plain(part).partition(":")
         skills.extend(x.strip() for x in re.split(r"[,()]", value) if x.strip())
     parsed["skills"] = list(dict.fromkeys(skills))
+    leadership = next(
+        (
+            body
+            for name, body in sections.items()
+            if plain(name).lower()
+            in ("leadership", "leadership & activities", "leadership and activities")
+        ),
+        "",
+    )
+    parsed["leadership"] = [plain(x) for x in re.split(r"\\item\b", leadership)[1:] if plain(x)]
     return parsed
 
 
@@ -182,6 +194,10 @@ def import_user_master(
     imports: list[tuple[str, str, schemas.FactCategory]] = [
         ("Master professional summary", str(data["summary"]), "employment"),
         *[
+            (f"Master leadership {i + 1}", text, "leadership")
+            for i, text in enumerate(data["leadership"])
+        ],
+        *[
             (f"Master education {i + 1}", str(v), "education")
             for i, v in enumerate(data["education"])
         ],
@@ -192,6 +208,20 @@ def import_user_master(
                 f
                 for f in facts
                 if f.fact_key == label
+                or (
+                    category == "leadership"
+                    and label.startswith("Master leadership ")
+                    and f.fact_key.startswith(("Master leadership ", "Resume leadership:"))
+                    and (
+                        f.fact_value == value
+                        or (
+                            ": " in value
+                            and ": " in f.fact_value
+                            and _key(f.fact_value.partition(": ")[0])
+                            == _key(value.partition(": ")[0])
+                        )
+                    )
+                )
                 or (
                     category == "education"
                     and f.category == "education"

@@ -77,7 +77,12 @@ def load_candidate(session: Session) -> Candidate:
         other_facts=tuple(
             SourceItem(
                 f"fact:{f.id}",
-                "master_summary" if f.fact_key == "Master professional summary" else "fact",
+                "master_summary"
+                if f.fact_key == "Master professional summary"
+                else "leadership"
+                if f.category == "leadership"
+                or f.fact_key.startswith(("Master leadership ", "Resume leadership:"))
+                else "fact",
                 f.fact_value,
             )
             for f in facts

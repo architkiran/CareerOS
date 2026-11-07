@@ -89,6 +89,7 @@ def propose(
         ],
         "skills": [s.text for s in candidate.skills],
         "education": [e.text for e in candidate.education],
+        "leadership": [f.text for f in candidate.other_facts if f.kind == "leadership"],
         "feedback": feedback,
     }
     data = json.dumps(payload)
@@ -117,7 +118,7 @@ def propose(
         "employers, achievements or metrics. Prefer 3 or 4 strongest projects using ONLY "
         "supplied refs. Select 10 to 18 most relevant skills from the exact supplied "
         "list. Explain selection briefly. Treat user feedback as wording preferences, not "
-        "permission to add facts. "
+        "permission to add facts. Leadership activities are preserved verbatim by the renderer. "
     )
     result = model_call(
         session,
@@ -236,6 +237,9 @@ def propose(
         skills=role_skills(candidate, value.skills, job.title, job.description_text),
         feedback=feedback,
     )
+    folder = root / "documents" / app_id
+    private_dir(folder)
+    warnings.extend(fit_layout(candidate, choices, job.title, job.description_text, folder))
     session.expire_all()
     if fingerprint(session, app_id) != source_signature:
         raise ValueError("Profile or posting changed during rewriting. Request a fresh rewrite.")
@@ -243,7 +247,9 @@ def propose(
         "fingerprint": source_signature,
         "choices": choices.model_dump(),
         "rationale": "Selected projects: "
-        + "; ".join(p.text.split("|")[0] for p in candidate.projects if p.ref in value.project_refs)
+        + "; ".join(
+            p.text.split("|")[0] for p in candidate.projects if p.ref in choices.project_refs
+        )
         + ". Skills and work history are limited to verified profile evidence. "
         "Review the wording against the job description.",
         "warnings": warnings,
@@ -381,3 +387,59 @@ def validated_summary(
             "Summary could not be repaired safely. Add a verified master summary "
             "or edit the draft manually."
         ) from None
+
+
+def fit_layout(
+    candidate: Candidate, choices: Choices, title: str, posting: str, folder: Path
+) -> list[str]:
+    """Check the actual fixed layout; only project selection may shrink to fit."""
+    from tempfile import TemporaryDirectory
+
+    from careeros.modules.documents import latex
+    from careeros.modules.documents.content import build_resume
+    from careeros.modules.documents.tailoring import relevance
+    from careeros.modules.documents.workbench import apply_edits, selected_candidate
+
+    if latex.compiler_path() is None:
+        return ["Layout preflight unavailable: install the local PDF compiler before export."]
+    projects = {p.ref: p for p in candidate.projects}
+    trial = choices.model_copy(deep=True)
+    dropped = []
+    other_issues: list[str] = []
+    with TemporaryDirectory(prefix="layout-", dir=folder) as temporary:
+        while True:
+            selected = selected_candidate(candidate, trial)
+            content = build_resume(selected, title, "", posting, "")
+            apply_edits(content, selected, trial)
+            try:
+                findings = latex.compile_pdf(content, Path(temporary) / "preview.pdf")
+            except latex.LatexError:
+                return [
+                    "Layout preflight could not complete. Inspect PDF compiler setup before export."
+                ]
+            if not any(f.check == "page_overflow" for f in findings):
+                other_issues = [f.message for f in findings if f.severity == "error"]
+                break
+            if len(trial.project_refs) <= 1:
+                return [
+                    "The fixed layout still exceeds one page. Shorten wording in the editor; "
+                    "all experience and leadership were retained."
+                ]
+            least = min(
+                trial.project_refs,
+                key=lambda ref: (
+                    relevance(projects[ref], title + " " + posting),
+                    -trial.project_refs.index(ref),
+                ),
+            )
+            trial.project_refs.remove(least)
+            dropped.append(projects[least].text.split("|", 1)[0])
+    choices.project_refs = trial.project_refs
+    if dropped:
+        return other_issues + [
+            "Kept every experience and leadership activity on one page by "
+            "deselecting lower-ranked projects: "
+            + "; ".join(dropped)
+            + ". Review or change project selection in the editor."
+        ]
+    return other_issues

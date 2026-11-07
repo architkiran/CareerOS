@@ -60,12 +60,13 @@ def source(content: DocumentContent) -> str:
         "Projects": "Projects",
         "Education": "Education",
         "Skills": "Skills",
+        "Leadership": "Leadership & Activities",
     }
     for key in labels:
         claims = sections.get(key, [])
         if not claims:
             continue
-        lines.append(r"\section{" + labels[key] + "}")
+        lines.append(r"\section{" + escape(labels[key]) + "}")
         if key == "Summary":
             lines.extend(escape(claim.text) + r"\par" for claim in claims)
         elif key == "Education":
@@ -85,6 +86,17 @@ def source(content: DocumentContent) -> str:
                     )
                 else:
                     lines.append(escape(claim.text) + r"\par")
+        elif key == "Leadership":
+            lines.append(r"\begin{itemize}")
+            for claim in claims:
+                title, separator, detail = claim.text.partition(": ")
+                text = (
+                    (r"\textbf{" + escape(title) + ":} " + escape(detail))
+                    if separator
+                    else escape(title)
+                )
+                lines.append(r"\item " + text)
+            lines.append(r"\end{itemize}")
         elif key == "Skills":
             groups: dict[str, list[str]] = {}
             for skill in [v.strip() for c in claims for v in c.text.split(",") if v.strip()]:

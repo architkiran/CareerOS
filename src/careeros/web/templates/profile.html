@@ -48,7 +48,7 @@
   <form method="post" action="/profile/facts" class="grid">
     {{ csrf() }}
     <label>Category <select name="category">
-      {% for c in ['education','employment','achievement','certification','contact','preference','other'] %}<option>{{ c }}</option>{% endfor %}
+      {% for c in ['education','employment','achievement','leadership','certification','contact','preference','other'] %}<option>{{ c }}</option>{% endfor %}
     </select></label>
     <label>Label <input name="fact_key" required maxlength="200" placeholder="e.g. Degree"></label>
     <label class="wide">Value <input name="fact_value" required maxlength="5000"></label>

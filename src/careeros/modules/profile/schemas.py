@@ -19,7 +19,14 @@ Seniority = Literal["entry", "junior", "mid", "senior", "lead"]
 EmploymentType = Literal["full_time", "part_time", "contract", "internship", "temporary"]
 Proficiency = Literal["beginner", "intermediate", "advanced", "expert"]
 FactCategory = Literal[
-    "education", "employment", "achievement", "certification", "contact", "preference", "other"
+    "education",
+    "employment",
+    "achievement",
+    "leadership",
+    "certification",
+    "contact",
+    "preference",
+    "other",
 ]
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]

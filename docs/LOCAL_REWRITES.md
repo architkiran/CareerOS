@@ -103,3 +103,19 @@ Summary checks also reject claims that an in-progress degree has been earned.
 A source-only repair sees verified role titles, skills and candidate evidence rather
 than rejected wording or the employer's requirements. If repair is unsafe, it keeps
 the verified master summary visibly; it never silently certifies a qualification.
+
+
+## Leadership preservation and layout preflight
+
+Verified leadership activities from the supplied resume are retained in every
+resume revision. New activities can be added as **leadership** facts in Profile;
+unverified items remain excluded. Master LaTeX imports also recognize Leadership
+and Leadership & Activities bullet sections, without executing source commands.
+Coverage QA treats loss of a verified leadership item as an error.
+
+Rewrite proposals preflight the actual fixed LaTeX layout with the cached local
+compiler. If necessary, they deselect lower-ranked projects to fit one page,
+preserving every experience and leadership activity and keeping fonts/margins
+unchanged. The proposal names each removed project; the editor can override
+selection. A failed preflight never silently applies a partial selection change.
+The final PDF still receives its own QA before approval.

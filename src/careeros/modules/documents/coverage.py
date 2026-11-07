@@ -33,6 +33,20 @@ def coverage_findings(content: DocumentContent, candidate: Candidate) -> list[Fi
                     "Review this explicit omission.",
                 )
             )
+    included = {
+        ref
+        for name, claims in content.sections
+        if name == "Leadership"
+        for c in claims
+        for ref in c.refs
+    }
+    for fact in candidate.other_facts:
+        if fact.kind == "leadership" and fact.ref not in included:
+            findings.append(
+                Finding(
+                    "error", "leadership_omitted", "A verified leadership activity was omitted."
+                )
+            )
     words = len(" ".join(c.text for c in content.claims()).split())
     available = sum(len(x.text.split()) for x in (*candidate.experience, *candidate.projects))
     if words < 280 and available > 350:
