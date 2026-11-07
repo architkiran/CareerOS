@@ -159,3 +159,23 @@ def test_medical_coding_consultant_is_not_business_consulting() -> None:
 def test_luxembourg_remote_location_is_outside_us() -> None:
     result = evaluate(mi(job(location_text="Remote - Luxembourg", workplace_type="remote")))
     assert next(f for f in result.filters if f.name == "location").decision == "fail"
+
+
+def test_product_marketing_is_not_product_management():
+    product = lane(title_keywords=("associate product manager", "product operations"))
+    result = evaluate(mi(job(title="Associate Product Marketing Manager"), product))
+    assert not result.classified and "different role family" in result.dimensions[0].explanation
+    assert evaluate(mi(job(title="Associate Product Manager"), product)).classified
+    custom = lane(title_keywords=("product marketing manager",))
+    assert evaluate(mi(job(title="Associate Product Marketing Manager"), custom)).classified
+
+
+def test_annotation_and_data_entry_do_not_match_analytics_by_scattered_words():
+    for title in ("Data Annotation Analyst", "Data Entry Analyst", "Data Labeling Analyst"):
+        assert not evaluate(mi(job(title=title))).classified
+    assert evaluate(mi(job(title="Analyst, Data Platform"))).classified
+
+
+def test_explicit_required_experience_is_a_lane_filter():
+    result = evaluate(mi(job(description="Requirements: 5+ years of experience with SQL.")))
+    assert next(f for f in result.filters if f.name == "seniority").decision == "fail"

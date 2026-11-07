@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v5"  # v5: recognize additional explicit non-US locations
+ALGORITHM_VERSION = "match-v6"  # v6: role-family boundaries and explicit required experience
 
 
 @dataclass(frozen=True)

@@ -109,6 +109,19 @@ def _role_title(m: MatchInput) -> tuple[float, str, bool]:
         contains_term(title_key(kw), term) for kw in m.lane.title_keywords for term in clinical
     ):
         return 0.0, "Clinical or medical-coding title is outside this lane's role family.", False
+    # Intervening words can change the occupation, not merely qualify it. Keep
+    # explicit custom lanes for these families; don't match them by scattered words.
+    for family in (
+        "product marketing",
+        "data annotation",
+        "data labeling",
+        "data labelling",
+        "data entry",
+    ):
+        if contains_term(title, family) and not any(
+            contains_term(title_key(kw), family) for kw in m.lane.title_keywords
+        ):
+            return 0.0, f"'{family}' is a different role family from this lane's keywords.", False
     for kw in m.lane.title_keywords:
         if contains_term(title, title_key(kw)):
             return 1.0, f"Title contains '{kw}'.", True
