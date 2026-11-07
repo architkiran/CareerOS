@@ -226,3 +226,102 @@ def test_name_only_project_cannot_pad_a_tailored_resume(app, monkeypatch):  # ty
     inject(monkeypatch, reply(app, app_id))
     with app.state.session_factory() as session, pytest.raises(ValueError, match="usable verified"):
         rewriter.propose(session, app_id, Path(app.state.settings.data_dir), app.state.settings)
+
+
+def test_unsafe_summary_gets_one_source_only_repair(app, monkeypatch):  # type: ignore[no-untyped-def]
+    app_id = setup_workbench(app)
+    value = reply(app, app_id)
+    value["summary"] = "Data analyst building SQL reports with compliance expertise."
+    provider = FakeProvider(
+        [
+            json.dumps(value),
+            json.dumps({"summary": "Data analyst building SQL reports and Python analytics."}),
+        ]
+    )
+    monkeypatch.setattr(
+        rewriter, "ModelGateway", lambda settings: ModelGateway(settings, provider=provider)
+    )
+    with app.state.session_factory() as session:
+        report = rewriter.propose(
+            session, app_id, Path(app.state.settings.data_dir), app.state.settings
+        )
+    assert "compliance" not in report["choices"]["summary"]
+    assert any("source-only repair passed" in w for w in report["warnings"])
+    assert "compliance" not in provider.prompts[1]
+    assert len(provider.prompts) == 2
+
+
+def test_failed_summary_repair_preserves_verified_master(app, monkeypatch):  # type: ignore[no-untyped-def]
+    app_id = setup_workbench(app)
+    value = reply(app, app_id)
+    value["summary"] = "Data analyst building SQL reports with compliance expertise."
+    provider = FakeProvider([json.dumps(value), "invalid"])
+    monkeypatch.setattr(
+        rewriter, "ModelGateway", lambda settings: ModelGateway(settings, provider=provider)
+    )
+    with app.state.session_factory() as session:
+        original = next(
+            f.text
+            for f in documents.load_candidate(session).other_facts
+            if f.kind == "master_summary"
+        )
+        report = rewriter.propose(
+            session, app_id, Path(app.state.settings.data_dir), app.state.settings
+        )
+    assert report["choices"]["summary"] == original
+    assert any("original master summary" in w for w in report["warnings"])
+
+
+def test_repair_cannot_claim_a_future_degree_has_been_earned(app, monkeypatch):  # type: ignore[no-untyped-def]
+    from datetime import UTC, datetime
+
+    monkeypatch.setattr(
+        "careeros.modules.documents.workbench.utcnow", lambda: datetime(2026, 11, 7, tzinfo=UTC)
+    )
+    app_id = setup_workbench(app)
+    value = reply(app, app_id)
+    value["summary"] = "Data analyst building SQL reports. Holds an MS in Computer Science."
+    provider = FakeProvider([json.dumps(value), json.dumps({"summary": value["summary"]})])
+    monkeypatch.setattr(
+        rewriter, "ModelGateway", lambda settings: ModelGateway(settings, provider=provider)
+    )
+    with app.state.session_factory() as session:
+        report = rewriter.propose(
+            session, app_id, Path(app.state.settings.data_dir), app.state.settings
+        )
+        assert "Holds an MS" not in report["choices"]["summary"]
+        assert any("original master summary" in w for w in report["warnings"])
+        candidate = documents.load_candidate(session)
+        evidence = " ".join(
+            x.text
+            for group in (candidate.education, candidate.other_facts, candidate.skills)
+            for x in group
+        )
+        rewriter.validate_summary(
+            "Data analyst and MS graduate student building SQL reports.",
+            evidence,
+            candidate,
+        )
+
+
+def test_manual_editor_cannot_claim_the_future_degree_is_complete(app, client, monkeypatch):  # type: ignore[no-untyped-def]
+    from datetime import UTC, datetime
+
+    monkeypatch.setattr(
+        "careeros.modules.documents.workbench.utcnow", lambda: datetime(2026, 11, 7, tzinfo=UTC)
+    )
+    app_id = setup_workbench(app)
+    with app.state.session_factory() as session:
+        candidate = documents.load_candidate(session)
+    values = {
+        "projects": [p.ref for p in candidate.projects],
+        "experiences": [e.ref for e in candidate.experience],
+        "skills": [s.text for s in candidate.skills],
+        "summary": "Data analyst building SQL reports. Holds an MS in Computer Science.",
+        "base_version": "0",
+        **{"edit-" + e.ref: e.text.split("|", 2)[-1] for e in candidate.experience},
+    }
+    response = post_form(client, f"/applications/{app_id}/workbench", values)
+    assert response.status_code == 422 and "degree still in progress" in response.text
+    with app.state.session_factory() as session:
+        assert not session.scalars(select(Document)).all()

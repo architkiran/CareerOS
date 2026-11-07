@@ -59,7 +59,9 @@ schema so editing preferences cannot accidentally reuse a different rewrite.
 These checks are conservative heuristics, not semantic proof. A local 4B model
 can still produce poor wording or an unsupported implication. Human review is
 required. Role proposals that fail checks keep their originals visibly; a failed
-summary blocks the proposal. Sparse source evidence stays sparse: the InternPe
+summary receives one source-only repair; if repair also fails, the verified master
+summary is retained with a warning. Without a verified master, summary failure
+blocks the proposal. Sparse source evidence stays sparse: the InternPe
 record has no verified dates and only one substantive sentence. The system must
 not invent a longer internship description.
 
@@ -85,3 +87,19 @@ coverage. See **Monitoring & freshness** for per-source checks and cadence.
 - [Ollama v0.40.15 release](https://github.com/ollama/ollama/releases/tag/v0.40.15): native runtime distribution.
 - [Qwen3 4B](https://ollama.com/library/qwen3:4b): local model artifact.
 - [Greenhouse public Job Board API](https://developers.greenhouse.io/job-board.html): permitted public employer feed integration.
+
+
+## Matching quality and recovery
+
+Matching v6 distinguishes product marketing, data entry and data annotation from
+management and analytics lanes unless those occupations are explicitly configured.
+Required experience is parsed separately from preferred/bonus qualifications:
+a four-year minimum is not reduced by a one-year bonus requirement. Explicit
+minimums outside a lane's seniority range fail that filter; ambiguous degree
+alternatives and conflicting entry titles stay for review. This does not infer
+candidate years or change authorization answers. Older score versions are rescored.
+
+Summary checks also reject claims that an in-progress degree has been earned.
+A source-only repair sees verified role titles, skills and candidate evidence rather
+than rejected wording or the employer's requirements. If repair is unsafe, it keeps
+the verified master summary visibly; it never silently certifies a qualification.

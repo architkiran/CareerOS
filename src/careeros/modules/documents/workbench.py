@@ -2,9 +2,11 @@
 
 import re
 from dataclasses import replace
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from careeros.common.clock import utcnow
 from careeros.modules.documents.content import (
     Candidate,
     Claim,
@@ -219,7 +221,7 @@ def apply_edits(content: DocumentContent, candidate: Candidate, choices: Choices
         for x in group
     ]
     if choices.summary.strip():
-        validate_edit(choices.summary, all_evidence)
+        validate_summary(choices.summary, all_evidence, candidate)
         content.sections = [
             (
                 name,
@@ -282,3 +284,57 @@ def recommended_skills(candidate: Candidate, project_refs: list[str], job_text: 
         or contains_term(project_tools, s.text)
         or (contains_term(job_text, "analyst") and s.text.lower() in core)
     ]
+
+
+def validate_summary(text: str, evidence: str, candidate: Candidate) -> None:
+    validate_edit(text, evidence)
+    current_month = utcnow().date().replace(day=1)
+    for education in candidate.education:
+        month_names = (
+            "jan",
+            "feb",
+            "mar",
+            "apr",
+            "may",
+            "jun",
+            "jul",
+            "aug",
+            "sep",
+            "oct",
+            "nov",
+            "dec",
+        )
+        dates = [
+            date(int(year), month_names.index(month.lower()[:3]) + 1, 1)
+            for month, year in re.findall(
+                r"\b(Jan[a-z]*|Feb[a-z]*|Mar[a-z]*|Apr[a-z]*|May|Jun[a-z]*|Jul[a-z]*|Aug[a-z]*|Sep[a-z]*|Oct[a-z]*|Nov[a-z]*|Dec[a-z]*)\s+(20\d{2})\b",
+                education.text,
+                re.I,
+            )
+        ]
+        education_end = education.end or (max(dates) if dates else None)
+        in_progress = (education_end is not None and education_end >= current_month) or bool(
+            re.search(r"candidate|expected|pursuing|in.progress|graduating", education.text, re.I)
+        )
+        if not in_progress:
+            continue
+        source = education.text.lower()
+        degree = (
+            r"(?:m\.?s\.?c?\b|master(?:'?s)?(?: of science)?)"
+            if re.search(r"\bmaster|\bm\.?s\.?\b", source)
+            else r"(?:ph\.?d\.?|doctorate|doctoral degree)"
+            if re.search(r"ph\.?d|doctorate|doctoral", source)
+            else r"(?:bachelor(?:'?s)?|b\.?s\.?|b\.?e\.?)"
+        )
+        completed = (
+            r"\b(?:holds?|earned|completed|received|obtained|graduated with)\b"
+            r"[^.!?\n]{0,60}\b" + degree
+        )
+        has_degree = r"\bhas\s+(?:an?|the)\s+" + degree
+        degree_holder = degree + r"\s+(?:degree\s+)?(?:holder|graduate(?!\s+student\b))\b"
+        if any(
+            re.search(pattern, text, re.I) for pattern in (completed, has_degree, degree_holder)
+        ):
+            raise ValueError(
+                "A degree still in progress cannot be described as earned or completed."
+            )

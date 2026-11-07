@@ -15,7 +15,7 @@ from careeros.config import Settings
 from careeros.db.models import Application, Job
 from careeros.modules.documents.content import Candidate, experience_paragraphs
 from careeros.modules.documents.service import load_candidate
-from careeros.modules.documents.workbench import Choices, validate_edit
+from careeros.modules.documents.workbench import Choices, validate_edit, validate_summary
 from careeros.modules.models.gateway import (
     GatewayResult,
     ModelGateway,
@@ -29,6 +29,11 @@ class RoleRewrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ref: str
     bullets: list[str] = Field(min_length=1, max_length=10)
+
+
+class SummaryRewrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    summary: str = Field(min_length=30, max_length=1000)
 
 
 class Rewrite(BaseModel):
@@ -138,7 +143,6 @@ def propose(
         )
         for x in group
     )
-    validate_edit(value.summary, all_text)
     expected = {e.ref: e for e in candidate.experience}
     if {e.ref for e in value.experience} != set(expected) or len(value.experience) != len(expected):
         raise ValueError("Rewrite omitted or duplicated an experience. Original preserved.")
@@ -150,6 +154,15 @@ def propose(
             f"{unavailable} library projects have no usable source description "
             "and were excluded from automatic selection."
         )
+    summary, summary_warnings = validated_summary(
+        session,
+        settings,
+        candidate,
+        value.summary,
+        all_text,
+        focus_skills=role_skills(candidate, value.skills, job.title, job.description_text),
+    )
+    warnings.extend(summary_warnings)
     for rewritten in value.experience:
         source = expected[rewritten.ref]
         before = experience_paragraphs(source.text.split("|", 2)[-1])
@@ -216,7 +229,7 @@ def propose(
     if not set(value.skills) <= {s.text for s in candidate.skills}:
         raise ValueError("Rewrite selected unverified skill evidence.")
     choices = Choices(
-        summary=value.summary,
+        summary=summary,
         experience_refs=list(expected),
         experience_edits=edits,
         project_refs=value.project_refs,
@@ -300,3 +313,71 @@ def role_skills(
 
 def usable_project(text: str) -> bool:
     return bool(experience_paragraphs(text.split("|", 1)[-1].replace("|", "\n")))
+
+
+def validated_summary(
+    session: Session,
+    settings: Settings,
+    candidate: Candidate,
+    proposed: str,
+    evidence: str,
+    *,
+    focus_skills: list[str] | None = None,
+) -> tuple[str, list[str]]:
+    try:
+        validate_summary(proposed, evidence, candidate)
+        return proposed, []
+    except ValueError:
+        pass
+    master = next((f.text for f in candidate.other_facts if f.kind == "master_summary"), "")
+    # A repair sees candidate evidence only, never the employer's requirements or
+    # its rejected wording. This prevents unsupported JD concepts being copied back.
+    payload = json.dumps(
+        {
+            "master_summary": master,
+            "verified_role_title": candidate.experience[0].text.split("|")[0]
+            if candidate.experience
+            else "",
+            "focus_skills": focus_skills or [],
+            "skills": [s.text for s in candidate.skills],
+            "experience": [e.text for e in candidate.experience],
+            "projects": [p.text[:400] for p in candidate.projects if usable_project(p.text)],
+        }
+    )
+    try:
+        if len(payload) > 12000:
+            raise ValueError("Summary repair evidence exceeds input limit.")
+        response = model_call(
+            session,
+            settings,
+            task="resume.rewrite.summary",
+            prompt_version="source-only-v2",
+            instructions=(
+                "Write a concise 35 to 55 word resume summary using only the supplied "
+                "candidate evidence. Begin with the verified role title and prioritize the "
+                "supplied focus skills. Rephrase the master summary. Do not invent years, "
+                "industries, employers, qualifications, credentials, authorization or "
+                "leadership. Preserve in-progress education; do not claim an unfinished degree "
+                "has been earned. Do not expand scope beyond specific work shown. No new metrics."
+            ),
+            untrusted_text=payload,
+            schema=SummaryRewrite,
+            max_attempts=1,
+        )
+        repaired = SummaryRewrite.model_validate(response.value).summary
+        validate_summary(repaired, evidence, candidate)
+        return repaired, [
+            "The first summary failed evidence checks; a source-only repair passed. "
+            "Review its wording."
+        ]
+    except (ValueError, ModelUnavailable, ModelOutputError):
+        if master.strip():
+            validate_summary(master, evidence, candidate)
+            return master, [
+                "Kept your original master summary because proposed summaries "
+                "failed evidence checks."
+            ]
+        raise ValueError(
+            "Summary could not be repaired safely. Add a verified master summary "
+            "or edit the draft manually."
+        ) from None

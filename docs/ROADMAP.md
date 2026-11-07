@@ -64,7 +64,7 @@ Acceptance: no unsupported sponsorship claim appears as fact; user can see evide
 ## Phase 6: application workspace and document generation
 - resume templates by lane;
 - fact retrieval and claim map;
-- DOCX generation;
+- master-layout resume PDF and cover-letter DOCX generation;
 - document versions and diff;
 - QA checks;
 - application tracker.
@@ -119,10 +119,16 @@ Acceptance: all core flows work with model gateway disabled and with zero spend.
 - Implemented: cited posting-based role themes; source cadence/coverage policies;
   watchlist company research with pending evidence; on-demand interview practice
   and application template drafts; document binary integrity and faster inbox/analytics.
-- Next: editable master-template fidelity with rendered comparisons; broader
-  permitted market sources and additional bounded adapters; recruiter intelligence
-  using explicit contact provenance; richer local-model coaching when available.
-- Limits: template drafts do not preserve master PDF layout; interview feedback is
-  self-assessed; model-assisted matching and broad market research are not claimed.
+- Implemented subsequently: master LaTeX resume PDFs and rendered previews; local
+  model rewrite proposals with source checks, editing instructions and review;
+  verified JD skill prioritization; explicit publication/observation timestamps;
+  source-linked recent postings and independently visible agent work.
+- Current reliability work: source-only summary repair with visible master fallback;
+  role-family boundaries and required-versus-bonus experience parsing.
+- Next: broader permitted source coverage, project evidence completeness, and richer
+  coaching evaluated against source facts.
+- Limits: local model wording still requires review; incomplete source projects cannot
+  fill a resume; interview feedback remains self-assessed; broad web research and
+  LinkedIn/Handshake monitoring are not implemented. Matching stays deterministic.
 
 See `AGENT_ORCHESTRATION.md` for exact implemented behavior and remaining limits.
