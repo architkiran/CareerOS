@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from careeros.common.fs import private_dir
 
-ModelProvider = Literal["disabled", "ollama"]
+ModelProvider = Literal["disabled", "ollama", "llama_cpp"]
 
 
 class Settings(BaseSettings):
@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     model_monthly_budget_usd: float = Field(default=0.0, ge=0)
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = ""
+    llama_base_url: str = "http://127.0.0.1:11435"
+    llama_model: str = "qwen3-4b.gguf"
+    llama_key_file: Path = Path(".tools/local-model.key")
     model_timeout_seconds: float = Field(default=60, ge=1, le=600)
     # Binding to a non-local address needs authentication that doesn't exist yet.
     allow_remote: bool = False

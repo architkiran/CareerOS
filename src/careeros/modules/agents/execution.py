@@ -46,11 +46,11 @@ def execute(
         key = run.agent_key
         target = (
             inputs.application_id
-            if key in ("application", "networking", "evidence")
+            if key in ("application", "networking", "evidence", "tailoring")
             else inputs.job_id
         )
         if (
-            key in ("application", "interview", "networking", "evidence")
+            key in ("application", "interview", "networking", "evidence", "tailoring")
             and mission.workflow != f"{key}:{target}"
         ):
             raise AgentExecutionError("The saved task target does not match its mission.")
@@ -112,7 +112,45 @@ def execute(
             warnings=warnings,
         ).model_dump()
     with factory() as session:
-        if key in ("networking", "evidence"):
+        if key == "tailoring":
+            import json
+
+            from careeros.config import get_settings
+            from careeros.modules.documents import rewriter
+            from careeros.modules.models.gateway import ModelOutputError, ModelUnavailable
+
+            if inputs.application_id is None or data_dir is None:
+                raise AgentExecutionError("Resume rewriting requires a draft application.")
+            request_path = (
+                data_dir / "documents" / inputs.application_id / (mission.id + "-rewrite.json")
+            )
+            try:
+                feedback = json.loads(request_path.read_text())["feedback"]
+                report = rewriter.propose(
+                    session, inputs.application_id, data_dir, get_settings(), feedback
+                )
+                session.commit()
+            except (ModelUnavailable, ModelOutputError, ValueError, OSError) as exc:
+                session.commit()
+                message = (
+                    str(exc)
+                    if isinstance(exc, (ValueError, ModelUnavailable))
+                    else (
+                        "The local model did not return a valid rewrite. "
+                        "Retry from the resume editor."
+                    )
+                )
+                raise AgentExecutionError(message[:400]) from exc
+            output = AgentOutput(
+                warnings=report.get("warnings", []),
+                summary="Local rewrite ready for review. Your saved PDF and master are unchanged.",
+                metrics={
+                    "experience_roles": len(report["choices"]["experience_refs"]),
+                    "selected_projects": len(report["choices"]["project_refs"]),
+                },
+                artifacts=[ArtifactRef(kind="evidence", id=inputs.application_id)],
+            )
+        elif key in ("networking", "evidence"):
             from careeros.modules.agents import support
 
             if inputs.application_id is None or data_dir is None:

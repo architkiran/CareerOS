@@ -109,7 +109,57 @@ class OllamaProvider:
         return [m.get("name", "") for m in r.json().get("models", [])]
 
 
+class LocalLlamaProvider:
+    """Local-only native inference, using the runtime distributed with Ollama."""
+
+    name = "llama_cpp"
+
+    def __init__(self, settings: Settings) -> None:
+        from urllib.parse import urlsplit
+
+        if urlsplit(settings.llama_base_url).hostname not in ("127.0.0.1", "localhost", "::1"):
+            raise ValueError("Resume inference must remain on loopback.")
+        self.base_url = settings.llama_base_url.rstrip("/")
+        self.model = settings.llama_model
+        self.key_file = settings.llama_key_file
+
+    def cost_per_1k_tokens(self) -> float:
+        return 0.0
+
+    def generate(self, prompt: str, timeout: float) -> ProviderReply:
+        try:
+            key = self.key_file.read_text().strip()
+            r = httpx.post(
+                self.base_url + "/completion",
+                headers={"Authorization": "Bearer " + key},
+                json={
+                    "prompt": "<|im_start|>user\n"
+                    + prompt.replace("<|", "< |")
+                    + "<|im_end|>\n<|im_start|>assistant\n<think>\n</think>\n\n",
+                    "temperature": 0.1,
+                    "n_predict": 2600,
+                    "json_schema": json.loads(
+                        prompt.split("matching this schema: ", 1)[1].split("\n\nTask:", 1)[0]
+                    ),
+                    "stop": ["<|im_end|>"],
+                },
+                timeout=timeout,
+                trust_env=False,
+            )
+            r.raise_for_status()
+            data = r.json()
+            return ProviderReply(
+                data["content"], data.get("tokens_evaluated", 0), data.get("tokens_predicted", 0)
+            )
+        except (httpx.HTTPError, OSError, KeyError, ValueError) as exc:
+            raise ModelUnavailable(
+                "Local resume model is unavailable. Start the local model service."
+            ) from exc
+
+
 def build_provider(settings: Settings) -> Provider | None:
+    if settings.model_provider == "llama_cpp":
+        return LocalLlamaProvider(settings)
     if settings.model_provider == "ollama" and settings.ollama_model:
         return OllamaProvider(settings.ollama_base_url, settings.ollama_model)
     return None
@@ -192,6 +242,8 @@ class ModelGateway:
                 [
                     task,
                     prompt_version,
+                    instructions,
+                    schema.model_json_schema(),
                     self.provider.name,
                     self.provider.model,
                     " ".join(text.split()),

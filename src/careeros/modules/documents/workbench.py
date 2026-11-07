@@ -107,12 +107,73 @@ def validate_edit(text: str, evidence: str) -> None:
         raise ValueError("Editing instructions belong in feedback, not in the resume.")
     # Reject factual additions rather than trusting a fluent paraphrase. Existing
     # numeric and ownership QA independently checks the saved claims as well.
-    words = terms(text) - terms(evidence) - _CONNECTORS
+    from careeros.modules.agents.support import TERMS
+    from careeros.modules.matching.text import contains_term
+
     numbers = set(re.findall(r"\d[\d,.]*%?", text)) - set(re.findall(r"\d[\d,.]*%?", evidence))
-    if words or numbers:
+    tools = (
+        *TERMS,
+        "Rust",
+        "C++",
+        "JavaScript",
+        "TypeScript",
+        "Azure",
+        "Flink",
+        "TensorFlow",
+        "PyTorch",
+        "Vertex AI",
+        "Vertex Vector Search",
+        "FastAPI",
+        "Flask",
+        "DuckDB",
+        "DAX",
+        "Power Query",
+        "GitHub Actions",
+        "Prometheus",
+    )
+    new_tools = [
+        tool
+        for tool in tools
+        if len(tool) > 1 and contains_term(text, tool) and not contains_term(evidence, tool)
+    ]
+    ownership = re.search(r"\b(led|headed|founded|spearheaded|managed a team|owned)\b", text, re.I)
+    unsupported_ownership = ownership is not None and not re.search(
+        r"\b" + re.escape(ownership[0]) + r"\b", evidence, re.I
+    )
+    domain_terms = {
+        "financial",
+        "finance",
+        "transaction",
+        "transactions",
+        "fraud",
+        "payments",
+        "revenue",
+        "sales",
+        "healthcare",
+        "clinical",
+        "banking",
+        "investment",
+        "trading",
+        "compliance",
+        "regulatory",
+        "customers",
+        "clients",
+    }
+    new_domain = (terms(text) & domain_terms) - terms(evidence)
+    # Legitimate rephrasing can introduce ordinary words; facts, tools, metrics and
+    # ownership cannot be introduced by either a person editing here or a model.
+    content_words = terms(text) - _CONNECTORS
+    overlap = len(content_words & terms(evidence)) / max(1, len(content_words))
+    if (
+        numbers
+        or new_tools
+        or new_domain
+        or unsupported_ownership
+        or (len(content_words) > 4 and overlap < 0.35)
+    ):
         raise ValueError(
             "This edit adds unverified detail. Verify new facts in your profile first. "
-            "Unmatched text: " + ", ".join(sorted(words | numbers)[:8])
+            + ", ".join(sorted(numbers | set(new_tools) | new_domain)[:8])
         )
 
 

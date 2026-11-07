@@ -46,6 +46,8 @@ def active_mission(session: Session) -> Mission | None:
 
 
 def mission_label(mission: Mission) -> str:
+    if mission.workflow.startswith("tailoring:"):
+        return "Resume rewrite"
     if mission.workflow.startswith("interview:"):
         return "Interview preparation"
     if mission.workflow.startswith("application:"):
@@ -386,3 +388,12 @@ def start_support_mission(session: Session, application_id: str, kind: str) -> t
 
 def start_monitor_mission(session: Session, source_ids: list[str]) -> tuple[Mission, bool]:
     return _start_on_demand(session, "freshness", "watch", {"source_ids": source_ids})
+
+
+def start_rewrite_mission(session: Session, application_id: str) -> tuple[Mission, bool]:
+    app = session.get(Application, application_id)
+    if app is None or app.status not in ("preparing", "ready"):
+        raise ValueError("Only draft applications can be tailored.")
+    return _start_on_demand(
+        session, "tailoring", application_id, {"application_id": application_id}
+    )

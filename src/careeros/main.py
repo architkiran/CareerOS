@@ -1,6 +1,7 @@
 """Application factory and command-line entry point."""
 
 import argparse
+import asyncio
 import logging
 import sys
 import tomllib
@@ -58,6 +59,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        from careeros.modules.models import local_runtime
+
+        local_model = await asyncio.to_thread(local_runtime.start, settings)
         worker = None
         if settings.worker_enabled:
             from careeros.modules.scheduler.worker import Worker
@@ -77,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             if worker is not None:
                 worker.stop()
+            await asyncio.to_thread(local_runtime.stop, local_model)
 
     app = FastAPI(
         title="CareerOS", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan

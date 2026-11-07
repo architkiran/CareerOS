@@ -204,3 +204,40 @@ def test_settings_page(client: TestClient) -> None:
     assert 'data-testid="model-provider">disabled' in html and 'data-testid="no-backup"' in html
     r = post_form(client, "/settings/model/test")
     assert 'data-testid="model-test"' in r.text and "works without one" in r.text
+
+
+def test_cache_changes_when_rewrite_instructions_change(settings, factory):  # type: ignore[no-untyped-def]
+    provider = FakeProvider([GOOD, GOOD])
+    gateway = ModelGateway(settings, provider=provider)
+    with factory() as session:
+        for instruction in ("Emphasize analytics.", "Emphasize engineering."):
+            result = gateway.run(
+                session,
+                task="rewrite",
+                prompt_version="v1",
+                instructions=instruction,
+                untrusted_text="Same source facts",
+                schema=JobSummary,
+            )
+            assert not result.cache_hit
+        assert len(provider.prompts) == 2
+
+
+@respx.mock
+def test_local_provider_is_authenticated_and_has_no_cloud_endpoint(settings, tmp_path):  # type: ignore[no-untyped-def]
+    from careeros.modules.models.gateway import UNTRUSTED_PREAMBLE, LocalLlamaProvider
+
+    settings.model_provider = "llama_cpp"
+    settings.llama_key_file = tmp_path / "key"
+    settings.llama_key_file.write_text("test-local-key")
+    route = respx.post("http://127.0.0.1:11435/completion").mock(
+        return_value=httpx.Response(200, json={"content": GOOD, "tokens_predicted": 10})
+    )
+    prompt = UNTRUSTED_PREAMBLE + json.dumps(JobSummary.model_json_schema()) + "\n\nTask: Rewrite."
+    result = LocalLlamaProvider(settings).generate(prompt, 5)
+    assert result.text == GOOD
+    assert route.calls[0].request.headers["Authorization"] == "Bearer test-local-key"
+    assert json.loads(route.calls[0].request.content)["json_schema"]["type"] == "object"
+    settings.llama_base_url = "https://paid.example.com"
+    with pytest.raises(ValueError, match="loopback"):
+        LocalLlamaProvider(settings)
