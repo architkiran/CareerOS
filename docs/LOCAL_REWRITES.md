@@ -61,9 +61,10 @@ can still produce poor wording or an unsupported implication. Human review is
 required. Role proposals that fail checks keep their originals visibly; a failed
 summary receives one source-only repair; if repair also fails, the verified master
 summary is retained with a warning. Without a verified master, summary failure
-blocks the proposal. Sparse source evidence stays sparse: the InternPe
-record has no verified dates and only one substantive sentence. The system must
-not invent a longer internship description.
+blocks the proposal. Sparse source evidence stays sparse; the system must not
+invent a longer internship description. The installed profile now includes the
+InternPe title, Apr–Sep 2024 dates and three bullets from the supplied PM resume.
+The private profile audit retains the original record and source-file hash.
 
 Model usage metadata contains no prompt text. Proposal/request files are private
 (mode 600 in directories mode 700). Current proposal replacement is atomic. No
@@ -75,7 +76,7 @@ Today leads with matches whose source reports publication in the last 24 hours.
 Listings newly observed within seven days appear separately, including older initial
 imports. Older high-scoring recommendations are secondary. Publication and discovery
 times remain separate. Initial imports are not newly posted jobs. Additional explicit
-non-US locations (including Serbia) now fail the US location filter; matching v5
+non-US locations (including Serbia) now fail the US location filter; matching v6
 invalidates older cached scores. Mixed US/international listings retain US eligibility.
 Feeds poll within their provider limits while the local app/worker is running;
 this is not continuous LinkedIn/Handshake monitoring or guaranteed minute-level
