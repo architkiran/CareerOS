@@ -227,3 +227,15 @@ def test_mixed_us_and_europe_keeps_us_option() -> None:
         job(location_text="United States or Europe", workplace_type="remote"), lane(), profile()
     )
     assert result.decision != "fail"
+
+
+@pytest.mark.parametrize("need,expected", [("unknown", "unknown"), ("yes", "fail"), ("no", "pass")])
+def test_explicit_candidate_exclusion_for_future_sponsorship(need: str, expected: str) -> None:
+    text = (
+        "For this position, we are not able to consider candidates who currently or "
+        "in the future will require visa sponsorship."
+    )
+    result = work_authorization_filter(job(description=text), profile(needs_sponsorship=need))
+    assert result.decision == expected
+    assert result.evidence and "require visa sponsorship" in result.evidence
+    assert "doesn't state" not in result.reason

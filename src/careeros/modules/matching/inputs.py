@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v7"  # v7: explicit non-US regions and nursing consultant boundaries
+ALGORITHM_VERSION = "match-v8"  # v8: explicit candidate sponsorship exclusions
 
 
 @dataclass(frozen=True)

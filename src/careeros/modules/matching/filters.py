@@ -468,6 +468,9 @@ _RESTRICT = [
         r"without\s+(?:the\s+need\s+for\s+)?(?:current\s+or\s+future\s+|future\s+)?"
         r"(?:visa\s+|employment\s+)?sponsorship",
         r"not\s+eligible\s+for\s+(?:visa\s+)?sponsorship",
+        r"(?:not able to|unable to|cannot|will not)\s+(?:consider|accept)\s+candidates?\s+"
+        r"(?:who\s+)?(?:currently\s+or\s+in\s+the\s+future\s+)?(?:will\s+)?"
+        r"require\s+(?:visa\s+|immigration\s+)?sponsorship",
     )
 ]
 _CITIZEN = [
