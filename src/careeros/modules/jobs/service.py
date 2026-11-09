@@ -44,7 +44,7 @@ class JobFilters:
     lane_id: str | None = None
     eligibility: Literal["any", "pass", "unknown", "fail", "not_fail"] = "not_fail"
     min_score: int | None = None
-    sort: Literal["newest", "score"] = "newest"
+    sort: Literal["newest", "score", "published"] = "newest"
     page: int = 1
     recommended: bool = False
     published_minutes: int | None = None
@@ -129,7 +129,10 @@ def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]
         or 0
     )
     order = [Job.first_seen_at.desc(), Job.title, Job.id]
-    if filters.sort == "score":
+    if filters.sort == "published":
+        # Publication is independent of when a feed was first imported.
+        order.insert(0, Job.posted_at.desc().nullslast())
+    elif filters.sort == "score":
         order.insert(0, func.coalesce(ranked.c.score, -1).desc())
     page = max(filters.page, 1)
     rows = session.execute(

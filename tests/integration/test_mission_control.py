@@ -96,7 +96,7 @@ def test_every_mission_mutation_requires_csrf(client: TestClient, path: str) -> 
     assert client.post(path).status_code == 403
 
 
-def test_three_primary_actions_and_on_demand_activity(client, app):  # type: ignore[no-untyped-def]
+def test_primary_actions_and_on_demand_activity(client, app):  # type: ignore[no-untyped-def]
     from careeros.modules.agents.service import start_application_mission
     from careeros.modules.applications.service import start_application
     from tests.integration.test_documents import _setup
@@ -111,8 +111,8 @@ def test_three_primary_actions_and_on_demand_activity(client, app):  # type: ign
     assert response.status_code == 200
     html = response.text
     main_nav = html.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert main_nav.count("<a ") == 3
-    assert all(label in main_nav for label in ("Today", "Opportunities", "Applications"))
+    assert main_nav.count("<a ") == 4
+    assert all(label in main_nav for label in ("Today", "Fresh jobs", "Referrals", "Applications"))
     assert "Your career team" in html and "Application drafts" in html
     assert f"/missions/{mission.id}" in html and "Application drafts" in html
     assert "View task" in client.get("/agents").text
@@ -189,7 +189,7 @@ def test_recent_publication_section_excludes_older_or_unknown_dates(app, client)
             session.commit()
             main = (
                 client.get("/mission-control")
-                .text.split("<h2>Recently posted matches</h2>")[1]
+                .text.split("<h2>Fresh openings</h2>")[1]
                 .split("New to your feed")[0]
             )
             assert ("Dated analyst" in main) == included

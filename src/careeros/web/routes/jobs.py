@@ -58,8 +58,15 @@ def inbox(
     page_n = forms.bounded_int(page, 1, 10_000) or 1
     if eligibility not in ("any", "pass", "unknown", "fail", "not_fail"):
         eligibility = "not_fail"
-    if sort not in ("newest", "score"):
+    if view not in ("all", "recommended", "fresh"):
+        view = "all"
+    if sort not in ("newest", "score", "published"):
         sort = "newest"
+    if view == "fresh" and sort == "newest":
+        sort = "published"
+    publication_window = forms.bounded_int(published_minutes, 1, 10080)
+    if view == "fresh" and publication_window is None:
+        publication_window = 1440
     if triage and triage not in jobs.TRIAGE_STATUSES:
         triage = None
     if status not in ("active", "closed", "all"):
@@ -79,9 +86,12 @@ def inbox(
         min_score=min_score_n,
         sort=cast(Any, sort),
         page=page_n,
-        recommended=view == "recommended",
-        published_minutes=forms.bounded_int(published_minutes, 1, 10080),
+        recommended=view in ("recommended", "fresh"),
+        published_minutes=publication_window,
     )
+    from careeros.modules.sources.monitoring import coverage
+    from careeros.modules.system.settings_store import get_setting
+
     rows, total = jobs.list_jobs(session, filters)
     selected_detail = jobs.get_job_detail(session, selected or rows[0].job.id) if rows else None
     selected_match = (
@@ -119,6 +129,8 @@ def inbox(
             if selected_detail
             else None,
             "view": view,
+            "monitor_sources": coverage(session) if view == "fresh" else [],
+            "monitor_enabled": get_setting(session, "watch.enabled", False),
             "rows": rows,
             "total": total,
             "filters": filters,

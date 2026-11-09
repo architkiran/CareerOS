@@ -25,9 +25,11 @@ from careeros.db.models.profile import (
     Skill,
     WorkAuthorizationProfile,
 )
+from careeros.db.models.referrals import ReferralPath
 from careeros.db.models.research import Evidence, ResearchItem
 
 __all__ = [
+    "ReferralPath",
     "InterviewAnswer",
     "InterviewPlan",
     "MarketBrief",

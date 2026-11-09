@@ -124,11 +124,11 @@ def test_manual_import_is_user_assisted_idempotent_and_cannot_scrape(session, cl
     assert post_form(client, "/opportunities/import", {**data, "confirmed": ""}).status_code == 422
 
 
-def test_primary_navigation_has_three_actions_and_jobs_use_split_view(app, client):  # type: ignore[no-untyped-def]
+def test_primary_navigation_and_jobs_split_view(app, client):  # type: ignore[no-untyped-def]
     _setup(app.state.session_factory)
     page = client.get("/mission-control").text
     nav = page.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert nav.count("<a ") == 3
+    assert nav.count("<a ") == 4
     assert "Your next steps" in page and "Latest career review</h2>" not in page
     jobs = client.get("/jobs").text
     assert 'aria-label="Selected opportunity"' in jobs and 'class="job-list"' in jobs
@@ -182,7 +182,7 @@ def test_public_board_attribution_is_visible_on_today_and_opportunities(app, cli
         score_jobs(s)
         s.commit()
     today = client.get("/mission-control").text
-    primary = today.split("<h2>Recently posted matches</h2>")[1].split("New to your feed")[0]
+    primary = today.split("<h2>Fresh openings</h2>")[1].split("New to your feed")[0]
     assert original in primary and "Source: Jobicy" in primary
     for path in ("/mission-control", "/jobs?view=recommended&sort=score"):
         page = client.get(path).text

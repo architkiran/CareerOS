@@ -66,7 +66,7 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         session, JobFilters(recommended=True, sort="newest", days=7, min_score=50)
     )
     published, published_total = list_jobs(
-        session, JobFilters(recommended=True, sort="newest", published_minutes=1440, min_score=50)
+        session, JobFilters(recommended=True, sort="published", published_minutes=1440)
     )
     heartbeat = get_setting(session, "worker.last_seen_at")
     seen = datetime.fromisoformat(heartbeat) if isinstance(heartbeat, str) else None
@@ -77,7 +77,10 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         else None
     )
     market = latest_brief(session)
+    from careeros.modules.referrals.service import overview as referral_overview
+
     ctx["mc"] = {
+        "referrals": referral_overview(session),
         "background_tasks": list(
             session.scalars(
                 select(Task)
