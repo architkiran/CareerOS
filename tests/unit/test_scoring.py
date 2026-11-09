@@ -179,3 +179,11 @@ def test_annotation_and_data_entry_do_not_match_analytics_by_scattered_words():
 def test_explicit_required_experience_is_a_lane_filter():
     result = evaluate(mi(job(description="Requirements: 5+ years of experience with SQL.")))
     assert next(f for f in result.filters if f.name == "seniority").decision == "fail"
+
+
+def test_nursing_consulting_is_not_business_consulting() -> None:
+    generic = lane(title_keywords=("consultant",))
+    title = "Managing Consultant, Nursing"
+    assert not evaluate(mi(job(title=title), generic)).classified
+    clinical = replace(generic, title_keywords=("consultant nursing",))
+    assert evaluate(mi(job(title=title), clinical)).classified

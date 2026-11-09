@@ -103,6 +103,8 @@ def _role_title(m: MatchInput) -> tuple[float, str, bool]:
         "outpatient",
         "inpatient",
         "registered nurse",
+        "consultant nursing",
+        "nursing consultant",
         "physician",
     )
     if any(contains_term(title, term) for term in clinical) and not any(

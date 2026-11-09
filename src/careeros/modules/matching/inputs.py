@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v6"  # v6: role-family boundaries and explicit required experience
+ALGORITHM_VERSION = "match-v7"  # v7: explicit non-US regions and nursing consultant boundaries
 
 
 @dataclass(frozen=True)

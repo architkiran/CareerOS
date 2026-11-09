@@ -212,3 +212,18 @@ def test_explicit_non_us_locations_fail_us_search(place: str) -> None:
         ).decision
         == "pass"
     )
+
+
+@pytest.mark.parametrize("location", ["Europe Only", "Remote - EU", "Asia only", "Africa"])
+def test_remote_region_outside_us_is_ruled_out(location: str) -> None:
+    result = location_filter(
+        job(location_text=location, workplace_type="remote"), lane(), profile()
+    )
+    assert result.decision == "fail"
+
+
+def test_mixed_us_and_europe_keeps_us_option() -> None:
+    result = location_filter(
+        job(location_text="United States or Europe", workplace_type="remote"), lane(), profile()
+    )
+    assert result.decision != "fail"
