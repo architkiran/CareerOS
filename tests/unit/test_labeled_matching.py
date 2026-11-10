@@ -6,7 +6,7 @@ from careeros.modules.profile.schemas import LaneRules
 
 def test_labeled_entry_level_fixture_has_no_gate_or_relevance_errors() -> None:
     report = evaluate_file(Path(__file__).parents[1] / "fixtures/matching/labeled_jobs.json")
-    assert report["cases"] == 22
+    assert report["cases"] == 23
     assert report["false_positives"] == [] and report["false_negatives"] == []
     assert report["label_mismatches"] == [] and report["hard_gate_violations"] == []
     assert any(r["eligibility"] == "fail" and r["score"] >= 70 for r in report["results"])

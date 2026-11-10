@@ -167,6 +167,7 @@ def test_public_board_attribution_is_visible_on_today_and_opportunities(app, cli
 
     with app.state.session_factory() as s:
         s.get(Job, job_id).posted_at = utcnow()
+        s.get(Job, job_id).publication_kind = "provider_reported"
         source = add_source(s, SourceIn(type="jobicy", token="usa", name="Jobicy"))
         s.add(
             JobSourceRecord(
@@ -183,7 +184,7 @@ def test_public_board_attribution_is_visible_on_today_and_opportunities(app, cli
         s.commit()
     today = client.get("/mission-control").text
     primary = today.split("<h2>Fresh openings</h2>")[1].split("New to your feed")[0]
-    assert original in primary and "Source: Jobicy" in primary
+    assert original not in primary  # Board publication is not employer publication.
     for path in ("/mission-control", "/jobs?view=recommended&sort=score"):
         page = client.get(path).text
         assert original in page and "Source: Jobicy" in page

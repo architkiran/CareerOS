@@ -124,6 +124,18 @@ def _role_title(m: MatchInput) -> tuple[float, str, bool]:
             contains_term(title_key(kw), family) for kw in m.lane.title_keywords
         ):
             return 0.0, f"'{family}' is a different role family from this lane's keywords.", False
+    outbound = any(
+        contains_term(m.job.description, term)
+        for term in ("cold calling", "cold-calling", "cold calls", "cold-calls")
+    )
+    if (
+        contains_term(title, "corporate development")
+        and outbound
+        and not any(
+            contains_term(title_key(kw), "corporate development") for kw in m.lane.title_keywords
+        )
+    ):
+        return 0.0, "Corporate-development cold outreach is outside this lane's role family.", False
     for kw in m.lane.title_keywords:
         if contains_term(title, title_key(kw)):
             return 1.0, f"Title contains '{kw}'.", True

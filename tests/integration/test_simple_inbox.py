@@ -206,3 +206,34 @@ def test_disabled_source_errors_do_not_alarm_the_active_inbox(session: Session) 
     assert overview["source_count"] == 1
     assert overview["errors"] == []
     assert overview["last_success"] == active.last_success_at
+
+
+def test_verified_last_day_excludes_board_republishes_old_and_unknown_dates(
+    session: Session, client: TestClient
+) -> None:
+    for title, kind, age in [
+        ("Original recent", "original", 1),
+        ("Board recent", "provider_reported", 1),
+        ("Employer republished", "last_publication", 1),
+        ("Old original", "original", 1000),
+    ]:
+        role = make_role(session, title, posted_at=utcnow() - timedelta(hours=age))
+        role.publication_kind = kind
+    make_role(session, "Unknown publication")
+    session.commit()
+    page = client.get("/new-jobs?mode=fresh").text
+    assert "Original recent" in page
+    for title in ["Board recent", "Employer republished", "Old original", "Unknown publication"]:
+        assert f"<h2>{title}</h2>" not in page
+
+
+def test_aggregator_date_is_not_presented_as_original_publication(
+    session: Session, client: TestClient
+) -> None:
+    role = make_role(session, "Board date only", posted_at=utcnow() - timedelta(hours=1))
+    role.publication_kind = "provider_reported"
+    session.commit()
+    page = client.get("/new-jobs").text
+    assert "Publication date unknown" in page
+    assert "Provider date (provider_reported)" in page
+    assert ">New</span>" not in page

@@ -20,5 +20,6 @@
   {"id":"bonus_not_requirement","title":"Junior Data Analyst","description":"Requirements: SQL and Python. Bonus: 4+ years of experience. Visa sponsorship is available.","relevant":true,"gate":"pass"},
   {"id":"closed","title":"Entry Level Data Analyst","description":"SQL Python. Visa sponsorship is available.","status":"closed","relevant":true,"gate":"fail"},
   {"id":"wrong_occupation","title":"Account Executive","description":"SQL Python dashboard sales.","relevant":false},
-  {"id":"missing_employment","title":"Entry Level Data Analyst","description":"SQL Python. Visa sponsorship is available.","employment_type":null,"relevant":true,"gate":"unknown"}
+  {"id":"missing_employment","title":"Entry Level Data Analyst","description":"SQL Python. Visa sponsorship is available.","employment_type":null,"relevant":true,"gate":"unknown"},
+  {"id":"corporate_development_outbound","title":"Analyst, Corporate Development & Strategic Partnerships","keywords":["analyst"],"description":"Cold calling and outreach to acquisition targets. 2+ years investment banking, sales or business development.","relevant":false}
 ]

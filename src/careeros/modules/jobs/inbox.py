@@ -139,7 +139,7 @@ def cards(session: Session, rows: list[JobRow], cutoff: datetime | None = None) 
         job, match = row.job, row.match
         state = effective_state(job, now)
         item = InboxCard(row, links[job.id], state, LABELS[state], app=apps.get(job.id))
-        if job.posted_at and job.posted_at <= now:
+        if job.posted_at and job.posted_at <= now and job.publication_kind == "original":
             item.publication = job.posted_at
             item.publication_label = {
                 "original": "Published",
@@ -148,7 +148,7 @@ def cards(session: Session, rows: list[JobRow], cutoff: datetime | None = None) 
                 "provider_reported": "Provider date",
             }.get(job.publication_kind, "Source date")
         if (cutoff is None or job.first_seen_at > cutoff) and job.triage_status == "new":
-            item.freshness.append("New")
+            item.freshness.append("First found since your visit")
         if item.publication is None and job.first_seen_at >= now - timedelta(days=7):
             item.freshness.append("Recently discovered")
         if job.material_updated_at and (cutoff is None or job.material_updated_at > cutoff):

@@ -32,6 +32,8 @@ def make_role(session: Session, title: str = "Data Analyst", **kw: object) -> Jo
         company = Company(canonical_name="Example Finance", normalized_name="example finance")
         session.add(company)
         session.flush()
+    if kw.get("posted_at") is not None:
+        kw.setdefault("publication_kind", "original")
     job = Job(
         company_id=company.id,
         title=title,

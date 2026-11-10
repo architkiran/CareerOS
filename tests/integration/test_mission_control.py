@@ -186,6 +186,7 @@ def test_recent_publication_section_excludes_older_or_unknown_dates(app, client)
             (utcnow() - timedelta(days=5), False),
             (utcnow() - timedelta(hours=2), True),
         ]:
+            job.publication_kind = "original"
             job.posted_at = posted
             session.commit()
             main = (

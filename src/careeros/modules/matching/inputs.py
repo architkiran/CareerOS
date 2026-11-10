@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from careeros.modules.sources.text import sha256
 
-ALGORITHM_VERSION = "match-v8"  # v8: explicit candidate sponsorship exclusions
+ALGORITHM_VERSION = "match-v9"  # v9: distinguish outbound corporate-development sourcing
 
 
 @dataclass(frozen=True)

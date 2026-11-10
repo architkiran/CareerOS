@@ -103,6 +103,7 @@ def test_publication_filter_does_not_confuse_discovery_unknown_or_future_dates(a
             (utcnow() + timedelta(hours=1), 0),
             (utcnow() - timedelta(minutes=10), 1),
         ]:
+            job.publication_kind = "original"
             job.posted_at = posted
             s.flush()
             _, total = list_jobs(s, JobFilters(published_minutes=60))

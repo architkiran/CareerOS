@@ -101,6 +101,7 @@ def _filtered(filters: JobFilters) -> Select[Job, str]:
     if filters.published_minutes:
         now = utcnow()
         stmt = stmt.where(
+            Job.publication_kind == "original",
             Job.posted_at >= now - timedelta(minutes=filters.published_minutes),
             Job.posted_at <= now,
         )

@@ -45,7 +45,7 @@ def _context(
     q = request.query_params
     cutoff = inbox.visit_cutoff(session, navigation=navigation)
     mode = q.get("mode", "new")
-    if mode not in ("new", "unreviewed", "all"):
+    if mode not in ("new", "unreviewed", "all", "fresh"):
         mode = "new"
     sponsor = q.get("sponsorship")
     if sponsor not in LABELS:
@@ -71,6 +71,7 @@ def _context(
         first_seen_after=cutoff if not saved and mode == "new" else None,
         recommended=not saved and inbox.has_lanes(session),
         exclude_applied=not saved,
+        published_minutes=1440 if not saved and mode == "fresh" else None,
         sort="published",
         page=page,
     )
