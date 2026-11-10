@@ -5,8 +5,9 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import Select, and_, case, func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Subquery
 
 from careeros.common.clock import utcnow
 from careeros.db.models import Company, Job, JobSourceRecord, Source
@@ -49,6 +50,12 @@ class JobFilters:
     recommended: bool = False
     published_minutes: int | None = None
     first_seen_after: datetime | None = None
+    location: str | None = None
+    seniority: str | None = None
+    sponsorship: str | None = None
+    unreviewed: bool = False
+    saved_only: bool = False
+    exclude_applied: bool = False
 
 
 @dataclass
@@ -63,9 +70,27 @@ def _filtered(filters: JobFilters) -> Select[Job, str]:
     stmt = select(Job, Company.canonical_name).join(Company, Company.id == Job.company_id)
     if filters.status != "all":
         stmt = stmt.where(Job.status == filters.status)
+    if filters.location:
+        stmt = stmt.where(Job.location_text.ilike(f"%{filters.location}%"))
+    if filters.unreviewed:
+        stmt = stmt.where(Job.triage_status == "new", Job.saved_stage.is_(None))
+    if filters.saved_only:
+        stmt = stmt.where(
+            or_(Job.saved_stage.is_not(None), Job.triage_status.in_(("saved", "shortlisted")))
+        )
+    if filters.exclude_applied:
+        from careeros.db.models import Application
+
+        stmt = stmt.where(
+            ~Job.id.in_(select(Application.job_id).where(Application.submitted_at.is_not(None)))
+        )
+    if filters.sponsorship:
+        from careeros.modules.jobs.sponsorship import state_expression
+
+        stmt = stmt.where(state_expression() == filters.sponsorship)
     if filters.triage:
         stmt = stmt.where(Job.triage_status == filters.triage)
-    else:
+    elif not filters.saved_only:
         stmt = stmt.where(Job.triage_status != "rejected")  # hide rejected unless asked
     if filters.company_id:
         stmt = stmt.where(Job.company_id == filters.company_id)
@@ -110,12 +135,13 @@ def _match_for(
     return lane_matches(session, job_ids, lane_id) if lane_id else best_matches(session, job_ids)
 
 
-def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]:
-    """Filter/rank/page small columns in SQLite, then load evidence for one page only."""
+def _matched_query(filters: JobFilters) -> tuple[Select[Job, str], Subquery]:
     from careeros.modules.matching.service import best_match_summary
 
     ranked = best_match_summary(filters.lane_id)
     stmt = _filtered(filters).outerjoin(ranked, and_(ranked.c.job_id == Job.id, ranked.c.rank == 1))
+    if filters.seniority:
+        stmt = stmt.where(ranked.c.seniority == filters.seniority)
     if filters.lane_id or filters.recommended:
         stmt = stmt.where(ranked.c.classified.is_(True))
     if filters.eligibility == "not_fail":
@@ -124,6 +150,20 @@ def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]
         stmt = stmt.where(ranked.c.eligibility == filters.eligibility)
     if filters.min_score is not None:
         stmt = stmt.where(ranked.c.score >= filters.min_score)
+    return stmt, ranked
+
+
+def count_jobs(session: Session, filters: JobFilters) -> int:
+    stmt, _ranked = _matched_query(filters)
+    return int(
+        session.scalar(select(func.count()).select_from(stmt.with_only_columns(Job.id).subquery()))
+        or 0
+    )
+
+
+def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]:
+    """Filter/rank/page small columns in SQLite, then load evidence for one page only."""
+    stmt, ranked = _matched_query(filters)
     total = (
         session.scalar(select(func.count()).select_from(stmt.with_only_columns(Job.id).subquery()))
         or 0
@@ -131,7 +171,8 @@ def list_jobs(session: Session, filters: JobFilters) -> tuple[list[JobRow], int]
     order = [Job.first_seen_at.desc(), Job.title, Job.id]
     if filters.sort == "published":
         # Publication is independent of when a feed was first imported.
-        order.insert(0, Job.posted_at.desc().nullslast())
+        source_date = case((Job.posted_at <= utcnow(), Job.posted_at), else_=None)
+        order.insert(0, source_date.desc().nullslast())
     elif filters.sort == "score":
         order.insert(0, func.coalesce(ranked.c.score, -1).desc())
     page = max(filters.page, 1)
@@ -245,6 +286,8 @@ def triage(session: Session, job_id: str, action: TriageAction, reason: str | No
     if reason and len(reason) > 1000:
         raise TriageError("Reason is too long (1000 characters max).")
     job.triage_status = _ACTION_TO_STATUS[action]
+    if action in ("save", "shortlist"):
+        job.saved_stage = job.saved_stage or "saved"
     job.triage_reason = reason if action == "reject" else None
     job.triaged_at = utcnow() if action != "reset" else None
     if action == "shortlist":

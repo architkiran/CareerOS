@@ -283,7 +283,10 @@ def test_application_pages_end_to_end(
     )
     post_form(client, f"/applications/{app_id}/documents", {"document_type": "cover_letter"})
     assert 'data-testid="doc-cover_letter"' in client.get(app_url).text
-    assert client.get("/applications").text.count('data-testid="application-row"') == 1
+    assert (
+        client.get("/applications?view=preparation").text.count('data-testid="application-row"')
+        == 1
+    )
     bad = post_form(client, f"/applications/{app_id}/status", {"status": "submitted"})
     assert bad.status_code == 422 and "move from ready to submitted" in bad.text
     assert (

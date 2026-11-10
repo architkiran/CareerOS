@@ -286,7 +286,7 @@ def test_web_submission_flow(
     assert 'data-testid="confirm-done"' in client.get(url).text
     post_form(client, f"{url}/done", {"confirmed": "on", "when": "2026-11-02T14:30"})
     assert 'data-testid="approval-status">used<' in client.get(url).text
-    assert 'data-testid="app-status">submitted<' in client.get(f"/applications/{app_id}").text
+    assert 'data-testid="app-status">Applied<' in client.get(f"/applications/{app_id}").text
     assert client.get("/follow-ups").text.count('data-testid="follow-up-row"') == 1
     assert 'data-testid="audit"' in client.get("/approvals").text
     assert post_form(client, f"{url}/decide", {"decision": "maybe"}).status_code == 422

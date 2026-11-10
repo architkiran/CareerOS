@@ -5,6 +5,7 @@
 <h1>Settings</h1>
 <p class="muted">These come from your <code>.env</code> file. Edit it and restart <code>careeros serve</code> to change them.</p>
 
+{% if discovery %}<section class="card" id="discovery"><h2>Job discovery</h2><p>Automatic checks run while CareerOS and the local worker are awake. Each provider’s stricter limits take precedence.</p><form method="post" action="/inbox/schedule">{{ csrf() }}<label class="check"><input type="checkbox" name="enabled" {% if discovery.enabled %}checked{% endif %}> Enable scheduled discovery</label><label>Default interval (minutes)<input type="number" name="minutes" min="15" max="1440" value="{{ discovery.interval }}" required></label><button>Save refresh schedule</button></form><p>Latest successful source check: {{ discovery.last_success|localtime if discovery.last_success else 'Not checked' }}{% if discovery.next_due %} · Next due: {{ discovery.next_due|localtime }}{% endif %}</p><p><a href="/watch">Per-source freshness &amp; errors</a> · <a href="/sources">Manage sources</a></p></section>{% endif %}
 <section class="card">
   <h2>AI model</h2>
   <dl class="facts">

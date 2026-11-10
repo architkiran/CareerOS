@@ -104,6 +104,16 @@ class Job(Base):
     last_modified_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     fetched_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     material_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    saved_stage: Mapped[str | None] = mapped_column(String(20))
+    next_action: Mapped[str | None] = mapped_column(String(500))
+    sponsorship_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="not_indicated", server_default="not_indicated"
+    )
+    sponsorship_evidence_json: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, default=list, server_default="[]"
+    )
+    sponsorship_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    sponsorship_valid_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
     first_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)

@@ -152,3 +152,14 @@ def test_invalid_urls_are_not_usable_destinations(url: str | None) -> None:
     assert safe_posting_url(url) is None
     with pytest.raises(ValidationError):
         payload(source_url=url)
+
+
+def test_windowed_board_cannot_keep_an_officially_removed_posting_open(session: Session) -> None:
+    first = source(session)
+    board = add_source(session, SourceIn(type="remotive", token="public", name="Board"))
+    now = utcnow()
+    job, _ = upsert_job(session, first, payload(), now)
+    duplicate, _ = upsert_job(session, board, payload(external_id="board-id"), now)
+    assert duplicate.id == job.id
+    assert _close_unseen(session, first, set(), now + timedelta(minutes=1)) == 1
+    assert job.status == "closed"

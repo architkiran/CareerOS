@@ -84,12 +84,26 @@ def _workspace(
 
 
 @router.get("/applications", response_class=HTMLResponse)
-def list_page(request: Request, session: SessionDep, status: str | None = None) -> HTMLResponse:
+def list_page(
+    request: Request, session: SessionDep, status: str | None = None, view: str = "applied"
+) -> HTMLResponse:
+    from careeros.modules.jobs.inbox import original_links
+
     if status not in (None, "", *apps.STATUSES):
         status = None
-    rows = apps.list_applications(session, status or None)
+    all_rows = apps.list_applications(session, status or None)
+    preparation = view == "preparation"
+    rows = all_rows if preparation else [r for r in all_rows if r.app.submitted_at is not None]
     return _render(
-        request, "applications.html", {"rows": rows, "status": status, "statuses": apps.STATUSES}
+        request,
+        "application_preparation.html" if preparation else "applications.html",
+        {
+            "rows": rows,
+            "status": status,
+            "statuses": apps.STATUSES,
+            "originals": original_links(session, [r.job for r in rows]),
+            "preparation_count": sum(r.app.submitted_at is None for r in all_rows),
+        },
     )
 
 
@@ -106,7 +120,28 @@ def start(job_id: str, session: SessionDep) -> Response:
 
 
 @router.get("/applications/{app_id}", response_class=HTMLResponse)
-def workspace(app_id: str, request: Request, session: SessionDep) -> HTMLResponse:
+def workspace(
+    app_id: str, request: Request, session: SessionDep, advanced: bool = False
+) -> HTMLResponse:
+    app = session.get(Application, app_id)
+    if app is not None and app.submitted_at is not None and not advanced:
+        from careeros.modules.jobs.inbox import original_links
+
+        job = session.get(Job, app.job_id)
+        assert job
+        company = session.get(Company, job.company_id)
+        return _render(
+            request,
+            "application_record.html",
+            {
+                "a": app,
+                "job": job,
+                "company": company,
+                "original": original_links(session, [job])[job.id],
+                "history": apps.history(session, app.id),
+                "next_statuses": apps.TRANSITIONS[app.status],
+            },
+        )
     return _workspace(request, session, app_id)
 
 

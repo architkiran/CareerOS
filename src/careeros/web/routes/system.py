@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from careeros.db.models import ActivityEvent
@@ -18,7 +18,15 @@ def health(request: Request) -> JSONResponse:
     return JSONResponse(status.to_dict(), status_code=code)
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/")
+def home(queued: str | None = None) -> RedirectResponse:
+    suffix = (
+        "?refresh=already" if queued == "already" else "?refresh=queued" if queued == "1" else ""
+    )
+    return RedirectResponse("/new-jobs" + suffix, 303)
+
+
+@router.get("/advanced/system", response_class=HTMLResponse)
 def dashboard(request: Request, queued: str | None = None) -> HTMLResponse:
     state = request.app.state
     status = get_system_status(state.settings, state.engine)

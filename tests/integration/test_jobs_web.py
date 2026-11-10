@@ -198,7 +198,7 @@ def test_triage_requires_csrf(seeded: FastAPI, client: TestClient) -> None:
 def test_triage_recorded_in_activity(seeded: FastAPI, client: TestClient) -> None:
     job = _job(seeded, "Data Analyst")
     post_form(client, f"/jobs/{job.id}/triage", {"action": "shortlist"})
-    assert "job.triaged" in client.get("/").text
+    assert "job.triaged" in client.get("/advanced/system").text
 
 
 def test_possible_duplicate_group_shown(app: FastAPI, client: TestClient) -> None:
@@ -263,7 +263,7 @@ def test_retry_dead_task_from_dashboard(app: FastAPI, client: TestClient) -> Non
         queue.fail(s, task, "simulated failure")
         s.commit()
         tid = task.id
-    html = client.get("/").text
+    html = client.get("/advanced/system").text
     assert "simulated failure" in html and 'data-testid="dead-count">1 failed' in html
     assert post_form(client, f"/tasks/{tid}/retry").status_code == 303
     assert post_form(client, f"/tasks/{tid}/retry").status_code == 404
@@ -290,11 +290,11 @@ def test_overview_shows_overdue_schedule(app: FastAPI, client: TestClient) -> No
             )
         )
         s.commit()
-    assert 'data-testid="schedule-overdue"' in client.get("/").text
+    assert 'data-testid="schedule-overdue"' in client.get("/advanced/system").text
 
 
 def test_dashboard_has_live_hooks(client: TestClient) -> None:
-    html = client.get("/").text
+    html = client.get("/advanced/system").text
     assert "data-live-feed" in html and "data-live-stats" in html and "/static/app.js" in html
 
 

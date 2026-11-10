@@ -128,7 +128,7 @@ def test_primary_navigation_and_jobs_split_view(app, client):  # type: ignore[no
     _setup(app.state.session_factory)
     page = client.get("/mission-control").text
     nav = page.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert nav.count("<a ") == 4
+    assert nav.count("<a ") == 3
     assert "Your next steps" in page and "Latest career review</h2>" not in page
     jobs = client.get("/jobs").text
     assert 'aria-label="Selected opportunity"' in jobs and 'class="job-list"' in jobs

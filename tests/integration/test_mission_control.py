@@ -111,13 +111,14 @@ def test_primary_actions_and_on_demand_activity(client, app):  # type: ignore[no
     assert response.status_code == 200
     html = response.text
     main_nav = html.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert main_nav.count("<a ") == 4
-    assert all(label in main_nav for label in ("Today", "Fresh jobs", "Referrals", "Applications"))
+    assert main_nav.count("<a ") == 3
+    assert all(label in main_nav for label in ("New Jobs", "Saved Jobs", "Applications"))
     assert "Your career team" in html and "Application drafts" in html
     assert f"/missions/{mission.id}" in html and "Application drafts" in html
     assert "View task" in client.get("/agents").text
     for path in ["/applications", "/sources", "/companies", "/interviews"]:
-        assert 'aria-label="Workspace sections"' in client.get(path).text
+        assert "Advanced / Settings" in client.get(path).text
+    assert 'aria-label="Workspace sections"' not in client.get("/applications").text
 
 
 def test_fresh_arrivals_surface_new_match_before_old_high_score(app, client):  # type: ignore[no-untyped-def]

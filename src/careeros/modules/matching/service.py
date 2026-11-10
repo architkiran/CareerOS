@@ -154,6 +154,12 @@ def score_jobs(
         stmt = stmt.where(Job.id.in_(job_ids))
     rows = session.execute(stmt.order_by(Job.id)).all()
 
+    from careeros.modules.jobs.sponsorship import refresh_signals
+
+    refresh_signals(session, [job for job, _ in rows])
+    if commit_every:
+        session.commit()
+
     existing: dict[str, dict[str, JobLaneMatch]] = {}
     match_stmt = select(JobLaneMatch)
     if job_ids is not None:
@@ -334,6 +340,7 @@ def best_match_summary(lane_id: str | None = None) -> Subquery:
             JobLaneMatch.classified,
             eligibility.label("eligibility"),
             score.label("score"),
+            JobLaneMatch.score_breakdown_json["seniority"]["level"].as_string().label("seniority"),
             func.row_number()
             .over(
                 partition_by=JobLaneMatch.job_id,

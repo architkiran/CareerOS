@@ -182,6 +182,7 @@ def upsert_job(
         if source.source_type not in ("remotive", "jobicy", "wwr", "manual"):
             job.canonical_url = canonicalize_url(nj.source_url)
         if before != _snapshot(job):
+            job.sponsorship_checked_at = None
             job.material_updated_at = now
             _revision(
                 session,
@@ -279,8 +280,12 @@ def _close_unseen(session: Session, source: Source, seen_ids: set[str], now: dat
         if job is None or job.status != "active":
             continue
         others = session.scalars(
-            select(JobSourceRecord).where(
-                JobSourceRecord.job_id == job.id, JobSourceRecord.source_id != source.id
+            select(JobSourceRecord)
+            .join(Source, Source.id == JobSourceRecord.source_id)
+            .where(
+                JobSourceRecord.job_id == job.id,
+                JobSourceRecord.source_id != source.id,
+                Source.source_type.not_in(("remotive", "jobicy", "wwr", "manual")),
             )
         ).all()
         if any(o.is_listed is not False for o in others):

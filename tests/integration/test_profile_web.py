@@ -255,7 +255,7 @@ def test_work_authorization_flow_and_privacy(client: TestClient) -> None:
     assert r.status_code == 303
     page = client.get("/profile/work-authorization").text
     assert "PRIVATE-WA-VALUE" in page and "Confirmed" in page
-    assert "PRIVATE-WA-VALUE" not in client.get("/").text  # never in activity feed
+    assert "PRIVATE-WA-VALUE" not in client.get("/advanced/system").text  # never in activity feed
     assert "PRIVATE-WA-VALUE" not in client.get("/profile/export.json").text
 
 
@@ -322,5 +322,5 @@ def test_import_rejects_bad_files(client: TestClient) -> None:
 
 def test_profile_changes_appear_in_activity_feed(client: TestClient) -> None:
     post_form(client, "/profile", {"display_name": "Feed"})
-    html = client.get("/").text
+    html = client.get("/advanced/system").text
     assert "profile.updated" in html

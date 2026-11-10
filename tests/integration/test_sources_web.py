@@ -70,4 +70,4 @@ def test_failed_run_is_visible(app: FastAPI, client: TestClient) -> None:
     run_all(app.state.session_factory, make_fetcher(max_attempts=1))
     page = client.get("/sources").text
     assert "failed" in page and "404" in page
-    assert "task.failed" in client.get("/").text
+    assert "task.failed" in client.get("/advanced/system").text

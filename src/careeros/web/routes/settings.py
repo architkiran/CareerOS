@@ -41,10 +41,13 @@ def _gateway(request: Request) -> ModelGateway:
 def settings_page(request: Request, session: SessionDep) -> HTMLResponse:
     settings = request.app.state.settings
     last = latest_backup(Path(settings.backup_dir))
+    from careeros.modules.jobs.inbox import refresh_overview
+
     return _render(
         request,
         "settings.html",
         {
+            "discovery": refresh_overview(session),
             "s": settings,
             "usage": usage_summary(session),
             "gateway_enabled": _gateway(request).enabled,

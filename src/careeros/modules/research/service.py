@@ -287,6 +287,12 @@ def employer_policy(session: Session, company_id: str, job_id: str | None = None
             .order_by(Evidence.retrieved_at.desc())
         )
     )
+    return summarize_policy(rows, job_id)
+
+
+def summarize_policy(rows: list[Evidence], job_id: str | None = None) -> PolicySummary:
+    """Same policy evaluation for a batch-loaded, accepted evidence set."""
+    rows = [e for e in rows if e.reviewer_status == "accepted"]
     # Job-specific evidence for *other* jobs says nothing about this one.
     rows = [e for e in rows if e.job_id is None or e.job_id == job_id]
     authoritative = [e for e in rows if e.source_kind in AUTHORITATIVE]

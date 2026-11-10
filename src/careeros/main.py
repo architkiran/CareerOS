@@ -25,6 +25,7 @@ from careeros.web.routes import (
     approvals,
     companies,
     events,
+    inbox,
     intake,
     interviews,
     jobs,
@@ -64,10 +65,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         local_model = await asyncio.to_thread(local_runtime.start, settings)
         worker = None
-        if settings.worker_enabled:
+        from careeros.modules.system.status import get_system_status
+
+        if (
+            settings.worker_enabled
+            and get_system_status(settings, app.state.engine).schema.up_to_date
+        ):
             from careeros.modules.system.settings_store import get_setting, set_setting
 
             with app.state.session_factory() as session:
+                from sqlalchemy import select
+
+                from careeros.db.models import RoleLane
+                from careeros.modules.profile.service import add_default_lanes
+
+                if session.scalar(select(RoleLane.id).limit(1)) is None:
+                    add_default_lanes(session)
+                    session.commit()
                 if get_setting(session, "watch.enabled") is None:
                     set_setting(session, "watch.enabled", settings.discovery_monitor_enabled)
                     session.commit()
@@ -111,6 +125,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
     app.middleware("http")(csrf_middleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.include_router(inbox.router)
     app.include_router(intake.router)
     app.include_router(workbench.router)
     app.include_router(watch.router)

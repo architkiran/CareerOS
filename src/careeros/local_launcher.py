@@ -20,9 +20,12 @@ def probe(client: httpx.Client, url: str) -> Probe:
         data = health.json()
         if not isinstance(data, dict) or not {"version", "database", "schema"} <= data.keys():
             return "occupied"
-        page = client.get(url + "/mission-control")
+        page = client.get(url + "/new-jobs")
         return (
-            "ready" if page.status_code == 200 and "data-mission-live" in page.text else "occupied"
+            "ready"
+            if page.status_code == 200
+            and ("data-core-inbox" in page.text or "data-mission-live" in page.text)
+            else "occupied"
         )
     except httpx.ConnectError:
         return "absent"
@@ -43,14 +46,14 @@ def main() -> int:
         except OSError:
             state = "occupied"
     if state == "ready":
-        print(f"CareerOS is already running. Open {url}/mission-control")
+        print(f"CareerOS is already running. Open {url}/new-jobs")
         print("No second server or worker was started.")
         return 0
     if state == "occupied":
         print(f"Port {port} is occupied, but the CareerOS page did not pass its readiness check.")
         print("Stop the older server in its terminal with Ctrl+C, then run this launcher again.")
         return 1
-    print(f"Starting CareerOS: {url}/mission-control", flush=True)
+    print(f"Starting CareerOS: {url}/new-jobs", flush=True)
     # Fixed interpreter and module; no command or arguments from web content.
     os.execv(sys.executable, [sys.executable, "-m", "careeros", "serve"])  # noqa: S606
     return 0
