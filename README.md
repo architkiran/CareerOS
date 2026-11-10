@@ -1,19 +1,22 @@
 # CareerOS
 
-The current interface centers on **Today, Opportunities and Applications**. The
-[evidence workbench](docs/EVIDENCE_WORKBENCH.md) preserves master-resume evidence,
-lets you edit role-specific content and project/skill selections, and previews the
-actual PDF. Application evidence and networking agents prepare inspectable briefs.
-Local monitoring separates source publication from first discovery and follows
-provider-specific refresh limits. See the
-[cited product research](reports/CareerOS%20evidence%20and%20discovery.md).
+CareerOS finds and organizes relevant jobs so you can inspect the original posting
+and apply yourself. The main screens are **New Jobs, Saved Jobs, Applications**.
+Everything else is optional under **Advanced / Settings**. The stack and private
+data remain local; discovery and matching require no model or paid API.
 
-Start locally with `./Start\ CareerOS.command` (port 8766). For a fresh clone, install
-Python dependencies first, then run `.venv/bin/python scripts/setup_latex.py` once
-to install the free local compiler and cache its support files. Resume generation
-uses cached resources only.
+For the existing Mac workspace:
 
-A local-first, cost-minimal personal career operating system. CareerOS discovers relevant full-time jobs, explains fit, tracks evidence and work-authorization uncertainty, prepares truthful application materials, and routes every external action through a human approval gate.
+```bash
+zsh "/Users/architkiran/Desktop/PersonalProjects/CareerOS/Start CareerOS.command"
+```
+
+Open [New Jobs](http://127.0.0.1:8766/new-jobs). Keep the terminal running.
+The launcher checks for an existing server and never starts a second worker.
+Fresh clones can use the setup instructions below (CLI default port 8000).
+
+[Implemented behavior, verification and limits](docs/SIMPLIFICATION_IMPLEMENTATION.md)
+· [Pre-change audit](docs/SIMPLIFICATION_AUDIT.md)
 
 ## Non-negotiable principles
 
@@ -25,67 +28,41 @@ A local-first, cost-minimal personal career operating system. CareerOS discovers
 6. **Respect access rules:** Use public ATS feeds, official career pages, permitted APIs, and user-assisted workflows. Do not bypass CAPTCHAs, authentication, rate limits, or site terms.
 7. **Portable:** Local development and operation first; cloud deployment is an optional later deployment target, not a prerequisite.
 
-## CareerOS 2.0: first operational slice
+## Daily workflow
 
-**Mission Control** is available at `/mission-control`; the existing Overview stays at `/`.
-Run a career review to coordinate six real, deterministic specialists: discovery,
-matching, career intelligence, posting-evidence research, analytics and verification. Results come from
-persisted work, not demo data. `/agents` lists capabilities and gaps; each agent has
-its own history and permission description. Mission detail shows dependency links,
-results, warnings, retry timing and every execution attempt.
+1. **New Jobs:** review jobs found since your previous visit. The first visit shows
+   your existing unreviewed matches. Publication dates and first discovery are
+   distinct. Open the employer/ATS page directly; public-board links are labeled
+   “View source posting.” Missing URLs remain visibly unavailable.
+2. **Saved Jobs:** keep a next action, review requirements, and apply on the
+   original website. Choose **I applied manually** only after you have applied.
+   An optional application date and notes are enough; documents and approvals
+   are not prerequisites for recording your own completed action.
+3. **Applications:** update outcomes and notes. Earlier unsubmitted workspaces
+   remain in Advanced → Optional preparation workspaces.
 
-- Missions and agent runs persist in SQLite (migration `0011`). Completion and
-  downstream handoff commit together. Duplicate start requests reuse the active mission.
-- Pause/resume/cancel apply between steps. An in-flight step may finish and already
-  persisted results remain available. Failed steps retry with backoff up to three
-  times, then require manual retry. Manual retries preserve the previous attempts.
-- Worker leases renew every 30 seconds. Completion is fenced by owner and claim
-  attempt; interrupted work can be reclaimed after its 10-minute lease expires.
-- The dark-first interface has a saved light-mode option, keyboard focus states,
-  responsive layouts and same-origin live polling every five seconds.
-- No paid services or AI are required. There are no send, submit, approval-decision
-  or profile-edit tools in the agent executor. Existing approval gates remain human-operated.
+Monitoring defaults to every 30 minutes while the app and computer are awake.
+Settings → Discovery controls the interval (15–1440 minutes) and pause state.
+Each provider's stricter minimum still applies, including manual refreshes.
+A saved pause preference is respected. No LinkedIn/Handshake session scraping,
+automatic applications, or automatic messages are performed.
 
-To schedule the full review, set `MISSION_SCHEDULER_ENABLED=true` and
-`SCHEDULE_INTERVAL_HOURS=24` in `.env`. Keep `SCHEDULER_ENABLED=false` to avoid also
-running the legacy discovery-only schedule. Both are disabled by default outside
-Docker; Docker currently enables its legacy discovery schedule by default, so set
-it explicitly to false when enabling mission scheduling. Local scheduling needs a
-running worker and pauses while your Mac sleeps. A paused mission blocks another
-career review until resumed or cancelled.
+## Optional capabilities
 
-The audit, implementation limits and next stages are in
-[the CareerOS 2.0 audit](docs/CAREEROS_2_AUDIT.md) and
-[orchestration architecture](docs/AGENT_ORCHESTRATION.md).
-Career intelligence now explores evidence-backed themes within configured feeds;
-broader web/industry research, conversational coaching and exact master-resume
-template preservation remain future milestones. On-demand interview practice is
-now available, with its limits described below. Existing generic document generation remains
-available, with its verified-fact and QA gates.
+Resume tailoring, PDF preview/export, cover letters, referral research, employer
+evidence, interview practice, analytics and agent histories are retained. Start
+resume/cover-letter tools from a saved role. The
+[evidence workbench](docs/EVIDENCE_WORKBENCH.md) explains verified content editing
+and master-template preservation. The free local compiler setup is
+`.venv/bin/python scripts/setup_latex.py`; compilation uses cached resources.
 
-`/companies` now collects watchlist research, tracked roles and source coverage.
-Assistant research stays pending; stale official policy evidence stays unknown.
-See [company research](docs/COMPANY_RESEARCH.md). Generated document downloads and
-approvals now verify both the content and binary hashes; legacy files require a
-new version. See [document integrity](docs/DOCUMENT_INTEGRITY.md).
-Applications can also request an on-demand agent to prepare both template drafts
-and hand them back for review. It never acknowledges warnings or creates an
-approval. [Exact behavior and limitations](docs/APPLICATION_DRAFT_AGENT.md).
-
-## First run
-
-Read `CLAUDE.md` before changing anything. Then read `docs/ARCHITECTURE.md`, `docs/PRODUCT_SPEC.md`, and `docs/ROADMAP.md`.
-
-The initial implementation should be a working vertical slice:
-- create/edit a candidate profile;
-- ingest public Greenhouse, Lever, and Ashby jobs from a small configured company list;
-- normalize and deduplicate jobs;
-- apply deterministic hard filters;
-- calculate explainable fit scores;
-- show jobs and pipeline events in the dashboard;
-- allow the user to save, reject, or shortlist a job.
-
-Do not start with automated form submission, browser automation, a complex agent swarm, or cloud infrastructure.
+Mission Control (`/mission-control`) and system diagnostics (`/advanced/system`)
+are advanced tools, not the landing page. Existing bounded discovery missions
+and the SQLite queue power monitoring; no new agents were added for this change.
+Leave the legacy `SCHEDULER_ENABLED` and full-review
+`MISSION_SCHEDULER_ENABLED` schedules disabled for the normal discovery workflow.
+Detailed optional orchestration contracts remain in
+[AGENT_ORCHESTRATION.md](docs/AGENT_ORCHESTRATION.md).
 
 ## Target user
 
@@ -148,9 +125,9 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-## Always-on with Docker (recommended)
+## Optional Docker deployment
 
-Run CareerOS in a container that starts itself and stays up whenever your Mac is on, so http://127.0.0.1:8000 always works. Discovery also runs once a day on its own.
+Run CareerOS in a container that starts itself and stays up whenever your Mac is on, so http://127.0.0.1:8000 always works. Discovery uses the same default 30-minute monitor and provider-specific limits.
 
 **One-time setup**
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (free for personal use).
@@ -176,7 +153,7 @@ docker compose up -d --build                            # after pulling new code
 docker compose down                                     # stop it (it won't come back until `up`)
 ```
 
-**Limits, honestly:** it's live while your Mac is awake. When the Mac sleeps, the container pauses too, and the Overview shows a missed scheduled run. It's reachable only from this Mac (`127.0.0.1`); don't change the port mapping, because CareerOS has no login (see `docs/REMOTE_ACCESS.md`).
+**Limits, honestly:** it's live while your Mac is awake. When the Mac sleeps, the container pauses too, and New Jobs shows overdue source checks. It's reachable only from this Mac (`127.0.0.1`); don't change the port mapping, because CareerOS has no login (see `docs/REMOTE_ACCESS.md`).
 
 **Optional local AI in Docker:** set `MODEL_PROVIDER=ollama` and `OLLAMA_MODEL=...` in `.env`; the container reaches Ollama on your Mac at `host.docker.internal:11434`.
 
@@ -187,9 +164,9 @@ careeros migrate   # creates ./data/careeros.db and applies migrations
 careeros serve     # http://127.0.0.1:8000
 ```
 
-`python -m careeros serve` works too. Migrations never run automatically on startup; if they are pending, `/health` reports `degraded` and the dashboard tells you to run `careeros migrate`.
+`python -m careeros serve` works too. The direct CLI does not run migrations automatically; if they are pending, `/health` reports `degraded` and the dashboard tells you to run `careeros migrate`.
 
-- Dashboard: <http://127.0.0.1:8000/>
+- New Jobs: <http://127.0.0.1:8000/new-jobs>
 - Health JSON: <http://127.0.0.1:8000/health> (`ok` or `degraded` return 200; `error` returns 503)
 
 The server binds to `127.0.0.1` only. Runtime AI is disabled and spend caps are $0.
@@ -230,17 +207,20 @@ Only explicit fields are stored: employment type and salary stay empty when the 
 
 `careeros serve` runs the dashboard **and** a background worker in one process. Use `careeros serve --no-worker` plus `careeros worker` if you want them separate.
 
-- **Overview** (`/`): new jobs today, active and shortlisted counts, possible duplicates, last discovery run, source health, task queue depth, failed tasks with a *Retry* button, and a live activity feed (Server-Sent Events, with a polling fallback).
-- **Run discovery now** queues a run; clicking twice doesn't queue twice. Each source also has *Run now* on `/sources`.
-- **Job inbox** (`/jobs`): search and filter by triage state, source, workplace, date, active/closed, and possible duplicates. Rejected jobs are hidden unless you filter for them.
-- **Job detail**: every source sighting with links, salary only when disclosed, plain-text description, duplicate group, and triage (shortlist, save, mark reviewed, reject with a required reason, reset).
-- **Schedule**: set `SCHEDULER_ENABLED=true` (and optionally `SCHEDULE_INTERVAL_HOURS`) in `.env`. When the Mac sleeps, runs pause; the Overview says so when a run is overdue instead of pretending.
+- `/` redirects to `/new-jobs`; `/saved-jobs` and `/applications` complete the main loop.
+- **Refresh jobs** respects provider cooldowns and reuses queued/running discovery.
+- **More filters** reveals location, work arrangement, seniority signals,
+  sponsorship and discovery date. Source publication determines ordering when
+  supplied; it is never inferred from first discovery.
+- The full legacy inbox `/jobs`, source controls `/sources`, detailed posting
+  history and `/advanced/system` remain available under advanced tools.
+- Settings → Discovery configures the active monitor; it pauses during sleep.
 
 Failed tasks retry with exponential backoff and are dead-lettered after their last attempt.
 
 ## Matching (Phase 4)
 
-Every active job is scored for every enabled role lane. Rescoring is automatic after discovery and after profile or lane edits, and there's a *Rescore* button on the Overview.
+Every active job is scored for every enabled role lane. Rescoring is automatic after discovery and after profile or lane edits, and advanced diagnostics retains a manual rescore control.
 
 - **Hard filters** return pass, fail or unknown with a reason and evidence: posting still listed, employment type, excluded title terms, lane exclusions, inferred seniority, location vs your preferences, and what the posting says about sponsorship compared with your *confirmed* work-authorization answers. Unknown is shown for review, never silently passed or failed.
 - **Score (0-100)** uses the lane's seven weights. Missing information (for example undisclosed salary) counts as neutral, and each score shows how complete its information was.
@@ -261,16 +241,20 @@ Shortlisting a job opens research for it (or click *Start research* on any job).
 
 ## Applications and documents (Phase 6)
 
-On any job, click **Start application**. The workspace (`/applications/<id>`) generates a resume and a cover letter from templates for the job's best lane. No AI is involved.
+From a saved job, expand **Optional tools** to open a preparation workspace.
+Nothing is generated by saving or recording an application. Drafting and optional
+local rewrites remain explicit actions.
 
 - **Verified items only.** Every line is mapped to the profile items behind it (see *Claim map*).
 - **QA checks.** These errors block a version: a line with no backing item, a number that isn't in the backing item, a leadership claim the profile doesn't make, a skill that isn't verified, or dates that contradict each other. These are warnings you acknowledge: missing or future dates, and unverified items that were left out.
-- **Versions are immutable.** Regenerating after a profile change creates v2, v3 and so on, with a diff. Files are `.docx` in `data/documents/` (owner-only permissions), each checked against its stored hash on download.
-- **Tracker.** `/applications` lists everything. Statuses after submission (response, screen, interview, offer, rejected, withdrawn) are set by you. *Submitted* is only recorded through the approval step (Phase 7).
+- **Versions are immutable.** Regenerating creates a new version with a diff. Master-template PDF export and legacy Word export remain available; downloads verify stored hashes. Resume downloads retain `Archit_Kiran_Kumar_Resume.pdf`.
+- **Tracker.** `/applications` lists recorded applications. Unsubmitted preparation work remains at `/applications?view=preparation`. Outcomes are entered by you. Manual recording requires your confirmation, not a document approval.
 
 ## Approvals, outreach and follow-ups (Phase 7)
 
-**CareerOS never submits an application or sends a message.** Every external action goes through one approval gate:
+**CareerOS never submits an application or sends a message.** The optional
+prepared-package workflow retains its existing approval gate. This gate does not
+block recording an application you independently completed:
 
 1. Once a resume is *ready*, click **Review package and request approval** on the application. CareerOS saves an exact snapshot (destination, document versions and their hashes) with a hash of its own.
 2. On the approval page, check the package, tick the confirmation and **Approve**.
@@ -278,7 +262,7 @@ On any job, click **Start application**. The workspace (`/applications/<id>`) ge
 
 Approvals expire after 72 hours and can be used once. They're cancelled automatically if anything in the package changes, such as a regenerated resume or an edited message. `/approvals` keeps a full audit trail.
 
-**Outreach** is draft-only: add a contact and a message on the application, approve it, send it yourself, and record it. There's no LinkedIn automation. **Follow-ups** (`/follow-ups`) show what's due or overdue, and the Overview counts them.
+**Outreach** is draft-only: add a contact and a message on the application, approve it, send it yourself, and record it. There's no LinkedIn automation. **Follow-ups** (`/follow-ups`) show what's due or overdue, and remain secondary to the main inbox.
 
 ## Analytics (Phase 8)
 

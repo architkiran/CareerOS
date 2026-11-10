@@ -1,5 +1,18 @@
 # Pipeline design
 
+## Current default workflow — 10 November 2026
+
+The default path stops at the inbox: source adapters → normalize/validate →
+idempotent upsert/history → hard filters/matching → New Jobs → original external
+posting → manual user application → explicit local record. Everything after
+shortlist in the historical diagram below is optional. A failed or partial
+snapshot cannot close jobs; windowed boards cannot establish closure. The
+30-minute monitor uses existing bounded freshness missions, queue leases and
+provider-specific cooldowns.
+
+[Verified implementation and limits](SIMPLIFICATION_IMPLEMENTATION.md).
+
+
 ## Pipeline overview
 
 ```text

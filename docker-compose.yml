@@ -24,7 +24,8 @@ services:
       EXPORT_DIR: "/app/exports"
       BACKUP_DIR: "/app/backups"
       ALLOW_REMOTE: "false"
-      SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
+      SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-false}"
+      DISCOVERY_MONITOR_ENABLED: "${DISCOVERY_MONITOR_ENABLED:-true}"
       DISPLAY_TIMEZONE: "${DISPLAY_TIMEZONE:-America/New_York}"
       # Local Ollama on your Mac, if you enable it in .env
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL_DOCKER:-http://host.docker.internal:11434}"

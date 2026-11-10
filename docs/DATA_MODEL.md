@@ -1,5 +1,18 @@
 # Data model
 
+## Current default workflow — 10 November 2026
+
+Migration `0016` adds source-time semantics and append-only `job_revision`;
+`Job.published_at` is an ORM synonym for existing stored `posted_at`, not another
+publication column. Job and source records keep publication kind, source
+modification and retrieval time. Source records track authoritative presence.
+Migration `0017` adds saved_stage/next_action and expiring sponsorship display
+state/evidence. Matches and work authorization retain their existing verified
+architecture. See the implementation report for the exact field map.
+
+[Verified implementation and limits](SIMPLIFICATION_IMPLEMENTATION.md).
+
+
 Use SQLAlchemy models and Alembic migrations. UUID/ULID string IDs are acceptable; choose one and use it consistently. Timestamps are UTC. Store raw source snapshots separately from generated documents.
 
 ## Core entities

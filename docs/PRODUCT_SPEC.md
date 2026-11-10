@@ -27,80 +27,31 @@ Each lane has its own:
 
 The candidate's known strengths include SQL, Python, Power BI, analytics, dashboards, finance/business analysis, and graduate computer science study. The app must use only verified profile facts. The user must confirm exact dates, metrics, project details, graduation date, availability, compensation, and work-authorization answers before those facts are used externally.
 
-## Primary user journeys
+## Primary user journey (implemented 10 November 2026)
 
-1. **Discover:** ingest jobs from approved sources and show source freshness.
-2. **Triage:** remove duplicates and clearly irrelevant roles with deterministic rules.
-3. **Understand:** show match score, score breakdown, missing skills, concerns, and evidence.
-4. **Decide:** shortlist, reject with reason, or save for later.
-5. **Research:** collect employer facts, role details, location, salary, sponsorship/authorization evidence, and source confidence.
-6. **Prepare:** generate a truthful role-specific resume/cover letter/application answer draft.
-7. **Review:** compare draft against candidate evidence and job requirements.
-8. **Approve:** user reviews exact final payload and explicitly approves a single action.
-9. **Act:** user submits manually or uses a permitted, supported workflow. Record the result.
-10. **Learn:** track screens, interviews, rejections, offers, and response rates by role lane/source/resume version.
+Discover → inspect the original employer/provider page → save or dismiss → apply
+independently on that page → explicitly record the completed application.
 
-## Dashboard pages
+## Main screens
 
-### Overview
-- today's new jobs;
-- jobs passing hard filters;
-- shortlist count;
-- drafts awaiting review;
-- approvals awaiting action;
-- upcoming follow-ups;
-- pipeline run status and last successful run;
-- estimated model/API spend (must be $0 when no external model is configured);
-- recent activity stream.
+- **New Jobs** (`/new-jobs`, default landing): since-last-visit inbox, direct
+  original links, source dates, discovery dates, up to three evidence-based
+  reasons and the most important concern. Uncertain eligibility remains visible;
+  explicit hard failures cannot be promoted by a keyword score.
+- **Saved Jobs** (`/saved-jobs`): shortlist status and next action; original link;
+  user-confirmed manual application recording. Resume/cover-letter tools are
+  optional disclosures, not prerequisites.
+- **Applications** (`/applications`): dated user records, outcomes, original links
+  and notes. Unsubmitted preparation work is preserved under Advanced.
 
-### Job inbox
-- filter by lane, score, location, source, date, work authorization confidence, salary, status;
-- search title/company/description;
-- show duplicate group and canonical record;
-- actions: shortlist, reject, save, mark reviewed.
+Advanced / Settings retains evidence, analytics, documents, approvals, referral
+research, monitoring, agents, backup and configuration. Neither applications nor
+messages are sent. Default monitoring is 30 minutes with stricter source limits,
+visible failures and no claims of instant site-wide coverage.
 
-### Job detail
-- original source link;
-- normalized description;
-- role lane;
-- hard-filter outcomes;
-- score breakdown and explanations;
-- required skills matched/missing;
-- sponsorship/authorization evidence with source and confidence;
-- company research;
-- application history.
-
-### Application workspace
-- job-specific resume/cover letter/answers;
-- source profile facts used;
-- unsupported-claim warnings;
-- version comparison;
-- export DOCX/PDF;
-- final approval checklist.
-
-### Approvals
-- exact action preview;
-- destination and recipient;
-- exact document/message version;
-- risk warnings;
-- approve, reject, or request edits;
-- approval expiration and immutable audit record.
-
-### Analytics
-- funnel: discovered → qualified → shortlisted → prepared → submitted → response → screen → interview → offer;
-- conversion by source, role lane, company, resume version, and week;
-- median time in each stage;
-- rejection/no-response reasons;
-- application quality vs volume.
-
-### Settings
-- candidate profile and verified facts;
-- role lanes and scoring weights;
-- locations and relocation;
-- work authorization status and dates, entered by user;
-- source/company watchlist;
-- run schedule, rate limits, retention, export/delete;
-- optional local model configuration.
+See [the implementation report](SIMPLIFICATION_IMPLEMENTATION.md) for acceptance
+checks, migration mappings and measured limits. The remaining contracts describe
+retained optional capabilities rather than required steps for each job.
 
 ## Matching design
 

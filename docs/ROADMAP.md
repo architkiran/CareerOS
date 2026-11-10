@@ -1,5 +1,17 @@
 # Implementation roadmap
 
+## Current default workflow — 10 November 2026
+
+The simplification phases 0–5 are implemented and verified. The default product
+now has New Jobs, Saved Jobs and Applications. The phase list below records the
+project's earlier capability roadmap; it is not a list of mandatory user steps
+or work still waiting to be implemented. No new agents or paid services were
+introduced. Next changes should follow measured discovery or decision-quality
+errors, not expansion in agent count.
+
+[Verified implementation and limits](SIMPLIFICATION_IMPLEMENTATION.md).
+
+
 Build in vertical slices. Every phase must leave a runnable application.
 
 ## Phase 0: repository and engineering foundation

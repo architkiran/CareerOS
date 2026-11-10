@@ -1,5 +1,17 @@
 # Architecture
 
+## Current default workflow — 10 November 2026
+
+The primary browser routes are `/new-jobs`, `/saved-jobs` and `/applications`;
+`/` redirects to New Jobs. `modules/jobs/inbox.py` projects bounded cards and
+source provenance; `web/routes/inbox.py` handles local user decisions. Existing
+source adapters → ingestion → deterministic matching → SQLite queue remain in
+place. Read-only inbox polling runs every 20 seconds without scheduling work or
+advancing the review cursor. Optional enrichment requires a user action.
+
+[Verified implementation and limits](SIMPLIFICATION_IMPLEMENTATION.md).
+
+
 ## Summary
 
 Use a **local-first modular monolith**. One Python application, one SQLite database, one worker process (or one process in development), one web dashboard. Modules have clear boundaries but share a deployable unit.

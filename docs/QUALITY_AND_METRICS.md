@@ -1,5 +1,19 @@
 # Quality, observability, and success metrics
 
+## Current default workflow — 10 November 2026
+
+Advanced → Discovery quality (`/quality`) reports relevant discoveries by day,
+original-publication observation delay, usable URL coverage, possible duplicate
+candidates, local open/save/dismiss/review/application events, explicit user
+eligibility reviews, and outcome rates by recorded score band. Existing analytics
+provides role/source outcomes. URL syntax coverage is not HTTP availability;
+possible duplicates are not a verified duplicate rate. Missing historical score
+snapshots stay unknown. The 22-case labeled matching fixture separately tests
+relevance and hard gates; it is not a production accuracy estimate.
+
+[Verified implementation and limits](SIMPLIFICATION_IMPLEMENTATION.md).
+
+
 ## Operational health
 
 Track:
