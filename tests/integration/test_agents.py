@@ -334,6 +334,7 @@ def test_healthy_review_succeeds_and_preserves_verified_profile(
     # Only a valid posting: the general fixture deliberately contains one invalid item.
     raw = load_fixture("greenhouse_jobs.json")
     raw["jobs"] = raw["jobs"][:1]
+    raw["meta"]["total"] = len(raw["jobs"])
     respx.get(GH_URL).mock(return_value=httpx.Response(200, json=raw))
     mission_id = start(factory)
     for _ in range(len(AGENTS)):

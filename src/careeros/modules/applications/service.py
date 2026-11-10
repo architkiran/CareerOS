@@ -187,11 +187,15 @@ def record_manual_application(
         source="user_manual",
         occurred_at=when,
     )
+    from careeros.modules.matching.service import best_matches
+
+    match = best_matches(session, [job_id]).get(job_id)
     record_event(
         session,
         "application.manually_recorded",
         f"User recorded {previous} → applied",
         entity_type="application",
         entity_id=app.id,
+        metadata={"job_id": job_id, "match_score": match.effective_score if match else None},
     )
     return app

@@ -120,7 +120,7 @@ class ProjectIn(_Strict):
 
 
 def _default_seniority() -> list[Seniority]:
-    return ["entry", "junior", "mid"]
+    return ["entry", "junior"]
 
 
 def _default_employment() -> list[EmploymentType]:

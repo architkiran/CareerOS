@@ -20,3 +20,18 @@ def analytics_page(
         request, "analytics.html", {"a": data, "top": top, "min_sample": MIN_SAMPLE}
     )
     return response
+
+
+@router.get("/quality", response_class=HTMLResponse)
+def quality_page(
+    request: Request, session: Annotated[Session, Depends(get_session)]
+) -> HTMLResponse:
+    from careeros.modules.analytics.quality import compute_quality
+
+    response: HTMLResponse = request.app.state.templates.TemplateResponse(
+        request,
+        "quality.html",
+        {"quality": compute_quality(session), "analytics": compute(session)},
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
