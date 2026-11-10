@@ -4,7 +4,7 @@ from careeros.db.models.agents import AgentAttempt, AgentDependency, AgentRun, M
 from careeros.db.models.applications import Application, ApplicationEvent, Document, DocumentClaim
 from careeros.db.models.approvals import Approval, FollowUp, OutreachContact, OutreachDraft
 from careeros.db.models.interviews import InterviewAnswer, InterviewPlan
-from careeros.db.models.jobs import Company, Job, JobSourceRecord, Source, SourceRun
+from careeros.db.models.jobs import Company, Job, JobRevision, JobSourceRecord, Source, SourceRun
 from careeros.db.models.market import MarketBrief
 from careeros.db.models.matching import JobLaneMatch, MatchOverride
 from careeros.db.models.operations import (
@@ -29,6 +29,7 @@ from careeros.db.models.referrals import ReferralPath
 from careeros.db.models.research import Evidence, ResearchItem
 
 __all__ = [
+    "JobRevision",
     "ReferralPath",
     "InterviewAnswer",
     "InterviewPlan",

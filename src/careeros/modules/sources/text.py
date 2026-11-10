@@ -86,6 +86,27 @@ def normalize_company(value: str) -> str:
     return re.sub(r"\s+", " ", key).strip()
 
 
+def safe_posting_url(value: str | None) -> str | None:
+    """Validate a source-supplied destination without rewriting or fetching it."""
+    if not value or len(value) > 1000 or any(c.isspace() or ord(c) < 32 for c in value):
+        return None
+    if "\\" in value:
+        return None
+    try:
+        parts = urlsplit(value)
+        if (
+            parts.scheme not in ("https", "http")
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+        ):
+            return None
+        _ = parts.port  # reject malformed or out-of-range ports
+    except ValueError:
+        return None
+    return value
+
+
 def canonicalize_url(url: str) -> str:
     parts = urlsplit(url.strip())
     query = [
@@ -95,7 +116,13 @@ def canonicalize_url(url: str) -> str:
     ]
     path = parts.path.rstrip("/") or "/"
     return urlunsplit(
-        (parts.scheme.lower() or "https", parts.netloc.lower(), path, urlencode(sorted(query)), "")
+        (
+            parts.scheme.lower() or "https",
+            parts.netloc.lower(),
+            path,
+            urlencode(sorted(query)),
+            parts.fragment,
+        )
     )
 
 

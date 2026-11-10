@@ -66,5 +66,6 @@ class WWRAdapter:
             employment_type=employment_from_text(raw.get("type")),
             description_text=html_to_text(raw.get("description")),
             posted_at=posted,
+            publication_kind="provider_reported",
             raw=raw,
         )

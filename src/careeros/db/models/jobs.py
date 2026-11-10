@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, synonym
 
 from careeros.common.clock import utcnow
 from careeros.common.ids import new_id
@@ -72,6 +72,7 @@ class Job(Base):
     __table_args__ = (
         Index("ix_job_dedupe_key", "dedupe_key"),
         Index("ix_job_first_seen_at", "first_seen_at"),
+        Index("ix_job_posted_at", "posted_at"),
         Index("ix_job_status", "status"),
         Index("ix_job_company_id", "company_id"),
         Index("ix_job_title", "title"),
@@ -95,6 +96,14 @@ class Job(Base):
     salary_currency: Mapped[str | None] = mapped_column(String(10))
     salary_interval: Mapped[str | None] = mapped_column(String(20))
     posted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Public terminology alias: one stored publication value, not competing dates.
+    published_at: Mapped[datetime | None] = synonym("posted_at")
+    publication_kind: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="unknown", server_default="unknown"
+    )
+    last_modified_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    fetched_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    material_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     first_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
@@ -123,5 +132,25 @@ class JobSourceRecord(Base):
     source_url: Mapped[str] = mapped_column(String(1000), nullable=False)
     raw_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     raw_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    publication_kind: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="unknown", server_default="unknown"
+    )
+    last_modified_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    fetched_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    is_listed: Mapped[bool | None] = mapped_column(Boolean)
     first_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+
+
+class JobRevision(Base):
+    """Append-only normalized change history; never replaces the raw current sighting."""
+
+    __tablename__ = "job_revision"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    job_id: Mapped[str] = mapped_column(ForeignKey("job.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("source.id", ondelete="CASCADE"))
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    change_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    previous_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    current_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

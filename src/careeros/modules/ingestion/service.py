@@ -21,7 +21,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
-from careeros.db.models import Company, Job, JobSourceRecord, Source, SourceRun
+from careeros.db.models import Company, Job, JobRevision, JobSourceRecord, Source, SourceRun
 from careeros.modules.events.service import record_event
 from careeros.modules.sources.adapters import ADAPTERS, InvalidPayloadError
 from careeros.modules.sources.http import (
@@ -61,7 +61,7 @@ def dedupe_key(company_id: str, title: str, location: str | None) -> str:
 
 # Bump when an adapter extracts more from the same raw payload, so stored jobs are re-normalised
 # on the next run (they count as "updated") instead of keeping stale parsed fields.
-NORMALIZER_VERSION = "2"
+NORMALIZER_VERSION = "3"
 
 
 def _raw_hash(raw: dict[str, Any]) -> str:
@@ -85,6 +85,60 @@ def _apply(job: Job, nj: NormalizedJob, company_id: str) -> None:
     job.salary_currency = nj.salary_currency
     job.salary_interval = nj.salary_interval
     job.posted_at = nj.posted_at
+    job.publication_kind = nj.publication_kind
+    job.last_modified_at = nj.last_modified_at
+
+
+def _snapshot(job: Job) -> dict[str, Any]:
+    return {
+        key: getattr(job, key)
+        for key in (
+            "title",
+            "company_id",
+            "location_text",
+            "workplace_type",
+            "employment_type",
+            "description_text",
+            "salary_min",
+            "salary_max",
+            "salary_currency",
+            "salary_interval",
+            "canonical_url",
+            "status",
+        )
+    }
+
+
+def _revision(
+    session: Session,
+    job: Job,
+    source: Source,
+    now: datetime,
+    kind: str,
+    before: dict[str, Any],
+    source_urls: tuple[str, str] | None = None,
+) -> None:
+    previous, current = dict(before), _snapshot(job)
+    if source_urls:
+        previous["source_url"], current["source_url"] = source_urls
+    session.add(
+        JobRevision(
+            job_id=job.id,
+            source_id=source.id,
+            observed_at=now,
+            change_type=kind,
+            previous_json=previous,
+            current_json=current,
+        )
+    )
+
+
+def _source_times(record: JobSourceRecord, nj: NormalizedJob, now: datetime) -> None:
+    record.published_at = nj.posted_at
+    record.publication_kind = nj.publication_kind
+    record.last_modified_at = nj.last_modified_at
+    record.fetched_at = now
+    record.is_listed = True
 
 
 def _reopen(job: Job) -> None:
@@ -108,16 +162,48 @@ def upsert_job(
     if record is not None:
         job = session.get(Job, record.job_id)
         assert job is not None
+        before = _snapshot(job)
+        previous_url = record.source_url
         record.last_seen_at = now
         job.last_seen_at = now
+        job.fetched_at = now
+        _source_times(record, nj, now)
+        was_closed = job.status == "closed"
         _reopen(job)
         if record.raw_hash == raw_hash:
+            if was_closed:
+                _revision(session, job, source, now, "reopened", before)
             return job, "unchanged"
         record.raw_json = nj.raw
         record.raw_hash = raw_hash
         record.source_url = nj.source_url
         _apply(job, nj, company.id)
-        return job, "updated"
+        # A stable provider ID may move to another exact employer posting URL.
+        if source.source_type not in ("remotive", "jobicy", "wwr", "manual"):
+            job.canonical_url = canonicalize_url(nj.source_url)
+        if before != _snapshot(job):
+            job.material_updated_at = now
+            _revision(
+                session,
+                job,
+                source,
+                now,
+                "reopened" if was_closed else "updated",
+                before,
+                (previous_url, nj.source_url),
+            )
+            return job, "updated"
+        if previous_url != nj.source_url:
+            _revision(
+                session,
+                job,
+                source,
+                now,
+                "source_url_changed",
+                before,
+                (previous_url, nj.source_url),
+            )
+        return job, "unchanged"
 
     canonical = canonicalize_url(nj.source_url)
     desc_hash = sha256(normalize_space(nj.description_text).lower())
@@ -146,10 +232,11 @@ def upsert_job(
     outcome: Outcome
     if match is not None:
         match.last_seen_at = now
+        match.fetched_at = now
         _reopen(match)
         job, outcome = match, "duplicate"
     else:
-        job = Job(canonical_url=canonical, first_seen_at=now, last_seen_at=now)
+        job = Job(canonical_url=canonical, first_seen_at=now, last_seen_at=now, fetched_at=now)
         _apply(job, nj, company.id)
         if possible is not None:
             job.possible_duplicate_of_id = possible.id
@@ -165,10 +252,17 @@ def upsert_job(
             source_url=nj.source_url,
             raw_json=nj.raw,
             raw_hash=raw_hash,
+            published_at=nj.posted_at,
+            publication_kind=nj.publication_kind,
+            last_modified_at=nj.last_modified_at,
+            fetched_at=now,
+            is_listed=True,
             first_seen_at=now,
             last_seen_at=now,
         )
     )
+    if possible is not None:
+        _revision(session, job, source, now, "possible_repost", _snapshot(possible))
     session.flush()
     return job, outcome
 
@@ -180,6 +274,7 @@ def _close_unseen(session: Session, source: Source, seen_ids: set[str], now: dat
     for rec in records:
         if rec.external_id in seen_ids:
             continue
+        rec.is_listed = False
         job = session.get(Job, rec.job_id)
         if job is None or job.status != "active":
             continue
@@ -188,10 +283,12 @@ def _close_unseen(session: Session, source: Source, seen_ids: set[str], now: dat
                 JobSourceRecord.job_id == job.id, JobSourceRecord.source_id != source.id
             )
         ).all()
-        if any(o.last_seen_at >= job.last_seen_at for o in others):
+        if any(o.is_listed is not False for o in others):
             continue
+        before = _snapshot(job)
         job.status = "closed"
         job.closed_at = now
+        _revision(session, job, source, now, "closed", before)
         closed += 1
     return closed
 
@@ -333,7 +430,7 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
 
     run.closed_count = (
         0
-        if source.source_type in ("remotive", "jobicy", "wwr", "manual")
+        if run.invalid_count or source.source_type in ("remotive", "jobicy", "wwr", "manual")
         else _close_unseen(session, source, seen, now)
     )
     run.status = "partial" if run.invalid_count else "success"

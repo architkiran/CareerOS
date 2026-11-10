@@ -57,6 +57,7 @@ class AshbyAdapter:
             salary_currency=cur,
             salary_interval=interval,
             posted_at=parse_iso(raw.get("publishedAt")),
+            publication_kind="last_publication",
             raw=raw,
         )
 

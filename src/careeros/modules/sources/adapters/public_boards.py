@@ -56,6 +56,7 @@ class RemotiveAdapter:
             employment_type=employment_from_text(raw.get("job_type")),
             description_text=html_to_text(raw.get("description")),
             posted_at=parse_iso(raw.get("publication_date")),
+            publication_kind="provider_reported",
             raw=raw,
         )
 
@@ -106,5 +107,6 @@ class JobicyAdapter:
             ),
             description_text=html_to_text(raw.get("jobDescription")),
             posted_at=parse_iso(raw.get("pubDate")),
+            publication_kind="provider_reported",
             raw=raw,
         )

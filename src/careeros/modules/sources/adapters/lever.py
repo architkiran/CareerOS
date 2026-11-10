@@ -40,6 +40,10 @@ class LeverAdapter:
             items.extend(batch)
             if len(batch) < PAGE_SIZE:
                 break
+        else:
+            raise InvalidPayloadError(
+                "Lever pagination reached its safe cap; existing jobs were preserved"
+            )
         return items, status
 
     def normalize(self, raw: dict[str, Any], company_name: str) -> NormalizedJob:
@@ -72,6 +76,7 @@ class LeverAdapter:
             salary_currency=str_or_none(salary.get("currency"), 10),
             salary_interval=str_or_none(salary.get("interval"), 20),
             posted_at=parse_epoch_ms(raw.get("createdAt")),
+            publication_kind="source_creation",
             raw=raw,
         )
 

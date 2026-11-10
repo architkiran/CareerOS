@@ -28,7 +28,7 @@ class JobImport(BaseModel):
         u = urlsplit(value)
         if u.scheme not in ("http", "https") or not u.hostname or u.username is not None:
             raise ValueError("Use an HTTP(S) job URL with no embedded credentials.")
-        return canonicalize_url(value)
+        return value
 
 
 def import_job(session: Session, data: JobImport) -> str:
@@ -53,14 +53,14 @@ def import_job(session: Session, data: JobImport) -> str:
         session.add(source)
         session.flush()
     normalized = NormalizedJob(
-        external_id=sha256(data.url),
+        external_id=sha256(canonicalize_url(data.url)),
         source_url=data.url,
         title=data.title,
         company_name=data.company,
         location_text=data.location or None,
         description_text=html_to_text(data.description),
         raw={
-            "id": sha256(data.url),
+            "id": sha256(canonicalize_url(data.url)),
             "user_supplied": True,
             "url": data.url,
             "description": data.description,

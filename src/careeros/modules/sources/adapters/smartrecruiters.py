@@ -108,5 +108,6 @@ class SmartRecruitersAdapter:
             department=str_or_none(department.get("label"), 200),
             description_text=text,
             posted_at=parse_iso(raw.get("releasedDate")),
+            publication_kind="provider_reported",
             raw=raw,
         )

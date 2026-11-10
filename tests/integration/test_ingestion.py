@@ -455,7 +455,9 @@ def test_parser_upgrade_renormalises_stored_jobs(
     assert same.updated == 0  # same payload, same parser: nothing to do
     monkeypatch.setattr(ingest, "NORMALIZER_VERSION", "test-next")
     [upgraded] = ingest.run_all(factory, fetcher)
-    assert upgraded.updated == 3 and upgraded.new == 0
+    assert (
+        upgraded.updated == 1 and upgraded.new == 0
+    )  # only the changed employment field is material
     with factory() as s:
         assert (
             s.scalars(select(Job).where(Job.title == "Data Analyst")).one().employment_type

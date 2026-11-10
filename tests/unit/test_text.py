@@ -27,9 +27,9 @@ def test_plain_text_with_angle_brackets_survives() -> None:
     assert "5 > 3" in html_to_text("Requirement: 5 > 3 years")
 
 
-def test_canonicalize_url_removes_tracking_and_fragment() -> None:
+def test_canonicalize_url_removes_tracking_but_preserves_job_fragment() -> None:
     url = "HTTPS://Boards.Greenhouse.io/acme/jobs/1/?gh_src=x&utm_source=li&b=2&a=1#apply"
-    assert canonicalize_url(url) == "https://boards.greenhouse.io/acme/jobs/1?a=1&b=2"
+    assert canonicalize_url(url) == "https://boards.greenhouse.io/acme/jobs/1?a=1&b=2#apply"
 
 
 def test_canonicalize_url_idempotent() -> None:

@@ -91,7 +91,13 @@ class GreenhouseAdapter:
         payload, status = fetcher.get_json(
             self.list_url(token), params={"content": "true"}, min_interval=min_interval
         )
-        return require_list(payload, "jobs"), status
+        items = require_list(payload, "jobs")
+        total = (payload.get("meta") or {}).get("total") if isinstance(payload, dict) else None
+        if isinstance(total, int) and total != len(items):
+            raise InvalidPayloadError(
+                "Incomplete Greenhouse snapshot; existing jobs were preserved"
+            )
+        return items, status
 
     def normalize(self, raw: dict[str, Any], company_name: str) -> NormalizedJob:
         if "id" not in raw or "title" not in raw or "absolute_url" not in raw:
@@ -123,5 +129,7 @@ class GreenhouseAdapter:
             description_text=html_to_text(raw.get("content")),
             # An update timestamp is not evidence of publication time.
             posted_at=parse_iso(raw.get("first_published")),
+            publication_kind="original",
+            last_modified_at=parse_iso(raw.get("updated_at")),
             raw=raw,
         )

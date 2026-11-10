@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from careeros.modules.sources.text import safe_posting_url
+
 WorkplaceType = Literal["remote", "hybrid", "onsite"]
 EmploymentType = Literal["full_time", "part_time", "contract", "internship", "temporary"]
 
@@ -24,16 +26,20 @@ class NormalizedJob(BaseModel):
     salary_currency: str | None = Field(default=None, max_length=10)
     salary_interval: str | None = Field(default=None, max_length=20)
     posted_at: datetime | None = None
+    publication_kind: Literal[
+        "original", "last_publication", "source_creation", "provider_reported", "unknown"
+    ] = "unknown"
+    last_modified_at: datetime | None = None
     raw: dict[str, Any]
 
     @field_validator("source_url")
     @classmethod
     def _http_only(cls, v: str) -> str:
-        if not v.startswith(("https://", "http://")):
-            raise ValueError("source_url must be http(s)")
+        if safe_posting_url(v) is None:
+            raise ValueError("source_url must be an HTTP(S) URL with a host and no credentials")
         return v
 
-    @field_validator("posted_at")
+    @field_validator("posted_at", "last_modified_at")
     @classmethod
     def _utc(cls, v: datetime | None) -> datetime | None:
         if v is None:
