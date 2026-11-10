@@ -1,4 +1,4 @@
-"""Application tracker. Submission is recorded only through the approval flow (Phase 7)."""
+"""Application records: user-reported manual applications and optional package approvals."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -151,3 +151,47 @@ def history(session: Session, application_id: str) -> list[ApplicationEvent]:
         .order_by(ApplicationEvent.occurred_at.desc())
     )
     return list(session.scalars(stmt))
+
+
+def record_manual_application(
+    session: Session,
+    job_id: str,
+    *,
+    confirmed: bool,
+    applied_at: datetime | None = None,
+    notes: str | None = None,
+) -> Application:
+    """Record an external action the user says they already completed. Never submits."""
+    if not confirmed:
+        raise ApplicationError("Confirm that you already applied on the employer’s website.")
+    when = applied_at or utcnow()
+    if when.tzinfo is None or when > utcnow():
+        raise ApplicationError("Application date must be timezone-aware and not in the future.")
+    if notes and len(notes) > 3000:
+        raise ApplicationError("Application notes must be 3000 characters or fewer.")
+    app = start_application(session, job_id)
+    # Double clicks and retries preserve the original user record and later outcomes.
+    if app.submitted_at is not None:
+        return app
+    if app.status not in ("preparing", "ready", "withdrawn"):
+        raise ApplicationError("This application already has an outcome; review its record.")
+    previous = app.status
+    app.status, app.submitted_at = "submitted", when
+    app.outcome = None
+    app.notes = notes if notes is not None else app.notes
+    log(
+        session,
+        app,
+        "status:submitted",
+        "User confirmed a manually completed application.",
+        source="user_manual",
+        occurred_at=when,
+    )
+    record_event(
+        session,
+        "application.manually_recorded",
+        f"User recorded {previous} → applied",
+        entity_type="application",
+        entity_id=app.id,
+    )
+    return app

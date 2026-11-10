@@ -231,7 +231,9 @@ def compute(session: Session) -> Analytics:
     )
 
     to_submit = [
-        (a.submitted_at - a.created_at).total_seconds() / 86400 for a in apps if a.submitted_at
+        (a.submitted_at - a.created_at).total_seconds() / 86400
+        for a in apps
+        if a.submitted_at and a.submitted_at >= a.created_at
     ]
     first_response: list[float] = []
     for a in apps:

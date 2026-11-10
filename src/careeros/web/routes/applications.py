@@ -1,6 +1,8 @@
 import json
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Annotated, Any, cast
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
@@ -306,3 +308,32 @@ def document_preview(doc_id: str, request: Request, session: SessionDep) -> File
     except docs.DocumentError as exc:
         raise HTTPException(409, str(exc)) from exc
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/jobs/{job_id}/record-applied")
+async def record_applied(job_id: str, request: Request, session: SessionDep) -> Response:
+    from careeros.common.clock import utcnow
+
+    f = await request.form()
+    try:
+        raw = forms.text(f, "application_date")
+        zone = ZoneInfo(request.app.state.settings.display_timezone)
+        day = date.fromisoformat(raw) if raw else None
+        if day and day > utcnow().astimezone(zone).date():
+            raise ValueError("Application date cannot be in the future.")
+        when = datetime.combine(day, time.min, tzinfo=zone) if day else None
+        app = apps.record_manual_application(
+            session,
+            job_id,
+            confirmed=forms.checkbox(f, "confirmed"),
+            applied_at=when,
+            notes=forms.text(f, "notes"),
+        )
+    except LookupError as exc:
+        session.rollback()
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        session.rollback()
+        raise HTTPException(422, str(exc)) from exc
+    session.commit()
+    return RedirectResponse(f"/applications/{app.id}?recorded=1", status_code=303)

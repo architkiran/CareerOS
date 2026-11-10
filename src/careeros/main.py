@@ -65,6 +65,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         local_model = await asyncio.to_thread(local_runtime.start, settings)
         worker = None
         if settings.worker_enabled:
+            from careeros.modules.system.settings_store import get_setting, set_setting
+
+            with app.state.session_factory() as session:
+                if get_setting(session, "watch.enabled") is None:
+                    set_setting(session, "watch.enabled", settings.discovery_monitor_enabled)
+                    session.commit()
             from careeros.modules.scheduler.worker import Worker
 
             worker = Worker(
