@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
@@ -69,6 +70,28 @@ def candidate_rules(session: Session) -> CandidateRules:
     )
 
 
+def _upsert_verdicts(session: Session, rows: list[dict[str, Any]]) -> None:
+    """Write verdicts so that two evaluators (CLI and worker) can overlap safely.
+
+    A plain insert raced: both saw "no verdict yet" and the second insert broke the primary
+    key. The upsert makes the last evaluation win, which is correct because both are
+    computed from the same stored job.
+    """
+    if not rows:
+        return
+    statement = sqlite_insert(JobVerdict).values(rows)
+    updates = {
+        c.name: statement.excluded[c.name]
+        for c in JobVerdict.__table__.columns
+        if c.name != "job_id"
+    }
+    session.execute(statement.on_conflict_do_update(index_elements=["job_id"], set_=updates))
+    for loaded in list(session.identity_map.values()):
+        if isinstance(loaded, JobVerdict):
+            session.expire(loaded)  # the row changed underneath any object read earlier
+    rows.clear()
+
+
 @dataclass
 class EvaluationSummary:
     evaluated: int = 0
@@ -99,7 +122,7 @@ def evaluate_all(
         sightings[job_id].append((kind, url, raw if isinstance(raw, dict) else {}, seen))
     companies = dict(session.execute(select(Company.id, Company.canonical_name)).all())
     lca_cache: dict[str, LcaSummary | None] = {}
-    existing = {v.job_id: v for v in session.scalars(select(JobVerdict))}
+    pending: list[dict[str, Any]] = []
     jobs = select(Job) if company_id is None else select(Job).where(Job.company_id == company_id)
     for job in session.scalars(jobs):
         company = companies.get(job.company_id, "")
@@ -136,34 +159,37 @@ def evaluate_all(
             on_new_grad_list=feed is not None,
         )
         result = evaluate(facts, rules, sponsorship, now)
-        row = existing.get(job.id)
-        if row is None:
-            row = JobVerdict(job_id=job.id)
-            session.add(row)
-        row.verdict = result.verdict
-        row.sponsorship_level = result.sponsorship_level
-        row.fit = result.fit
-        row.role_family = result.role_family
-        row.reason = result.reason
-        row.next_action = result.next_action
-        row.checks_json = result.checks_json()
-        row.sponsorship_json = sponsorship.to_dict()
-        row.fit_json = {
-            "reasons": list(result.fit_reasons),
-            "gaps": list(result.gaps),
-            "flags": list(result.flags),
-            "family_label": result.role_family_label,
-        }
-        row.rank = result.rank
-        row.engine_version = ENGINE_VERSION
-        row.evaluated_at = now
+        pending.append(
+            {
+                "job_id": job.id,
+                "verdict": result.verdict,
+                "sponsorship_level": result.sponsorship_level,
+                "fit": result.fit,
+                "role_family": result.role_family,
+                "reason": result.reason,
+                "next_action": result.next_action,
+                "checks_json": result.checks_json(),
+                "sponsorship_json": sponsorship.to_dict(),
+                "fit_json": {
+                    "reasons": list(result.fit_reasons),
+                    "gaps": list(result.gaps),
+                    "flags": list(result.flags),
+                    "family_label": result.role_family_label,
+                },
+                "rank": result.rank,
+                "engine_version": ENGINE_VERSION,
+                "evaluated_at": now,
+            }
+        )
+        if len(pending) >= 200:
+            _upsert_verdicts(session, pending)
         summary.evaluated += 1
         summary.by_verdict[result.verdict] += 1
         if result.verdict != "rejected":
             summary.by_level[result.sponsorship_level] += 1
         else:
             summary.rejected_reasons[result.reason.split(":")[0]] += 1
-    session.flush()
+    _upsert_verdicts(session, pending)
     return summary
 
 

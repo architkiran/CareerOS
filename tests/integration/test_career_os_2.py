@@ -235,3 +235,16 @@ def test_confirming_a_possible_legal_entity_raises_evidence_to_level_b(session, 
     assert "You confirmed" in verdict.sponsorship_json["items"][0]["claim"]
     page = client.get("/today").text
     assert "Prepare application" in page and "Confirm same employer" not in page
+
+
+def test_overlapping_evaluators_do_not_collide_on_the_same_job(session, app):
+    """The CLI and the background worker may evaluate the same jobs at the same moment."""
+    _profile(session)
+    run_source(session, _source(session, "greenhouse", "acmefinancial", "Acme Financial"), Feeds())
+    session.commit()
+    with app.state.session_factory() as other:
+        eligibility.evaluate_all(other)  # second evaluator has written but not yet committed
+        other.commit()
+        eligibility.evaluate_all(session)  # first evaluator never saw that row being added
+        session.commit()
+    assert len(session.scalars(select(JobVerdict)).all()) == 1

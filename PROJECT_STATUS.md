@@ -19,7 +19,7 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
 - **Always current**: the worker re-evaluates verdicts and rewrites the digest after every
   scheduled discovery.
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 813 tests pass; ruff and strict mypy clean.
+- 814 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 
