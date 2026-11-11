@@ -29,7 +29,8 @@ SessionDep = Annotated[Session, Depends(get_session)]
 def _return(value: str | None) -> str:
     if value and len(value) <= 2000:
         parsed = urlsplit(value)
-        if not parsed.scheme and not parsed.netloc and parsed.path in ("/new-jobs", "/saved-jobs"):
+        allowed = ("/new-jobs", "/saved-jobs", "/today")
+        if not parsed.scheme and not parsed.netloc and parsed.path in allowed:
             return value
     return "/new-jobs"
 

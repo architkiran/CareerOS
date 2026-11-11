@@ -19,3 +19,7 @@ config/sources.toml
 backups/
 
 .tools/
+
+# Local mission brief (personal context; the repository is public)
+CAREER_OS_MASTER_MISSION_SPEC.md
+newchanges.md

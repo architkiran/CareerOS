@@ -51,7 +51,7 @@ class FetchPolicy:
     backoff_base_seconds: float = 1.0
     backoff_max_seconds: float = 30.0
     max_retry_after_seconds: float = 60.0
-    max_response_bytes: int = 15_000_000
+    max_response_bytes: int = 40_000_000
 
 
 @dataclass
@@ -103,10 +103,15 @@ class Fetcher:
         self,
         url: str,
         params: dict[str, Any] | None,
+        json_body: dict[str, Any] | None = None,
     ) -> tuple[int, httpx.Headers, bytes]:
         assert self.client is not None
         with self.client.stream(
-            "GET", url, params=params, timeout=self.policy.timeout_seconds
+            "GET" if json_body is None else "POST",
+            url,
+            params=params,
+            json=json_body,
+            timeout=self.policy.timeout_seconds,
         ) as response:
             status, headers = response.status_code, response.headers
             # Error bodies are irrelevant to retry decisions and may be unbounded/untrusted.
@@ -129,6 +134,12 @@ class Fetcher:
     ) -> tuple[Any, int]:
         return self._get(url, params=params, min_interval=min_interval)
 
+    def post_json(
+        self, url: str, body: dict[str, Any], *, min_interval: float = 2.0
+    ) -> tuple[Any, int]:
+        """Read-only JSON query sent as POST (some public job-search APIs require it)."""
+        return self._get(url, min_interval=min_interval, json_body=body)
+
     def get_text(self, url: str, *, min_interval: float = 2.0) -> tuple[str, int]:
         value, status = self._get(url, min_interval=min_interval, as_text=True)
         return str(value), status
@@ -140,6 +151,7 @@ class Fetcher:
         params: dict[str, Any] | None = None,
         min_interval: float = 2.0,
         as_text: bool = False,
+        json_body: dict[str, Any] | None = None,
     ) -> tuple[Any, int]:
         """Bounded GET with the same retries, rate limits and access gates for text and JSON."""
         assert self.client is not None
@@ -148,7 +160,7 @@ class Fetcher:
         for attempt in range(1, self.policy.max_attempts + 1):
             self._respect_rate_limit(host, min_interval)
             try:
-                status, headers, content = self._read_response(url, params)
+                status, headers, content = self._read_response(url, params, json_body)
             except httpx.TimeoutException:
                 last_error = FetchError(f"Timed out after {self.policy.timeout_seconds}s")
                 retry_after = None

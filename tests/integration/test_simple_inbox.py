@@ -18,7 +18,7 @@ def test_default_landing_and_exactly_three_primary_screens(client: TestClient) -
     assert result.status_code == 303 and result.headers["location"] == "/new-jobs"
     page = client.get("/new-jobs").text
     nav = page.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert nav.count("<a ") == 3
+    assert nav.count("<a ") == 4  # Today + the three core screens
     assert all(label in nav for label in ("New Jobs", "Saved Jobs", "Applications"))
     assert "Agent activity" not in nav and "Resume studio" not in nav
     assert "Advanced / Settings" in page and "data-core-inbox" in page

@@ -36,6 +36,7 @@ from careeros.web.routes import (
     resumes,
     sources,
     system,
+    today,
     watch,
     workbench,
 )
@@ -125,6 +126,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
     app.middleware("http")(csrf_middleware)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.include_router(today.router)
     app.include_router(inbox.router)
     app.include_router(intake.router)
     app.include_router(workbench.router)
@@ -297,6 +299,140 @@ def _ingest(settings: Settings, args: argparse.Namespace) -> int:
     return 1 if all(r.status == "failed" for r in results) else 0
 
 
+def _discover(settings: Settings, args: argparse.Namespace) -> int:
+    """Fetch enabled sources, evaluate every job against the hard rules, write the digest."""
+    from careeros.common.clock import utcnow
+    from careeros.modules.eligibility import service as eligibility
+    from careeros.modules.ingestion.service import run_all
+    from careeros.modules.sources import registry
+    from careeros.modules.sources.http import Fetcher
+
+    if not _require_current_schema(settings):
+        return 1
+    factory = _session_factory(settings)
+    watchlist = Path(args.file)
+    if watchlist.exists():
+        with factory() as session:
+            added = registry.sync_watchlist(session, registry.load_watchlist(watchlist)).added
+            session.commit()
+        if added:
+            print(f"Added {added} new sources from {watchlist}.")
+    if not args.no_fetch:
+        fetcher = Fetcher()
+        try:
+            ids = None
+            if args.types:
+                from sqlalchemy import select
+
+                from careeros.db.models import Source
+
+                wanted = [t.strip() for t in args.types.split(",") if t.strip()]
+                with factory() as session:
+                    ids = list(
+                        session.scalars(select(Source.id).where(Source.source_type.in_(wanted)))
+                    )
+            results = run_all(factory, fetcher, source_ids=ids)
+        finally:
+            fetcher.close()
+        failed = [r for r in results if r.status == "failed"]
+        new = sum(r.new for r in results)
+        print(f"Sources run: {len(results)}; failed: {len(failed)}; new postings: {new}")
+        for r in failed[:15]:
+            print(f"  FAILED {r.source_name}: {r.error}")
+    with factory() as session:
+        summary = eligibility.evaluate_all(session)
+        session.commit()
+        digest = eligibility.build_digest(session)
+        text = eligibility.digest_markdown(digest)
+    settings.export_dir.mkdir(parents=True, exist_ok=True)
+    out = settings.export_dir / f"digest-{utcnow():%Y-%m-%d}.md"
+    out.write_text(text)
+    print(
+        f"Evaluated {summary.evaluated} jobs: "
+        + ", ".join(f"{k} {v}" for k, v in sorted(summary.by_verdict.items()))
+    )
+    print(f"Digest: {out}  |  Open http://127.0.0.1:{settings.app_port}/today")
+    return 0
+
+
+def _lca(settings: Settings, args: argparse.Namespace) -> int:
+    from careeros.modules.sponsorship import lca
+
+    if not _require_current_schema(settings):
+        return 1
+    path = Path(args.file)
+    if not path.exists():
+        print(f"File not found: {path}", file=sys.stderr)
+        return 1
+    with _session_factory(settings)() as session:
+        try:
+            count = lca.import_file(session, path, args.fiscal_year)
+        except lca.LcaImportError as exc:
+            print(f"Import failed: {exc}", file=sys.stderr)
+            return 1
+        session.commit()
+    print(f"Stored certified-LCA history for {count} employers (FY{args.fiscal_year}).")
+    print("Run `careeros discover --no-fetch` to re-evaluate jobs with this evidence.")
+    return 0
+
+
+def _harvest(settings: Settings, args: argparse.Namespace) -> int:
+    """Write a watchlist of official ATS boards read out of real posting URLs."""
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from careeros.db.models import Company, Job
+    from careeros.modules.eligibility.engine import classify_role
+    from careeros.modules.sources import harvest
+    from careeros.modules.sources.adapters.community import FEEDS
+    from careeros.modules.sources.http import Fetcher
+
+    pairs: list[tuple[str, str]] = []
+    relevant: list[tuple[str, str]] = []
+    fetcher = Fetcher()
+    try:
+        for url in FEEDS.values():
+            payload, _ = fetcher.get_json(url)
+            for i in payload:
+                if not isinstance(i, dict) or not i.get("active"):
+                    continue
+                pair = (str(i.get("url", "")), str(i.get("company_name", "")))
+                title = str(i.get("title", ""))
+                # Employers already posting roles in the target families come first.
+                (
+                    relevant if classify_role(title)[0] or "analyst" in title.lower() else pairs
+                ).append(pair)
+    finally:
+        fetcher.close()
+    if _require_current_schema(settings):
+        with _session_factory(settings)() as session:
+            pairs += [
+                (url, name)
+                for url, name in session.execute(
+                    select(Job.canonical_url, Company.canonical_name).join(
+                        Company, Company.id == Job.company_id
+                    )
+                )
+            ]
+    boards = harvest.harvest(relevant)
+    known = {(b.type, b.token) for b in boards}
+    boards += [b for b in harvest.harvest(pairs) if (b.type, b.token) not in known]
+    boards = boards[: args.max]
+    header = (
+        f"Official ATS boards read from live employer posting URLs on {date.today()}.\n"
+        "Generated by `careeros sources harvest`; tokens are never guessed.\n"
+        "A board that later returns 404 is disabled automatically."
+    )
+    Path(args.write).write_text(harvest.to_toml(boards, header))
+    kinds: dict[str, int] = {}
+    for b in boards:
+        kinds[b.type] = kinds.get(b.type, 0) + 1
+    print(f"Wrote {len(boards)} boards to {args.write}: {kinds}")
+    print(f"Next: careeros discover --file {args.write}")
+    return 0
+
+
 def _backup(settings: Settings, args: argparse.Namespace) -> int:
     from careeros.modules.backup import service as backup
 
@@ -351,6 +487,18 @@ def run(argv: list[str] | None = None) -> None:
     sync = src_sub.add_parser("sync", help="Add sources from a TOML watchlist")
     sync.add_argument("--file", default="config/sources.toml")
     src_sub.add_parser("list", help="List configured sources")
+    hv = src_sub.add_parser("harvest", help="Build a watchlist from real posting URLs")
+    hv.add_argument("--write", default="config/sources.discovered.toml")
+    hv.add_argument("--max", type=int, default=250)
+    disc = sub.add_parser("discover", help="Fetch, evaluate eligibility and write the digest")
+    disc.add_argument("--file", default="config/sources.toml")
+    disc.add_argument("--no-fetch", action="store_true", help="Only re-evaluate stored jobs")
+    disc.add_argument("--types", help="Only these source types, e.g. community,greenhouse")
+    lca_p = sub.add_parser("lca", help="Import US DOL LCA disclosure data")
+    lca_sub = lca_p.add_subparsers(dest="lca_command", required=True)
+    lca_imp = lca_sub.add_parser("import", help="Aggregate an LCA disclosure .xlsx or .csv")
+    lca_imp.add_argument("file")
+    lca_imp.add_argument("--fiscal-year", type=int, required=True)
     bk = sub.add_parser("backup", help="Create a verified backup (or --verify one)")
     bk.add_argument("--dest", help="Folder for the archive (default BACKUP_DIR)")
     bk.add_argument("--verify", metavar="ARCHIVE", help="Only verify an existing backup")
@@ -364,8 +512,14 @@ def run(argv: list[str] | None = None) -> None:
     configure_logging(settings.log_level)
     if args.command == "migrate":
         _migrate(settings)
+    elif args.command == "sources" and args.sources_command == "harvest":
+        raise SystemExit(_harvest(settings, args))
     elif args.command == "sources":
         raise SystemExit(_sources(settings, args))
+    elif args.command == "discover":
+        raise SystemExit(_discover(settings, args))
+    elif args.command == "lca":
+        raise SystemExit(_lca(settings, args))
     elif args.command == "ingest":
         raise SystemExit(_ingest(settings, args))
     elif args.command == "backup":

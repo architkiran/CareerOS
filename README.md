@@ -18,6 +18,20 @@ Fresh clones can use the setup instructions below (CLI default port 8000).
 [Implemented behavior, verification and limits](docs/SIMPLIFICATION_IMPLEMENTATION.md)
 · [Pre-change audit](docs/SIMPLIFICATION_AUDIT.md)
 
+## Career OS 2.0 quick start (discovery and eligibility)
+
+```bash
+./Run\ Discovery.command          # fast pass: community list + Greenhouse/Lever/Ashby
+./Run\ Discovery.command all      # also ~120 Workday career sites (slow first run)
+careeros lca import ~/Downloads/LCA_Disclosure_Data_FY2026_Q3.xlsx --fiscal-year 2026
+careeros discover --no-fetch      # re-evaluate stored jobs after a rule or evidence change
+```
+
+Then start CareerOS and open **Today** (`/today`): eligible roles, the sponsorship research
+queue, and roles needing review, each with its checklist, evidence and original posting link.
+Read `MISSION.md`, `PROJECT_STATUS.md`, `docs/ELIGIBILITY_RULES.md`,
+`docs/SPONSORSHIP_EVIDENCE.md` and `docs/SOURCE_CATALOG.md`.
+
 ## Non-negotiable principles
 
 1. **$0-first:** Core workflows must work without paid APIs, paid hosting, Redis, or paid data providers.

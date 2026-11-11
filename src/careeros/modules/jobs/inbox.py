@@ -16,7 +16,7 @@ from careeros.modules.sources.monitoring import coverage, discovery_busy, interv
 from careeros.modules.sources.text import safe_posting_url
 from careeros.modules.system.settings_store import get_setting, set_setting
 
-AGGREGATORS = {"remotive", "jobicy", "wwr"}
+AGGREGATORS = {"remotive", "jobicy", "wwr", "community"}
 PROVIDER_HOSTS = ("greenhouse.io", "lever.co", "ashbyhq.com", "smartrecruiters.com")
 
 

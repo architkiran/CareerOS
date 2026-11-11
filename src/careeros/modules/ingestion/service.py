@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from careeros.common.clock import utcnow
 from careeros.db.models import Company, Job, JobRevision, JobSourceRecord, Source, SourceRun
+from careeros.db.models.jobs import AGGREGATOR_TYPES, PARTIAL_SNAPSHOT_TYPES
 from careeros.modules.events.service import record_event
 from careeros.modules.sources.adapters import ADAPTERS, InvalidPayloadError
 from careeros.modules.sources.http import (
@@ -179,7 +180,7 @@ def upsert_job(
         record.source_url = nj.source_url
         _apply(job, nj, company.id)
         # A stable provider ID may move to another exact employer posting URL.
-        if source.source_type not in ("remotive", "jobicy", "wwr", "manual"):
+        if source.source_type not in AGGREGATOR_TYPES:
             job.canonical_url = canonicalize_url(nj.source_url)
         if before != _snapshot(job):
             job.sponsorship_checked_at = None
@@ -235,6 +236,14 @@ def upsert_job(
         match.last_seen_at = now
         match.fetched_at = now
         _reopen(match)
+        if not match.description_text and nj.description_text:
+            # A third-party stub had no posting text; the fuller sighting supplies it.
+            before = _snapshot(match)
+            _apply(match, nj, company.id)
+            if source.source_type not in AGGREGATOR_TYPES:
+                match.canonical_url = canonical
+            match.material_updated_at = now
+            _revision(session, match, source, now, "updated", before)
         job, outcome = match, "duplicate"
     else:
         job = Job(canonical_url=canonical, first_seen_at=now, last_seen_at=now, fetched_at=now)
@@ -268,6 +277,22 @@ def upsert_job(
     return job, outcome
 
 
+def _touch_seen(session: Session, source: Source, external_id: str, now: datetime) -> None:
+    record = session.scalars(
+        select(JobSourceRecord).where(
+            JobSourceRecord.source_id == source.id, JobSourceRecord.external_id == external_id
+        )
+    ).first()
+    if record is None:
+        return
+    record.last_seen_at = now
+    record.is_listed = True
+    job = session.get(Job, record.job_id)
+    if job is not None:
+        job.last_seen_at = now
+        _reopen(job)
+
+
 def _close_unseen(session: Session, source: Source, seen_ids: set[str], now: datetime) -> int:
     """Close jobs this source no longer lists, unless another source still lists them."""
     closed = 0
@@ -285,7 +310,7 @@ def _close_unseen(session: Session, source: Source, seen_ids: set[str], now: dat
             .where(
                 JobSourceRecord.job_id == job.id,
                 JobSourceRecord.source_id != source.id,
-                Source.source_type.not_in(("remotive", "jobicy", "wwr", "manual")),
+                Source.source_type.not_in(AGGREGATOR_TYPES),
             )
         ).all()
         if any(o.is_listed is not False for o in others):
@@ -343,9 +368,14 @@ def _fail(session: Session, source: Source, run: SourceRun, exc: FetchError, now
 def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary:
     """Fetch, normalize and persist one source. Commits; never raises fetch errors."""
     started = utcnow()
-    minimum_minutes = {"remotive": 360, "jobicy": 60, "smartrecruiters": 60, "wwr": 60}.get(
-        source.source_type
-    )
+    minimum_minutes = {
+        "remotive": 360,
+        "jobicy": 60,
+        "smartrecruiters": 60,
+        "wwr": 60,
+        "community": 120,
+        "workday": 360,
+    }.get(source.source_type)
     if minimum_minutes:
         previous = session.scalars(
             select(SourceRun)
@@ -378,9 +408,22 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
     session.commit()
 
     try:
-        raw_items, status = adapter.fetch_raw(
-            fetcher, source.board_token, source.rate_limit_seconds
-        )
+        incremental = getattr(adapter, "fetch_raw_incremental", None)
+        if incremental is not None:
+            known = set(
+                session.scalars(
+                    select(JobSourceRecord.external_id).where(
+                        JobSourceRecord.source_id == source.id
+                    )
+                )
+            )
+            raw_items, status = incremental(
+                fetcher, source.board_token, source.rate_limit_seconds, known
+            )
+        else:
+            raw_items, status = adapter.fetch_raw(
+                fetcher, source.board_token, source.rate_limit_seconds
+            )
     except (FetchError, InvalidPayloadError) as exc:
         err = exc if isinstance(exc, FetchError) else FetchError(str(exc))
         _fail(session, source, run, err, utcnow())
@@ -404,6 +447,10 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
         raw_id = raw.get("id")
         if raw_id is not None:
             seen.add(str(raw_id))
+        if raw.get("_seen_only"):
+            # Already stored and still listed: refresh the sighting without refetching detail.
+            _touch_seen(session, source, str(raw_id), now)
+            continue
         try:
             nj = adapter.normalize(raw, company_name)
         except (InvalidPayloadError, ValidationError, TypeError, ValueError) as exc:
@@ -437,7 +484,7 @@ def run_source(session: Session, source: Source, fetcher: Fetcher) -> RunSummary
 
     run.closed_count = (
         0
-        if run.invalid_count or source.source_type in ("remotive", "jobicy", "wwr", "manual")
+        if run.invalid_count or source.source_type in PARTIAL_SNAPSHOT_TYPES
         else _close_unseen(session, source, seen, now)
     )
     run.status = "partial" if run.invalid_count else "success"

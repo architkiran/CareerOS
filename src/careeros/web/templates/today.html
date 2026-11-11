@@ -1,0 +1,76 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf with context %}
+{% block title %}Today · CareerOS{% endblock %}
+{% macro age(c) %}{% if c.posted_at %}Published {{ [(now - c.posted_at).days, 0]|max }}d ago{% else %}First seen {{ [(now - c.first_seen_at).days, 0]|max }}d ago · publication date unknown{% endif %}{% endmacro %}
+{% macro card(c) %}
+<article class="os2-card" data-testid="os2-card">
+  <div class="os2-card-head">
+    <div class="os2-card-title">
+      <h3>{{ c.title }}</h3>
+      <p>{{ c.company }} · {{ c.location or 'Location not stated' }}</p>
+    </div>
+    <a class="os2-open" href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Original posting ↗</a>
+  </div>
+  <div class="os2-meta">
+    <span class="os2-level os2-level-{{ c.level }}" title="{{ c.level_label }}">Sponsorship {{ c.level }}</span>
+    {% if c.fit %}<span class="os2-tag os2-fit-{{ c.fit|lower }}">{{ c.fit }} fit</span>{% endif %}
+    {% if c.family %}<span class="os2-tag">{{ c.family }}</span>{% endif %}
+    <span class="os2-tag">{{ age(c) }}</span>
+    <span class="os2-tag">{{ 'Employer source' if c.official else 'Third-party list only' }}</span>
+  </div>
+  <p class="os2-level-line"><strong>{{ c.level_label }}.</strong> {{ c.sponsorship.summary }}</p>
+  <p class="os2-next"><span>Next</span>{{ c.next_action }}</p>
+  <details class="os2-evidence">
+    <summary>Eligibility checklist and evidence</summary>
+    <ul class="os2-checks">
+      {% for k in c.checks %}<li class="os2-check os2-check-{{ k.decision }}"><span class="os2-check-state">{{ {'pass':'Pass','assumed':'Assumed','unknown':'Unknown','fail':'Fail'}[k.decision] }}</span><div><strong>{{ k.label }}</strong><p>{{ k.reason }}</p>{% if k.evidence %}<blockquote>{{ k.evidence }}</blockquote>{% endif %}</div></li>{% endfor %}
+    </ul>
+    {% if c.sponsorship['items'] %}<h4>Sponsorship evidence</h4><ul class="os2-list">{% for i in c.sponsorship['items'] %}<li><strong>{{ i.source_name }}</strong> ({{ i.scope|replace('_',' ') }} level{% if i.observed_at %}, {{ i.observed_at }}{% endif %}): {{ i.claim }}{% if i.quote %}<blockquote>{{ i.quote }}</blockquote>{% endif %}{% if i.source_url %} <a href="{{ i.source_url }}" target="_blank" rel="noopener noreferrer">source ↗</a>{% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if c.sponsorship.unknowns %}<h4>Still unknown</h4><ul class="os2-list">{% for u in c.sponsorship.unknowns %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
+    {% if c.sponsorship.recruiter_question %}<h4>Ask the recruiter</h4><p class="os2-quote">{{ c.sponsorship.recruiter_question }}</p>{% endif %}
+    {% if c.fit_reasons %}<h4>Why it fits</h4><ul class="os2-list">{% for r in c.fit_reasons %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+    {% if c.gaps or c.flags %}<h4>Gaps and notes</h4><ul class="os2-list">{% for r in c.gaps + c.flags %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+    <p class="os2-fine">{{ c.sponsorship.disclaimer }} Fit is a transparent heuristic, not a chance of being hired.</p>
+  </details>
+  <div class="os2-actions">
+    {% if c.saved_stage %}<span class="os2-saved">Saved</span>{% else %}<form method="post" action="/inbox/jobs/{{ c.job_id }}/decision">{{ csrf() }}<input type="hidden" name="action" value="save"><input type="hidden" name="return_to" value="/today"><button class="os2-btn">Save</button></form>{% endif %}
+    <form method="post" action="/inbox/jobs/{{ c.job_id }}/decision">{{ csrf() }}<input type="hidden" name="action" value="dismiss"><input type="hidden" name="return_to" value="/today"><button class="os2-btn os2-btn-quiet">Dismiss</button></form>
+    <a class="os2-btn os2-btn-quiet" href="/jobs/{{ c.job_id }}">Details and apply tracking</a>
+  </div>
+</article>
+{% endmacro %}
+{% block content %}
+<header class="os2-header">
+  <p class="eyebrow">Career OS 2.0 · {{ now|localtime }}</p>
+  <h1>Today</h1>
+  <p>Every role below passed the hard rules it could be checked against. Rejected roles are kept for audit, not shown.</p>
+</header>
+<section class="os2-stats" aria-label="Summary">
+  <div><strong>{{ d.eligible|length }}</strong><span>Eligible · sponsorship A or B</span></div>
+  <div><strong>{{ d.research|length }}</strong><span>Sponsorship research queue</span></div>
+  <div><strong>{{ d.review|length }}</strong><span>Need your review</span></div>
+  <div><strong>{{ d.counts.get('rejected', 0) }}</strong><span>Rejected, kept for audit</span></div>
+  <div><strong>{{ d.sources_ok }}</strong><span>Sources healthy{% if d.sources_failing %} · {{ d.sources_failing|length }} failing{% endif %}</span></div>
+</section>
+{% if not d.lca_loaded %}<p class="os2-notice">LCA history is not imported yet, so no employer can reach Level B and the Eligible list will stay short. Download the latest LCA disclosure file from the US Department of Labor and run <code>careeros lca import FILE --fiscal-year 2026</code>.</p>{% endif %}
+{% if not d.sponsorship_confirmed %}<p class="os2-notice">Your sponsorship need is not confirmed in the profile, so every role is held for review. Confirm it under <a href="/profile">Verified profile</a>.</p>{% endif %}
+{% if d.sources_failing %}<p class="os2-notice">Sources failing right now: {{ d.sources_failing|join(', ') }}. Their roles may be stale. <a href="/sources">Source health</a></p>{% endif %}
+<nav class="os2-filter" aria-label="Role family">
+  <a href="/today" class="{{ 'on' if not family }}">All families</a>
+  {% for key,label in families %}<a href="/today?family={{ key }}" class="{{ 'on' if family == key }}">{{ label }}</a>{% endfor %}
+</nav>
+<section class="os2-section">
+  <h2>Eligible <span>{{ d.eligible|length }}</span></h2>
+  {% if d.eligible %}{% for c in d.eligible %}{{ card(c) }}{% endfor %}{% else %}<p class="os2-empty">No verified eligible roles right now. Nothing has been padded in. The research queue below holds roles whose only open question is sponsorship.</p>{% endif %}
+</section>
+<section class="os2-section">
+  <h2>Sponsorship research queue <span>{{ d.research|length }}</span></h2>
+  <p class="os2-section-note">These pass every other hard rule, but sponsorship evidence is Level C or U. They are not verified matches. Ask before you invest in an application.</p>
+  {% if d.research %}{% for c in d.research %}{{ card(c) }}{% endfor %}{% else %}<p class="os2-empty">Nothing waiting on sponsorship research.</p>{% endif %}
+</section>
+<section class="os2-section">
+  <h2>Needs your review <span>{{ d.review|length }}</span></h2>
+  <p class="os2-section-note">A hard criterion could not be read from the source. Open the posting to settle it.</p>
+  {% if d.review %}{% for c in d.review %}{{ card(c) }}{% endfor %}{% else %}<p class="os2-empty">Nothing needs review.</p>{% endif %}
+</section>
+{% if d.rejected_reasons %}<section class="os2-section"><h2>Why roles were rejected</h2><ul class="os2-reasons">{% for reason,n in d.rejected_reasons %}<li><span>{{ reason }}</span><strong>{{ n }}</strong></li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

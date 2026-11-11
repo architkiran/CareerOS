@@ -24,7 +24,14 @@ class MonitorSource:
 
 
 DEFAULT_INTERVAL_MINUTES = 30
-PROVIDER_MINUTES = {"remotive": 360, "jobicy": 60, "smartrecruiters": 60, "wwr": 60}
+PROVIDER_MINUTES = {
+    "remotive": 360,
+    "jobicy": 60,
+    "smartrecruiters": 60,
+    "wwr": 60,
+    "community": 120,
+    "workday": 360,
+}
 
 
 def interval_minutes(session: Session) -> int:

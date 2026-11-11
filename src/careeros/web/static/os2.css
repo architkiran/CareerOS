@@ -1,0 +1,72 @@
+/* Career OS 2.0 command center. Uses the existing theme tokens (light and dark). */
+.os2-header h1 { font-size: 34px; letter-spacing: -0.02em; margin: 2px 0 6px; }
+.os2-header p { color: var(--muted); max-width: 68ch; margin: 0; }
+.os2-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 22px 0 14px; }
+.os2-stats div { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.os2-stats strong { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.os2-stats span { color: var(--muted); font-size: 12.5px; }
+.os2-notice { border: 1px solid var(--line); border-left: 3px solid var(--warn); background: var(--surface); border-radius: 8px; padding: 10px 14px; font-size: 13.5px; margin: 8px 0; }
+.os2-notice code { font-size: 12.5px; background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+.os2-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 6px; }
+.os2-filter a { font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-decoration: none; transition: color .15s ease, border-color .15s ease, background-color .15s ease; }
+.os2-filter a:hover { color: var(--ink); border-color: var(--muted); }
+.os2-filter a.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.os2-section { margin-top: 30px; }
+.os2-section h2 { font-size: 18px; display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; }
+.os2-section h2 span { color: var(--muted); font-weight: 500; font-size: 14px; font-variant-numeric: tabular-nums; }
+.os2-section-note, .os2-empty { color: var(--muted); font-size: 13.5px; max-width: 72ch; margin: 0 0 12px; }
+.os2-empty { border: 1px dashed var(--line); border-radius: 10px; padding: 16px; }
+.os2-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 10px 0; transition: border-color .15s ease, box-shadow .15s ease; }
+.os2-card:hover, .os2-card:focus-within { border-color: var(--muted); box-shadow: 0 1px 0 rgba(0, 0, 0, .03), 0 6px 18px -12px rgba(0, 0, 0, .25); }
+.os2-card-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.os2-card-title h3 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+.os2-card-title p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.os2-open { flex: none; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 8px; background: var(--ink); color: var(--paper); text-decoration: none; white-space: nowrap; }
+.os2-open:hover { opacity: .88; }
+.os2-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 10px; }
+.os2-tag, .os2-level { font-size: 12px; line-height: 20px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.os2-level { font-weight: 600; border-color: currentColor; }
+.os2-level-A { color: var(--ok); }
+.os2-level-B { color: var(--accent); }
+.os2-level-C, .os2-level-U { color: var(--warn); }
+.os2-level-D { color: var(--bad); }
+.os2-fit-strong { color: var(--ok); border-color: currentColor; }
+.os2-fit-good { color: var(--ink); }
+.os2-level-line { font-size: 13.5px; margin: 0 0 6px; }
+.os2-next { font-size: 13.5px; margin: 0; color: var(--ink); }
+.os2-next span { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; }
+.os2-evidence { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.os2-evidence summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+.os2-evidence summary:hover { color: var(--ink); }
+.os2-evidence[open] summary { color: var(--ink); margin-bottom: 10px; }
+.os2-evidence h4 { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+.os2-checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.os2-check { display: grid; grid-template-columns: 78px 1fr; gap: 10px; font-size: 13.5px; }
+.os2-check p { margin: 1px 0 0; color: var(--muted); }
+.os2-check-state { font-size: 11.5px; font-weight: 600; text-align: center; border-radius: 6px; padding: 2px 0; height: fit-content; border: 1px solid currentColor; }
+.os2-check-pass .os2-check-state { color: var(--ok); }
+.os2-check-assumed .os2-check-state { color: var(--muted); border-style: dashed; }
+.os2-check-unknown .os2-check-state { color: var(--warn); }
+.os2-check-fail .os2-check-state { color: var(--bad); }
+.os2-evidence blockquote, .os2-quote { margin: 6px 0 0; padding: 6px 10px; border-left: 2px solid var(--line); background: var(--soft); border-radius: 0 6px 6px 0; font-size: 13px; color: var(--ink); }
+.os2-list { margin: 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 5px; }
+.os2-fine { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+.os2-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.os2-actions form { margin: 0; }
+.os2-btn { font: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none; transition: border-color .15s ease, background-color .15s ease; }
+.os2-btn:hover { border-color: var(--muted); }
+.os2-btn-quiet { color: var(--muted); }
+.os2-saved { font-size: 13px; font-weight: 600; color: var(--ok); }
+.os2-reasons { list-style: none; padding: 0; margin: 8px 0 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.os2-reasons li { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 13.5px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.os2-reasons li:last-child { border-bottom: 0; }
+.os2-reasons strong { font-variant-numeric: tabular-nums; }
+.os2-card :focus-visible, .os2-filter a:focus-visible, .os2-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .os2-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .os2-card-head { flex-direction: column; }
+  .os2-open { align-self: stretch; text-align: center; }
+  .os2-check { grid-template-columns: 1fr; }
+  .os2-check-state { width: 78px; }
+}
+@media (prefers-reduced-motion: reduce) { .os2-card, .os2-filter a, .os2-btn { transition: none; } }

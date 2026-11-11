@@ -359,7 +359,7 @@ def public_board_links(session: Session, job_ids: list[str]) -> dict[str, list[t
             .join(Source, Source.id == JobSourceRecord.source_id)
             .where(
                 JobSourceRecord.job_id.in_(job_ids),
-                Source.source_type.in_(("remotive", "jobicy", "wwr")),
+                Source.source_type.in_(("remotive", "jobicy", "wwr", "community")),
             )
         ):
             links.setdefault(job_id, []).append((kind, url))

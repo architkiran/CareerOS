@@ -14,7 +14,21 @@ from careeros.common.clock import utcnow
 from careeros.common.ids import new_id
 from careeros.db.base import Base, UTCDateTime
 
-SOURCE_TYPES = ("greenhouse", "lever", "ashby", "smartrecruiters", "remotive", "jobicy", "wwr")
+SOURCE_TYPES = (
+    "greenhouse",
+    "lever",
+    "ashby",
+    "smartrecruiters",
+    "workday",
+    "remotive",
+    "jobicy",
+    "wwr",
+    "community",
+)
+# Third-party listings: never the canonical employer record, never proof of closure.
+AGGREGATOR_TYPES = ("remotive", "jobicy", "wwr", "community", "manual")
+# Sources whose runs are keyword-bounded or filtered, so absence is not closure.
+PARTIAL_SNAPSHOT_TYPES = (*AGGREGATOR_TYPES, "workday")
 
 
 class Company(Base):
