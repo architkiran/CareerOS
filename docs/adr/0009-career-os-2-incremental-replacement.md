@@ -17,7 +17,7 @@ application. The mission brief permits a full rebuild. Should we?
 
 ## Decision: option 3
 
-The failure was not engineering quality. The code is typed, migrated and covered by 710
+The failure was not engineering quality. The code is typed, migrated and covered by 765
 passing tests. The failure was **what the system looked at and how it judged it**:
 
 - 27 sources, 19 of them late-stage fintech and infrastructure companies on Greenhouse, which

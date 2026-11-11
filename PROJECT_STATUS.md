@@ -13,7 +13,7 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
 - **Sponsorship evidence**: levels A/B/C/D/U with quotes and sources; DOL LCA importer
   (`docs/SPONSORSHIP_EVIDENCE.md`).
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 0 tests pass; ruff and strict mypy clean.
+- 812 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 
