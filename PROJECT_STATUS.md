@@ -13,12 +13,12 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
 - **Sponsorship evidence**: levels A/B/C/D/U with quotes and sources; DOL LCA importer
   (`docs/SPONSORSHIP_EVIDENCE.md`).
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 767 tests pass; ruff and strict mypy clean.
+- 0 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 
 On 2026-11-11 the community feed was fetched live: 1,344 current listings → 1,158 rejected
-(1,116 outside target role families, 37 outside the US, 5 seniority), 143 in the sponsorship
+(1,105 outside target role families, 47 outside the US, 5 seniority, 1 not full-time), 143 in the sponsorship
 research queue, 43 needing review. The Workday, Greenhouse, Lever and Ashby adapters are
 verified against fixtures only in this session, because the build environment could not reach
 those hosts. Their first live run happens on the candidate's Mac.
