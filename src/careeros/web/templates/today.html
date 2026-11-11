@@ -24,7 +24,7 @@
     <ul class="os2-checks">
       {% for k in c.checks %}<li class="os2-check os2-check-{{ k.decision }}"><span class="os2-check-state">{{ {'pass':'Pass','assumed':'Assumed','unknown':'Unknown','fail':'Fail'}[k.decision] }}</span><div><strong>{{ k.label }}</strong><p>{{ k.reason }}</p>{% if k.evidence %}<blockquote>{{ k.evidence }}</blockquote>{% endif %}</div></li>{% endfor %}
     </ul>
-    {% if c.sponsorship['items'] %}<h4>Sponsorship evidence</h4><ul class="os2-list">{% for i in c.sponsorship['items'] %}<li><strong>{{ i.source_name }}</strong> ({{ i.scope|replace('_',' ') }} level{% if i.observed_at %}, {{ i.observed_at }}{% endif %}): {{ i.claim }}{% if i.quote %}<blockquote>{{ i.quote }}</blockquote>{% endif %}{% if i.source_url %} <a href="{{ i.source_url }}" target="_blank" rel="noopener noreferrer">source ↗</a>{% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if c.sponsorship['items'] %}<h4>Sponsorship evidence</h4><ul class="os2-list">{% for i in c.sponsorship['items'] %}<li><strong>{{ i.source_name }}</strong> ({{ i.scope|replace('_',' ') }} level{% if i.observed_at %}, {{ i.observed_at }}{% endif %}): {{ i.claim }}{% if i.quote %}<blockquote>{{ i.quote }}</blockquote>{% endif %}{% if i.source_url %} <a href="{{ i.source_url }}" target="_blank" rel="noopener noreferrer">source ↗</a>{% endif %}{% if i.candidates %}<form class="os2-confirm" method="post" action="/today/jobs/{{ c.job_id }}/confirm-employer">{{ csrf() }}<p>If you have checked that one of these filers is {{ c.company }}'s legal entity, confirm it. Evidence then counts as employer history (Level B) for all of this employer's roles.</p>{% for k in i.candidates %}<label><input type="checkbox" name="filer" value="{{ k }}"> {{ k }}</label>{% endfor %}<button class="os2-btn">Confirm same employer</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
     {% if c.sponsorship.unknowns %}<h4>Still unknown</h4><ul class="os2-list">{% for u in c.sponsorship.unknowns %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
     {% if c.sponsorship.recruiter_question %}<h4>Ask the recruiter</h4><p class="os2-quote">{{ c.sponsorship.recruiter_question }}</p>{% endif %}
     {% if c.fit_reasons %}<h4>Why it fits</h4><ul class="os2-list">{% for r in c.fit_reasons %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
@@ -34,7 +34,9 @@
   <div class="os2-actions">
     {% if c.saved_stage %}<span class="os2-saved">Saved</span>{% else %}<form method="post" action="/inbox/jobs/{{ c.job_id }}/decision">{{ csrf() }}<input type="hidden" name="action" value="save"><input type="hidden" name="return_to" value="/today"><button class="os2-btn">Save</button></form>{% endif %}
     <form method="post" action="/inbox/jobs/{{ c.job_id }}/decision">{{ csrf() }}<input type="hidden" name="action" value="dismiss"><input type="hidden" name="return_to" value="/today"><button class="os2-btn os2-btn-quiet">Dismiss</button></form>
-    <a class="os2-btn os2-btn-quiet" href="/jobs/{{ c.job_id }}">Details and apply tracking</a>
+    {% if c.verdict == 'eligible' %}<form method="post" action="/jobs/{{ c.job_id }}/application">{{ csrf() }}<button class="os2-btn os2-btn-primary">Prepare application</button></form>{% endif %}
+    <details class="os2-applied"><summary class="os2-btn os2-btn-quiet">I applied</summary><form method="post" action="/jobs/{{ c.job_id }}/record-applied">{{ csrf() }}<label>Date <input type="date" name="application_date"></label><label><input type="checkbox" name="confirmed" value="on" required> I submitted this application myself</label><button class="os2-btn">Record it</button></form></details>
+    <a class="os2-btn os2-btn-quiet" href="/jobs/{{ c.job_id }}">Details</a>
   </div>
 </article>
 {% endmacro %}

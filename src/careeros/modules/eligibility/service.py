@@ -78,8 +78,12 @@ class EvaluationSummary:
     lca_loaded: bool = False
 
 
-def evaluate_all(session: Session, now: datetime | None = None) -> EvaluationSummary:
+def evaluate_all(
+    session: Session, now: datetime | None = None, company_id: str | None = None
+) -> EvaluationSummary:
+    """Evaluate every stored job, or only one employer's jobs after its evidence changed."""
     now = now or utcnow()
+    aliases = lca.confirmed_aliases(session)
     rules = candidate_rules(session)
     summary = EvaluationSummary(lca_loaded=lca.has_data(session))
     sightings: dict[str, list[tuple[str, str, dict[str, Any], datetime]]] = defaultdict(list)
@@ -96,7 +100,8 @@ def evaluate_all(session: Session, now: datetime | None = None) -> EvaluationSum
     companies = dict(session.execute(select(Company.id, Company.canonical_name)).all())
     lca_cache: dict[str, LcaSummary | None] = {}
     existing = {v.job_id: v for v in session.scalars(select(JobVerdict))}
-    for job in session.scalars(select(Job)):
+    jobs = select(Job) if company_id is None else select(Job).where(Job.company_id == company_id)
+    for job in session.scalars(jobs):
         company = companies.get(job.company_id, "")
         seen = sightings.get(job.id, [])
         official = any(kind not in AGGREGATOR_TYPES for kind, *_ in seen)
@@ -105,7 +110,7 @@ def evaluate_all(session: Session, now: datetime | None = None) -> EvaluationSum
         company_lca = None
         if summary.lca_loaded and (family or "analyst" in job.title.lower()):
             if company not in lca_cache:
-                lca_cache[company] = lca.lookup(session, company)
+                lca_cache[company] = lca.lookup(session, company, aliases)
             company_lca = lca_cache[company]
         sponsorship = assess(
             description=job.description_text or "",

@@ -87,19 +87,21 @@ class EvidenceItem:
     source_url: str | None = None
     quote: str | None = None
     observed_at: str | None = None
+    candidates: tuple[str, ...] = ()  # LCA filer keys awaiting the candidate's confirmation
 
 
 @dataclass(frozen=True)
 class LcaSummary:
     """What the imported DOL disclosure data says about a legal employer name."""
 
-    match: Literal["exact", "possible"]
+    match: Literal["exact", "possible", "confirmed"]
     employer_names: tuple[str, ...]
     fiscal_years: tuple[int, ...]
     certified_total: int
     analyst_like: int
     top_titles: tuple[str, ...] = ()
     source_file: str = ""
+    normalized_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -214,6 +216,8 @@ def assess(
         )
         if lca.match == "possible":
             claim = "Name is similar, legal entity not confirmed. " + claim
+        elif lca.match == "confirmed":
+            claim = "You confirmed this legal entity is the employer. " + claim
         items.append(
             EvidenceItem(
                 "employer",
@@ -223,6 +227,7 @@ def assess(
                 "https://www.dol.gov/agencies/eta/foreign-labor/performance",
                 ("Common titles: " + "; ".join(lca.top_titles[:4])) if lca.top_titles else None,
                 lca.source_file or None,
+                lca.normalized_names if lca.match == "possible" else (),
             )
         )
 
@@ -243,7 +248,7 @@ def assess(
             contradictions.append("A community list tags this role as not sponsoring.")
         if not posting_is_official:
             unknowns.append("Quote came through a third party; confirm on the employer page.")
-    elif lca is not None and lca.match == "exact":
+    elif lca is not None and lca.match in ("exact", "confirmed"):
         level = "B"
         summary = (
             "The employer has certified LCA filings on record. That is history for the "

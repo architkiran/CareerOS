@@ -38,7 +38,9 @@ worksite states.
   or hiring cycle will sponsor, or that new graduates on F-1 OPT are considered.
 - Identity: filings are attributed only on an exact normalized legal-name match. "State
   Street" versus "State Street Bank and Trust" is reported as a possible match and capped at
-  Level C until a confirmed alias mechanism exists (planned).
+  Level C. If you have checked that the filer is the employer's legal entity, confirm it on
+  the Today card; the confirmation is stored (`sponsorship.entity_aliases`) and that
+  employer's roles are re-evaluated as Level B.
 - Pattern matching reads common wording. Unusual phrasing lands in U with an
   "ambiguous wording" note, never in A.
 - Nothing here is legal advice. Work-authorization facts must be confirmed with the

@@ -12,8 +12,14 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
   (`docs/ELIGIBILITY_RULES.md`).
 - **Sponsorship evidence**: levels A/B/C/D/U with quotes and sources; DOL LCA importer
   (`docs/SPONSORSHIP_EVIDENCE.md`).
+- **Confirmed employers**: on a Today card with a similar-name LCA filer, you can confirm the
+  legal entity; that employer's roles are re-evaluated immediately (Level C → B).
+- **Application actions on Today**: Prepare application (eligible roles) and I applied, using
+  the existing tailoring workspace and application record.
+- **Always current**: the worker re-evaluates verdicts and rewrites the digest after every
+  scheduled discovery.
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 812 tests pass; ruff and strict mypy clean.
+- 813 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 
@@ -28,9 +34,9 @@ those hosts. Their first live run happens on the candidate's Mac.
 - First live run of the 220 official boards (run `./Run Discovery.command`).
 - LCA data import (manual download; until then nothing can reach Level B, so the Eligible
   list stays empty by design).
-- Scheduled discovery for the new source types through the existing worker is untested.
-- Confirmed-alias mechanism for employer legal entities (possible matches stay Level C).
 - Live URL re-check before calling a job "open" (today: "listed at last successful run").
+- Scheduled runs of the Workday and community sources through the worker have not been
+  observed live yet.
 - Lane matcher and New Jobs inbox still run in parallel with Today.
 
 ## Candidate input needed
@@ -44,7 +50,7 @@ those hosts. Their first live run happens on the candidate's Mac.
 ## Next, in order
 
 1. Live run on the Mac; fix whatever real Workday tenants reveal.
-2. LCA import → first Level-B eligible list; add confirmed entity aliases.
-3. Phase 2: connect the Today card to the existing resume tailoring and application record.
+2. LCA import → first Level-B eligible list; confirm legal entities for target employers.
+3. Phase 2: outreach drafts and referral paths from the Today card; follow-up reminders.
 4. Daily digest on a schedule; weekly strategy review using real funnel numbers.
 5. Retire the lane matcher, missions and local-model runtime; then the frontend decision.

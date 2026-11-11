@@ -199,3 +199,39 @@ def test_seen_only_items_refresh_last_seen_without_renormalizing(session):
     assert (second.new, second.updated, second.closed) == (0, 0, 0)
     assert Workday.details == 1  # the posting text was not fetched again
     assert session.scalars(select(Job)).one().last_seen_at >= first
+
+
+def test_confirming_a_possible_legal_entity_raises_evidence_to_level_b(session, client, tmp_path):
+    _profile(session)
+    run_source(session, _source(session, "greenhouse", "acmefinancial", "Acme Financial"), Feeds())
+    path = tmp_path / "LCA.csv"
+    path.write_text(
+        "CASE_STATUS,EMPLOYER_NAME,JOB_TITLE,SOC_TITLE\n"
+        "Certified,Acme Financial Bank and Trust LLC,Data Analyst,Data Scientists\n"
+    )
+    lca.import_file(session, path, 2026)
+    eligibility.evaluate_all(session)
+    session.commit()
+    verdict = session.scalars(select(JobVerdict)).one()
+    assert (verdict.verdict, verdict.sponsorship_level) == ("research", "C")
+    job_id = verdict.job_id
+    page = client.get("/today").text
+    assert 'value="acme financial bank and trust"' in page and "Confirm same employer" in page
+
+    token = client.cookies.get("careeros_csrf") or ""
+    bad = client.post(
+        f"/today/jobs/{job_id}/confirm-employer", data={"filer": "invented", "csrf_token": token}
+    )
+    assert bad.status_code == 422
+    ok = client.post(
+        f"/today/jobs/{job_id}/confirm-employer",
+        data={"filer": "acme financial bank and trust", "csrf_token": token},
+        follow_redirects=False,
+    )
+    assert ok.status_code == 303
+    session.expire_all()
+    verdict = session.scalars(select(JobVerdict)).one()
+    assert (verdict.verdict, verdict.sponsorship_level) == ("eligible", "B")
+    assert "You confirmed" in verdict.sponsorship_json["items"][0]["claim"]
+    page = client.get("/today").text
+    assert "Prepare application" in page and "Confirm same employer" not in page

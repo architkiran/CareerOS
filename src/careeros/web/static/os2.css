@@ -56,6 +56,13 @@
 .os2-btn { font: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none; transition: border-color .15s ease, background-color .15s ease; }
 .os2-btn:hover { border-color: var(--muted); }
 .os2-btn-quiet { color: var(--muted); }
+.os2-btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.os2-applied { position: relative; }
+.os2-applied summary { list-style: none; display: inline-block; }
+.os2-applied summary::-webkit-details-marker { display: none; }
+.os2-applied form, .os2-confirm { display: grid; gap: 8px; margin: 8px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); font-size: 13px; }
+.os2-confirm p { margin: 0; color: var(--muted); }
+.os2-confirm button, .os2-applied form button { justify-self: start; }
 .os2-saved { font-size: 13px; font-weight: 600; color: var(--ok); }
 .os2-reasons { list-style: none; padding: 0; margin: 8px 0 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .os2-reasons li { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 13.5px; background: var(--surface); border-bottom: 1px solid var(--line); }

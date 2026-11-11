@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from careeros.db.models import EmployerLcaStat
 from careeros.modules.sponsorship.levels import LcaSummary
+from careeros.modules.system.settings_store import get_setting, set_setting
 
 _LEGAL_SUFFIX = re.compile(
     r"\b(incorporated|inc|llc|l l c|llp|lp|ltd|limited|corp|corporation|co|company|plc|"
@@ -161,7 +162,36 @@ def has_data(session: Session) -> bool:
     return session.scalar(select(EmployerLcaStat.id).limit(1)) is not None
 
 
-def lookup(session: Session, company_name: str) -> LcaSummary | None:
+ALIAS_SETTING = "sponsorship.entity_aliases"
+
+
+def confirmed_aliases(session: Session) -> dict[str, list[str]]:
+    """Employer → LCA filer names the candidate confirmed are the same legal employer."""
+    value = get_setting(session, ALIAS_SETTING, {})
+    return value if isinstance(value, dict) else {}
+
+
+def confirm_alias(session: Session, company_name: str, filer_keys: list[str]) -> list[str]:
+    """Record a candidate-confirmed entity match. Only filer names that exist are kept."""
+    key = normalize_employer(company_name)
+    known = set(
+        session.scalars(
+            select(EmployerLcaStat.normalized_name).where(
+                EmployerLcaStat.normalized_name.in_(filer_keys)
+            )
+        )
+    )
+    if not key or not known:
+        raise ValueError("Choose at least one filer name from the imported LCA data.")
+    aliases = dict(confirmed_aliases(session))
+    aliases[key] = sorted(set(aliases.get(key, [])) | known)
+    set_setting(session, ALIAS_SETTING, aliases)
+    return aliases[key]
+
+
+def lookup(
+    session: Session, company_name: str, aliases: dict[str, list[str]] | None = None
+) -> LcaSummary | None:
     key = normalize_employer(company_name)
     if len(key) < 3:
         return None
@@ -169,6 +199,13 @@ def lookup(session: Session, company_name: str) -> LcaSummary | None:
         session.scalars(select(EmployerLcaStat).where(EmployerLcaStat.normalized_name == key))
     )
     match = "exact"
+    confirmed = (aliases or {}).get(key) or []
+    if confirmed:
+        extra = session.scalars(
+            select(EmployerLcaStat).where(EmployerLcaStat.normalized_name.in_(confirmed))
+        )
+        rows += [r for r in extra if r.normalized_name != key]
+        match = "confirmed" if rows else match
     if not rows and len(key) >= 5:
         # "state street" vs "state street bank and trust": similar, but a different legal
         # entity until someone confirms it. Reported as possible, capped at Level C.
@@ -194,4 +231,5 @@ def lookup(session: Session, company_name: str) -> LcaSummary | None:
         analyst_like=sum(r.analyst_like for r in rows),
         top_titles=tuple(t for t, _ in titles.most_common(5)),
         source_file=", ".join(sorted({r.source_file for r in rows}))[:200],
+        normalized_names=tuple(dict.fromkeys(r.normalized_name for r in rows)),
     )

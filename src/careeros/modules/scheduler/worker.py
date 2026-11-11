@@ -116,6 +116,17 @@ def handle_match_all(
     with factory() as session:
         score_jobs(session, commit_every=25)
         session.commit()
+        # Career OS 2.0 verdicts follow every discovery, so Today is never behind the data.
+        from careeros.common.clock import utcnow
+        from careeros.config import get_settings
+        from careeros.modules.eligibility import service as eligibility
+
+        eligibility.evaluate_all(session)
+        session.commit()
+        export_dir = get_settings().export_dir
+        export_dir.mkdir(parents=True, exist_ok=True)
+        digest = eligibility.digest_markdown(eligibility.build_digest(session))
+        (export_dir / f"digest-{utcnow():%Y-%m-%d}.md").write_text(digest)
 
 
 HANDLERS: dict[str, Handler] = {
