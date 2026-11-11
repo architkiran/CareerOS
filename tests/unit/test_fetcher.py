@@ -212,3 +212,23 @@ def test_retry_after_http_date_and_negative_value(monkeypatch: pytest.MonkeyPatc
     assert fetcher._backoff(1, "Fri, 06 Nov 2026 13:00:00 GMT") == 60
     assert fetcher._backoff(1, "-7") == 0
     assert fetcher._backoff(1, "not-a-date") >= 1
+
+
+@respx.mock
+def test_text_resources_are_not_requested_as_json():
+    """Workday answers 406 to robots.txt when the request only accepts JSON."""
+    route = respx.get("https://acme.wd5.myworkdayjobs.com/robots.txt").mock(
+        return_value=httpx.Response(200, text="User-agent: *\nAllow: /\n")
+    )
+    api = respx.post("https://acme.wd5.myworkdayjobs.com/wday/cxs/acme/Careers/jobs").mock(
+        return_value=httpx.Response(200, json={"total": 0, "jobPostings": []})
+    )
+    fetcher = make_fetcher()
+    text, status = fetcher.get_text("https://acme.wd5.myworkdayjobs.com/robots.txt")
+    assert status == 200 and text.startswith("User-agent")
+    assert "text/plain" in route.calls.last.request.headers["accept"]
+    fetcher.post_json(
+        "https://acme.wd5.myworkdayjobs.com/wday/cxs/acme/Careers/jobs", {"limit": 20}
+    )
+    assert api.calls.last.request.headers["accept"] == "application/json"
+    assert api.calls.last.request.headers["content-type"] == "application/json"

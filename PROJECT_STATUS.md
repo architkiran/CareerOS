@@ -18,8 +18,16 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
   the existing tailoring workspace and application record.
 - **Always current**: the worker re-evaluates verdicts and rewrites the digest after every
   scheduled discovery.
+- **Interface v2**: new shell (slim rail, command palette on Cmd+K, page transitions, light
+  and dark) and a rebuilt Today: queue tabs, list and detail side by side, keyboard triage
+  (J/K, O, S, X, 1/2/3, /), instant save and dismiss. Colour is reserved for sponsorship
+  evidence. Navigation cut from 22 links to 13; agent, mission and market pages are unlinked.
+- **Reach a person**: every role has people-search links and editable drafts (connection
+  note within 300 characters, recruiter question, follow-up). Nothing is ever sent.
+- **Workday fixed after the first live run**: robots.txt was requested as JSON and Workday
+  answered 406 for 111 of 120 sites. Verified against a live Workday site on 2026-11-11.
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 814 tests pass; ruff and strict mypy clean.
+- 816 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 

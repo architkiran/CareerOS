@@ -15,13 +15,13 @@ from tests.integration.test_fresh_referrals import make_role, match
 
 def test_default_landing_and_exactly_three_primary_screens(client: TestClient) -> None:
     result = client.get("/", follow_redirects=False)
-    assert result.status_code == 303 and result.headers["location"] == "/new-jobs"
+    assert result.status_code == 303 and result.headers["location"] == "/today"
     page = client.get("/new-jobs").text
     nav = page.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
-    assert nav.count("<a ") == 4  # Today + the three core screens
-    assert all(label in nav for label in ("New Jobs", "Saved Jobs", "Applications"))
-    assert "Agent activity" not in nav and "Resume studio" not in nav
-    assert "Advanced / Settings" in page and "data-core-inbox" in page
+    assert nav.count("<a ") == 4
+    assert all(label in nav for label in ("Today", "Saved", "Applications", "Resumes"))
+    assert "Agent activity" not in page and "Mission Control" not in page
+    assert "data-palette" in page and "data-core-inbox" in page
 
 
 def test_direct_original_link_and_missing_url_state(session: Session, client: TestClient) -> None:

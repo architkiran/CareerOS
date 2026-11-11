@@ -23,7 +23,8 @@ def home(queued: str | None = None) -> RedirectResponse:
     suffix = (
         "?refresh=already" if queued == "already" else "?refresh=queued" if queued == "1" else ""
     )
-    return RedirectResponse("/new-jobs" + suffix, 303)
+    # A queued-refresh notice belongs to the legacy inbox that owns that button.
+    return RedirectResponse("/new-jobs" + suffix if suffix else "/today", 303)
 
 
 @router.get("/advanced/system", response_class=HTMLResponse)

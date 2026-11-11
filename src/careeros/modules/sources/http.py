@@ -27,6 +27,7 @@ from careeros.common.clock import utcnow
 logger = logging.getLogger(__name__)
 
 USER_AGENT = f"CareerOS/{__version__} (personal job search; local, low volume)"
+TEXT_ACCEPT = "text/plain, application/rss+xml, application/xml;q=0.9, */*;q=0.8"
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
@@ -104,6 +105,7 @@ class Fetcher:
         url: str,
         params: dict[str, Any] | None,
         json_body: dict[str, Any] | None = None,
+        as_text: bool = False,
     ) -> tuple[int, httpx.Headers, bytes]:
         assert self.client is not None
         with self.client.stream(
@@ -111,6 +113,9 @@ class Fetcher:
             url,
             params=params,
             json=json_body,
+            # Text resources (robots.txt, RSS) must not be requested as JSON: some hosts,
+            # Workday among them, answer 406 Not Acceptable.
+            headers={"Accept": TEXT_ACCEPT} if as_text else None,
             timeout=self.policy.timeout_seconds,
         ) as response:
             status, headers = response.status_code, response.headers
@@ -160,7 +165,7 @@ class Fetcher:
         for attempt in range(1, self.policy.max_attempts + 1):
             self._respect_rate_limit(host, min_interval)
             try:
-                status, headers, content = self._read_response(url, params, json_body)
+                status, headers, content = self._read_response(url, params, json_body, as_text)
             except httpx.TimeoutException:
                 last_error = FetchError(f"Timed out after {self.policy.timeout_seconds}s")
                 retry_after = None

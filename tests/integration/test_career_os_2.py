@@ -248,3 +248,30 @@ def test_overlapping_evaluators_do_not_collide_on_the_same_job(session, app):
         eligibility.evaluate_all(session)  # first evaluator never saw that row being added
         session.commit()
     assert len(session.scalars(select(JobVerdict)).all()) == 1
+
+
+def test_today_offers_an_outreach_kit_that_never_sends(session, client, tmp_path):
+    from careeros.modules.outreach.kit import NOTE_LIMIT, build_kit
+
+    _profile(session)
+    run_source(session, _source(session, "greenhouse", "acmefinancial", "Acme Financial"), Feeds())
+    lca.import_file(session, _lca_csv(tmp_path), 2026)
+    eligibility.evaluate_all(session)
+    session.commit()
+    page = client.get("/today").text
+    assert "Reach a person" in page and "CareerOS never sends a message" in page
+    assert "linkedin.com/search/results/people/?keywords=%22Acme%20Financial%22" in page
+    assert "Hi [name]," in page and 'data-async="dismiss"' in page and "data-palette" in page
+
+    kit = build_kit(
+        company="A Very Long Company Name Holdings International",
+        title="Data Analyst - Early Career (2027 Start), Risk and Controls Technology",
+        family_label="Data and business intelligence",
+        recruiter_question=None,
+        candidate_name="Test Candidate",
+        school="Example University",
+        intro="I am finishing a long degree " * 8,
+    )
+    note = next(d for d in kit["drafts"] if d["key"] == "connect")
+    assert len(note["text"]) <= NOTE_LIMIT and "—" not in "".join(d["text"] for d in kit["drafts"])
+    assert kit["searches"][0][0].startswith("Example University alumni")

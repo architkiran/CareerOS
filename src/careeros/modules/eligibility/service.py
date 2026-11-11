@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from careeros.common.clock import utcnow
 from careeros.db.models import (
+    Application,
     CandidateProfile,
     CandidateSkill,
     Company,
@@ -30,9 +31,11 @@ from careeros.modules.eligibility.engine import (
     classify_role,
     evaluate,
 )
+from careeros.modules.outreach.kit import DEFAULT_INTRO, build_kit
 from careeros.modules.sources.text import normalize_key
 from careeros.modules.sponsorship import lca
 from careeros.modules.sponsorship.levels import LcaSummary, assess
+from careeros.modules.system.settings_store import get_setting
 
 BUCKETS = ("eligible", "research", "review")
 LEVEL_ORDER = {"A": 0, "B": 1, "C": 2, "U": 3, "D": 4}
@@ -217,6 +220,8 @@ class Card:
     last_seen_at: datetime
     official: bool
     saved_stage: str | None
+    outreach: dict[str, Any] = field(default_factory=dict)
+    applied: bool = False
 
 
 @dataclass
@@ -256,6 +261,13 @@ def build_digest(
         )
         .order_by(JobVerdict.rank.desc(), Job.posted_at.desc().nullslast())
     ).all()
+    profile = session.scalars(select(CandidateProfile).limit(1)).first()
+    name = profile.display_name if profile is not None else ""
+    school = get_setting(session, "outreach.school")
+    intro = get_setting(session, "outreach.intro") or DEFAULT_INTRO
+    applied_jobs = set(
+        session.scalars(select(Application.job_id).where(Application.submitted_at.is_not(None)))
+    )
     buckets: dict[str, list[Card]] = {b: [] for b in BUCKETS}
     seen_keys: dict[tuple[str, str], Card] = {}
     for verdict, job, company in rows:
@@ -284,6 +296,16 @@ def build_digest(
             last_seen_at=job.last_seen_at,
             official=job.id in official_jobs,
             saved_stage=job.saved_stage,
+            applied=job.id in applied_jobs,
+        )
+        card.outreach = build_kit(
+            company=company,
+            title=job.title,
+            family_label=card.family,
+            recruiter_question=card.sponsorship.get("recruiter_question"),
+            candidate_name=name,
+            school=school if isinstance(school, str) and school else None,
+            intro=str(intro),
         )
         # The same role can arrive from a community list and the employer's ATS under
         # different URLs. Show it once, preferring the employer-verified record.

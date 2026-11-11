@@ -1,78 +1,73 @@
 {% extends "base.html" %}{% from "_macros.html" import csrf with context %}
 {% block title %}Today · CareerOS{% endblock %}
-{% macro age(c) %}{% if c.posted_at %}Published {{ [(now - c.posted_at).days, 0]|max }}d ago{% else %}First seen {{ [(now - c.first_seen_at).days, 0]|max }}d ago · publication date unknown{% endif %}{% endmacro %}
+{% macro age(c) %}{% if c.posted_at %}{{ [(now - c.posted_at).days, 0]|max }}d{% else %}seen {{ [(now - c.first_seen_at).days, 0]|max }}d{% endif %}{% endmacro %}
+{% macro row(c) %}<li><a class="td-row" href="#job-{{ c.job_id }}" data-row data-id="{{ c.job_id }}" data-bucket="{{ c.verdict }}" data-search="{{ (c.title ~ ' ' ~ c.company ~ ' ' ~ (c.location or '') ~ ' ' ~ (c.family or ''))|lower }}"><span class="td-ev td-ev-{{ c.level }}" title="Sponsorship evidence {{ c.level }}"></span><span><strong>{{ c.title }}</strong><span class="sub">{{ c.company }}{% if c.location %}, {{ c.location }}{% endif %}</span></span><span class="meta"><span class="fit-{{ c.fit }}">{{ c.fit or '' }}</span><span>{{ age(c) }}</span>{% if c.applied %}<span class="td-mark">Applied</span>{% elif c.saved_stage %}<span class="td-mark" data-saved-mark>Saved</span>{% endif %}</span></a></li>{% endmacro %}
 {% macro card(c) %}
-<article class="os2-card" data-testid="os2-card">
-  <div class="os2-card-head">
-    <div class="os2-card-title">
-      <h3>{{ c.title }}</h3>
-      <p>{{ c.company }} · {{ c.location or 'Location not stated' }}</p>
-    </div>
-    <a class="os2-open" href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Original posting ↗</a>
+<article class="td-card" id="job-{{ c.job_id }}" data-card data-id="{{ c.job_id }}" data-bucket="{{ c.verdict }}" data-testid="os2-card">
+  <h2>{{ c.title }}</h2>
+  <p class="where">{{ c.company }}{% if c.location %}, {{ c.location }}{% else %}, location not stated{% endif %}</p>
+  <div class="td-actions">
+    <a class="ui-btn ui-btn-primary" data-open href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open original posting</a>
+    {% if c.saved_stage %}<span class="ui-btn ui-btn-quiet" data-saved>Saved</span>{% else %}<form method="post" action="/inbox/jobs/{{ c.job_id }}/decision" data-async="save">{{ csrf() }}<input type="hidden" name="action" value="save"><input type="hidden" name="return_to" value="/today"><button class="ui-btn">Save</button></form>{% endif %}
+    {% if c.verdict == 'eligible' %}<form method="post" action="/jobs/{{ c.job_id }}/application">{{ csrf() }}<button class="ui-btn">Prepare application</button></form>{% endif %}
+    {% if c.applied %}<span class="ui-btn ui-btn-quiet">Applied</span>{% else %}<details class="td-applied"><summary class="ui-btn">I applied</summary><form class="td-inline" method="post" action="/jobs/{{ c.job_id }}/record-applied">{{ csrf() }}<label>Date <input type="date" name="application_date"></label><label><input type="checkbox" name="confirmed" value="on" required> I submitted this application myself</label><button class="ui-btn ui-btn-primary">Record it</button></form></details>{% endif %}
+    <form method="post" action="/inbox/jobs/{{ c.job_id }}/decision" data-async="dismiss">{{ csrf() }}<input type="hidden" name="action" value="dismiss"><input type="hidden" name="return_to" value="/today"><button class="ui-btn ui-btn-quiet">Dismiss</button></form>
   </div>
-  <div class="os2-meta">
-    <span class="os2-level os2-level-{{ c.level }}" title="{{ c.level_label }}">Sponsorship {{ c.level }}</span>
-    {% if c.fit %}<span class="os2-tag os2-fit-{{ c.fit|lower }}">{{ c.fit }} fit</span>{% endif %}
-    {% if c.family %}<span class="os2-tag">{{ c.family }}</span>{% endif %}
-    <span class="os2-tag">{{ age(c) }}</span>
-    <span class="os2-tag">{{ 'Employer source' if c.official else 'Third-party list only' }}</span>
-  </div>
-  <p class="os2-level-line"><strong>{{ c.level_label }}.</strong> {{ c.sponsorship.summary }}</p>
-  <p class="os2-next"><span>Next</span>{{ c.next_action }}</p>
-  <details class="os2-evidence">
-    <summary>Eligibility checklist and evidence</summary>
-    <ul class="os2-checks">
-      {% for k in c.checks %}<li class="os2-check os2-check-{{ k.decision }}"><span class="os2-check-state">{{ {'pass':'Pass','assumed':'Assumed','unknown':'Unknown','fail':'Fail'}[k.decision] }}</span><div><strong>{{ k.label }}</strong><p>{{ k.reason }}</p>{% if k.evidence %}<blockquote>{{ k.evidence }}</blockquote>{% endif %}</div></li>{% endfor %}
-    </ul>
-    {% if c.sponsorship['items'] %}<h4>Sponsorship evidence</h4><ul class="os2-list">{% for i in c.sponsorship['items'] %}<li><strong>{{ i.source_name }}</strong> ({{ i.scope|replace('_',' ') }} level{% if i.observed_at %}, {{ i.observed_at }}{% endif %}): {{ i.claim }}{% if i.quote %}<blockquote>{{ i.quote }}</blockquote>{% endif %}{% if i.source_url %} <a href="{{ i.source_url }}" target="_blank" rel="noopener noreferrer">source ↗</a>{% endif %}{% if i.candidates %}<form class="os2-confirm" method="post" action="/today/jobs/{{ c.job_id }}/confirm-employer">{{ csrf() }}<p>If you have checked that one of these filers is {{ c.company }}'s legal entity, confirm it. Evidence then counts as employer history (Level B) for all of this employer's roles.</p>{% for k in i.candidates %}<label><input type="checkbox" name="filer" value="{{ k }}"> {{ k }}</label>{% endfor %}<button class="os2-btn">Confirm same employer</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
-    {% if c.sponsorship.unknowns %}<h4>Still unknown</h4><ul class="os2-list">{% for u in c.sponsorship.unknowns %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
-    {% if c.sponsorship.recruiter_question %}<h4>Ask the recruiter</h4><p class="os2-quote">{{ c.sponsorship.recruiter_question }}</p>{% endif %}
-    {% if c.fit_reasons %}<h4>Why it fits</h4><ul class="os2-list">{% for r in c.fit_reasons %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
-    {% if c.gaps or c.flags %}<h4>Gaps and notes</h4><ul class="os2-list">{% for r in c.gaps + c.flags %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
-    <p class="os2-fine">{{ c.sponsorship.disclaimer }} Fit is a transparent heuristic, not a chance of being hired.</p>
-  </details>
-  <div class="os2-actions">
-    {% if c.saved_stage %}<span class="os2-saved">Saved</span>{% else %}<form method="post" action="/inbox/jobs/{{ c.job_id }}/decision">{{ csrf() }}<input type="hidden" name="action" value="save"><input type="hidden" name="return_to" value="/today"><button class="os2-btn">Save</button></form>{% endif %}
-    <form method="post" action="/inbox/jobs/{{ c.job_id }}/decision">{{ csrf() }}<input type="hidden" name="action" value="dismiss"><input type="hidden" name="return_to" value="/today"><button class="os2-btn os2-btn-quiet">Dismiss</button></form>
-    {% if c.verdict == 'eligible' %}<form method="post" action="/jobs/{{ c.job_id }}/application">{{ csrf() }}<button class="os2-btn os2-btn-primary">Prepare application</button></form>{% endif %}
-    <details class="os2-applied"><summary class="os2-btn os2-btn-quiet">I applied</summary><form method="post" action="/jobs/{{ c.job_id }}/record-applied">{{ csrf() }}<label>Date <input type="date" name="application_date"></label><label><input type="checkbox" name="confirmed" value="on" required> I submitted this application myself</label><button class="os2-btn">Record it</button></form></details>
-    <a class="os2-btn os2-btn-quiet" href="/jobs/{{ c.job_id }}">Details</a>
-  </div>
+  <div class="td-verdict"><span class="td-level td-level-{{ c.level }}" aria-hidden="true">{{ c.level }}</span><div><strong>{{ c.level_label }}</strong><p>{{ c.sponsorship.summary }}</p></div></div>
+  <p class="td-next">{{ c.next_action }}</p>
+  <p class="td-facts"><span>{{ c.fit }} fit</span>{% if c.family %}<span>{{ c.family }}</span>{% endif %}<span>{% if c.posted_at %}Published {{ [(now - c.posted_at).days, 0]|max }} days ago{% else %}First seen {{ [(now - c.first_seen_at).days, 0]|max }} days ago, publication date unknown{% endif %}</span><span>{{ 'From the employer' if c.official else 'Third-party list only' }}</span></p>
+
+  <section class="td-sec"><h3>Reach a person</h3>
+    <div class="td-links">{% for label,url in c.outreach.searches %}<a class="ui-btn" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>{% endfor %}</div>
+    {% for d in c.outreach.drafts %}<details class="td-draft"><summary>{{ d.label }}</summary><textarea data-draft {% if d.limit %}data-limit="{{ d.limit }}"{% endif %} aria-label="{{ d.label }}">{{ d.text }}</textarea><div class="td-draft-foot"><span data-count></span><button type="button" class="ui-btn" data-copy>Copy</button></div></details>{% endfor %}
+    <p class="td-fine">Drafts are yours to edit and send. CareerOS never sends a message.</p>
+  </section>
+
+  <section class="td-sec"><h3>Eligibility checklist</h3>
+    <ul class="td-checks">{% for k in c.checks %}<li><span class="td-state td-state-{{ k.decision }}" title="{{ {'pass':'Pass','assumed':'Assumed','unknown':'Unknown','fail':'Fail'}[k.decision] }}">{{ {'pass':'✓','assumed':'~','unknown':'?','fail':'×'}[k.decision] }}</span><div><strong>{{ k.label }}</strong>{% if k.decision == 'assumed' %} (assumed){% endif %}<p>{{ k.reason }}</p>{% if k.evidence %}<blockquote>{{ k.evidence }}</blockquote>{% endif %}</div></li>{% endfor %}</ul>
+  </section>
+
+  {% if c.sponsorship['items'] or c.sponsorship.unknowns %}<section class="td-sec"><h3>Sponsorship evidence</h3>
+    {% if c.sponsorship['items'] %}<ul class="td-plain">{% for i in c.sponsorship['items'] %}<li><strong>{{ i.source_name }}</strong> ({{ i.scope|replace('_',' ') }} level{% if i.observed_at %}, {{ i.observed_at }}{% endif %}): {{ i.claim }}{% if i.quote %}<blockquote>{{ i.quote }}</blockquote>{% endif %}{% if i.source_url %} <a href="{{ i.source_url }}" target="_blank" rel="noopener noreferrer">View source</a>{% endif %}{% if i.candidates %}<form class="td-inline" method="post" action="/today/jobs/{{ c.job_id }}/confirm-employer">{{ csrf() }}<p>If you have checked that one of these filers is {{ c.company }}'s legal entity, confirm it. The evidence then counts as employer history (Level B) for all of this employer's roles.</p>{% for k in i.candidates %}<label><input type="checkbox" name="filer" value="{{ k }}"> {{ k }}</label>{% endfor %}<button class="ui-btn">Confirm same employer</button></form>{% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if c.sponsorship.unknowns %}<h3 class="td-sec">Still unknown</h3><ul class="td-plain">{% for u in c.sponsorship.unknowns %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
+    {% if c.sponsorship.recruiter_question %}<h3 class="td-sec">Ask the recruiter</h3><p class="td-quote">{{ c.sponsorship.recruiter_question }}</p>{% endif %}
+  </section>{% endif %}
+
+  {% if c.fit_reasons or c.gaps or c.flags %}<section class="td-sec"><h3>Fit and notes</h3><ul class="td-plain">{% for r in c.fit_reasons + c.gaps + c.flags %}<li>{{ r }}</li>{% endfor %}</ul></section>{% endif %}
+  <p class="td-fine">{{ c.sponsorship.disclaimer }} Fit is a sorting aid, not a chance of being hired. <a href="/jobs/{{ c.job_id }}">Full record</a></p>
 </article>
 {% endmacro %}
 {% block content %}
-<header class="os2-header">
-  <p class="eyebrow">Career OS 2.0 · {{ now|localtime }}</p>
-  <h1>Today</h1>
-  <p>Every role below passed the hard rules it could be checked against. Rejected roles are kept for audit, not shown.</p>
-</header>
-<section class="os2-stats" aria-label="Summary">
-  <div><strong>{{ d.eligible|length }}</strong><span>Eligible · sponsorship A or B</span></div>
-  <div><strong>{{ d.research|length }}</strong><span>Sponsorship research queue</span></div>
-  <div><strong>{{ d.review|length }}</strong><span>Need your review</span></div>
-  <div><strong>{{ d.counts.get('rejected', 0) }}</strong><span>Rejected, kept for audit</span></div>
-  <div><strong>{{ d.sources_ok }}</strong><span>Sources healthy{% if d.sources_failing %} · {{ d.sources_failing|length }} failing{% endif %}</span></div>
-</section>
-{% if not d.lca_loaded %}<p class="os2-notice">LCA history is not imported yet, so no employer can reach Level B and the Eligible list will stay short. Download the latest LCA disclosure file from the US Department of Labor and run <code>careeros lca import FILE --fiscal-year 2026</code>.</p>{% endif %}
-{% if not d.sponsorship_confirmed %}<p class="os2-notice">Your sponsorship need is not confirmed in the profile, so every role is held for review. Confirm it under <a href="/profile">Verified profile</a>.</p>{% endif %}
-{% if d.sources_failing %}<p class="os2-notice">Sources failing right now: {{ d.sources_failing|join(', ') }}. Their roles may be stale. <a href="/sources">Source health</a></p>{% endif %}
-<nav class="os2-filter" aria-label="Role family">
-  <a href="/today" class="{{ 'on' if not family }}">All families</a>
-  {% for key,label in families %}<a href="/today?family={{ key }}" class="{{ 'on' if family == key }}">{{ label }}</a>{% endfor %}
-</nav>
-<section class="os2-section">
-  <h2>Eligible <span>{{ d.eligible|length }}</span></h2>
-  {% if d.eligible %}{% for c in d.eligible %}{{ card(c) }}{% endfor %}{% else %}<p class="os2-empty">No verified eligible roles right now. Nothing has been padded in. The research queue below holds roles whose only open question is sponsorship.</p>{% endif %}
-</section>
-<section class="os2-section">
-  <h2>Sponsorship research queue <span>{{ d.research|length }}</span></h2>
-  <p class="os2-section-note">These pass every other hard rule, but sponsorship evidence is Level C or U. They are not verified matches. Ask before you invest in an application.</p>
-  {% if d.research %}{% for c in d.research %}{{ card(c) }}{% endfor %}{% else %}<p class="os2-empty">Nothing waiting on sponsorship research.</p>{% endif %}
-</section>
-<section class="os2-section">
-  <h2>Needs your review <span>{{ d.review|length }}</span></h2>
-  <p class="os2-section-note">A hard criterion could not be read from the source. Open the posting to settle it.</p>
-  {% if d.review %}{% for c in d.review %}{{ card(c) }}{% endfor %}{% else %}<p class="os2-empty">Nothing needs review.</p>{% endif %}
-</section>
-{% if d.rejected_reasons %}<section class="os2-section"><h2>Why roles were rejected</h2><ul class="os2-reasons">{% for reason,n in d.rejected_reasons %}<li><span>{{ reason }}</span><strong>{{ n }}</strong></li>{% endfor %}</ul></section>{% endif %}
+{% set all = d.eligible + d.research + d.review %}
+<div class="td" data-today>
+  <header class="td-top">
+    <div class="td-headline"><h1>Today</h1><p>{{ now|localtime }}. {{ d.sources_ok }} sources healthy{% if d.sources_failing %}, <a href="/sources">{{ d.sources_failing|length }} failing</a>{% endif %}. {{ d.counts.get('rejected', 0) }} roles rejected by your rules and kept for audit.</p></div>
+    {% if not d.lca_loaded or not d.sponsorship_confirmed %}<div class="td-notices">
+      {% if not d.lca_loaded %}<p class="td-notice">LCA history is not imported yet, so no employer can reach Level B and Eligible stays short. Download the latest LCA disclosure file from the US Department of Labor, then run <code>careeros lca import FILE --fiscal-year 2026</code>.</p>{% endif %}
+      {% if not d.sponsorship_confirmed %}<p class="td-notice">Your sponsorship need is not confirmed in the profile, so every role is held back. <a href="/profile">Confirm it in your profile.</a></p>{% endif %}
+    </div>{% endif %}
+    <div class="td-bar">
+      <div class="td-tabs" role="tablist" aria-label="Queues">
+        <button class="td-tab" role="tab" data-tab="eligible" aria-selected="true">Eligible <b>{{ d.eligible|length }}</b></button>
+        <button class="td-tab" role="tab" data-tab="research" aria-selected="false" title="Everything passes except sponsorship, which is unverified">Sponsorship research <b>{{ d.research|length }}</b></button>
+        <button class="td-tab" role="tab" data-tab="review" aria-selected="false" title="A hard rule could not be read from the posting">Needs review <b>{{ d.review|length }}</b></button>
+        <span class="td-ink" data-ink aria-hidden="true"></span>
+      </div>
+      <form class="td-tools" method="get" action="/today">
+        <select class="td-family" name="family" aria-label="Role family" data-autosubmit><option value="">All role families</option>{% for key,label in families %}<option value="{{ key }}" {{ 'selected' if family == key }}>{{ label }}</option>{% endfor %}</select>
+        <input class="td-search" type="search" placeholder="Filter this list  /" aria-label="Filter this list" data-search-input>
+        <button type="button" class="ui-btn ui-btn-quiet" data-open-help aria-label="Keyboard shortcuts">?</button>
+      </form>
+    </div>
+  </header>
+  <div class="td-split">
+    <div class="td-list-wrap">
+      <ol class="td-list" data-list>{% for c in all %}{{ row(c) }}{% endfor %}</ol>
+      <p class="td-none" data-none {% if all %}hidden{% endif %}>{% if all %}Nothing in this queue matches.{% else %}No roles yet. Nothing has been padded in. Run discovery, or check <a href="/sources">job sources</a>.{% endif %}</p>
+      {% if d.rejected_reasons %}<details class="td-audit"><summary>Why {{ d.counts.get('rejected', 0) }} roles were rejected</summary><ul class="td-reasons">{% for reason,n in d.rejected_reasons %}<li><span>{{ reason }}</span><span>{{ n }}</span></li>{% endfor %}</ul></details>{% endif %}
+    </div>
+    <div class="td-detail" data-detail>{% for c in all %}{{ card(c) }}{% endfor %}</div>
+  </div>
+</div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static',path='today.js') }}?v={{ asset_version('today.js') if asset_version is defined else '1' }}" defer></script>{% endblock %}

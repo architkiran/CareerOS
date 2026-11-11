@@ -47,6 +47,8 @@ _SKIP_TITLE = re.compile(
     r"technician|driver|teller|cashier)\b",
     re.IGNORECASE,
 )
+# Workday list rows end with an ISO-3 country code for non-US postings ("London, GBR").
+_NON_US = re.compile(r",\s*(?!USA\b)[A-Z]{3}\s*$")
 _POSTED_DAYS = re.compile(r"(\d+)\+?\s+day", re.IGNORECASE)
 
 
@@ -149,7 +151,9 @@ class WorkdayAdapter:
         for path, item in listed.items():
             if path in known:
                 out.append({"id": path, "_seen_only": True})
-            elif worth_detail(str(item.get("title") or "")):
+            elif worth_detail(str(item.get("title") or "")) and not _NON_US.search(
+                str(item.get("locationsText") or "")
+            ):
                 fresh.append((posted_days_ago(item.get("postedOn")), path, item))
         fresh.sort(key=lambda entry: entry[0])
         for _, path, item in fresh[:MAX_DETAILS_PER_RUN]:
