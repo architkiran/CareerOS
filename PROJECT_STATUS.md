@@ -35,8 +35,8 @@ those hosts. Their first live run happens on the candidate's Mac.
 
 ## Candidate input needed
 
-1. Confirm official program end date and the OPT timeline with the BU ISSO. The stored
-   "authorized until 2027-05-17" has no recorded source.
+1. Confirm the work-authorization dates stored in the profile with the university
+   international office. One stored date has no recorded source.
 2. Confirm relocation: the stored profile says open to anywhere in the US.
 3. Confirm role priority: Data Analyst and Data Engineer primary, the other families secondary.
 4. Download the LCA disclosure file (see `docs/SPONSORSHIP_EVIDENCE.md`).

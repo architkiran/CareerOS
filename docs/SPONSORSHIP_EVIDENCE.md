@@ -41,5 +41,5 @@ worksite states.
   Level C until a confirmed alias mechanism exists (planned).
 - Pattern matching reads common wording. Unusual phrasing lands in U with an
   "ambiguous wording" note, never in A.
-- Nothing here is legal advice. Work-authorization facts (OPT dates, STEM OPT eligibility)
-  must be confirmed with the BU ISSO or immigration counsel.
+- Nothing here is legal advice. Work-authorization facts must be confirmed with the
+  university international office or immigration counsel.
