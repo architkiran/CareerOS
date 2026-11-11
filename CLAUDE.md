@@ -11,7 +11,7 @@ You are the lead engineer implementing CareerOS. Read this file and the referenc
 5. `docs/PIPELINE.md`
 6. `docs/SECURITY_AND_COMPLIANCE.md`
 7. `docs/COST_AND_DEPLOYMENT.md`
-8. `docs/ROADMAP.md`
+8. `MISSION.md` and `PROJECT_STATUS.md`
 9. ADRs in `docs/adr/`
 
 ## How to work
@@ -74,4 +74,4 @@ Do not code yet. Inspect the repository and produce:
 - unresolved decisions;
 - a risk list.
 
-Then implement Phase 0 and the first vertical slice from `docs/ROADMAP.md`. Ask before adding paid services or enabling any external side effect.
+Then continue from the next steps in `PROJECT_STATUS.md`. Ask before adding paid services or enabling any external side effect.

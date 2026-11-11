@@ -11,12 +11,11 @@ For the existing Mac workspace:
 zsh "/Users/architkiran/Desktop/PersonalProjects/CareerOS/Start CareerOS.command"
 ```
 
-Open [New Jobs](http://127.0.0.1:8766/new-jobs). Keep the terminal running.
+Open [Today](http://127.0.0.1:8766/today). Keep the terminal running.
 The launcher checks for an existing server and never starts a second worker.
 Fresh clones can use the setup instructions below (CLI default port 8000).
 
-[Implemented behavior, verification and limits](docs/SIMPLIFICATION_IMPLEMENTATION.md)
-· [Pre-change audit](docs/SIMPLIFICATION_AUDIT.md)
+Current state and next steps: [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Career OS 2.0 quick start (discovery and eligibility)
 
@@ -113,7 +112,7 @@ See `docs/` for detailed contracts.
 | 8. Analytics | Done |
 | 9. Model gateway, optional local AI, backups | Done |
 
-See `docs/ROADMAP.md`.
+See `PROJECT_STATUS.md`.
 
 ## Setup (macOS)
 
@@ -350,15 +349,6 @@ private-artifact path rebasing (including an explicitly provided legacy Docker
 storage alias). It refuses an existing destination and never changes the source.
 Copied pending work is cancelled in the copy to avoid replaying another worker's
 actions. The source's historical records and confirmed verification labels remain.
-
-
-## Career intelligence
-
-`/market-intelligence` shows role themes grounded in saved public postings and
-verified skill overlap. Briefings retain source links, observed/source dates,
-eligibility uncertainty and coverage limits. Daily comparisons require matching
-coverage and candidate inputs; a single snapshot never establishes a hiring trend.
-See [the implementation and source policy](docs/MARKET_INTELLIGENCE.md).
 
 
 Scheduled discovery can run every 15 minutes or longer using

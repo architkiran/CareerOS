@@ -47,7 +47,6 @@ def test_mission_deduplicates_and_handoffs_survive_restart(factory: sessionmaker
             "blocked",
             "blocked",
             "blocked",
-            "blocked",
         ]
         session.commit()
     for n in range(len(AGENTS)):
@@ -345,31 +344,10 @@ def test_healthy_review_succeeds_and_preserves_verified_profile(
         assert all(not r.result_json["warnings"] for r in service.runs_for(session, mission_id))
 
 
-def test_version_one_mission_keeps_its_original_graph_after_registry_upgrade(
+def test_daily_mission_runs_without_the_retired_market_step(
     factory: sessionmaker[Session],
 ) -> None:
-    from sqlalchemy import delete, or_
-
-    from careeros.db.models import AgentDependency
-
     mission_id = start(factory)
-    with factory() as session:
-        mission = session.get(Mission, mission_id)
-        assert mission
-        mission.version = "1"
-        runs = {run.agent_key: run for run in service.runs_for(session, mission_id)}
-        market = runs["market"]
-        session.execute(
-            delete(AgentDependency).where(
-                or_(
-                    AgentDependency.run_id == market.id,
-                    AgentDependency.depends_on_id == market.id,
-                )
-            )
-        )
-        session.add(AgentDependency(run_id=runs["research"].id, depends_on_id=runs["matching"].id))
-        session.delete(market)
-        session.commit()
     for _ in range(5):
         assert worker(factory).run_once()
     with factory() as session:

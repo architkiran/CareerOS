@@ -22,8 +22,6 @@ from careeros.modules.jobs.service import (
     public_board_links,
     recommended_jobs,
 )
-from careeros.modules.market.contracts import MarketReport
-from careeros.modules.market.service import latest_brief
 from careeros.modules.models.gateway import usage_summary
 from careeros.modules.profile.service import profile_summary
 from careeros.modules.system.overview import build_overview
@@ -76,7 +74,6 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         if isinstance(scheduled, str)
         else None
     )
-    market = latest_brief(session)
     from careeros.modules.referrals.service import overview as referral_overview
 
     ctx["mc"] = {
@@ -118,8 +115,6 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
             ).all()
         ),
         "specs": BY_KEY,
-        "market_brief": market,
-        "market_report": MarketReport.model_validate(market.report_json) if market else None,
         "mission": current,
         "missions": missions,
         "runs": runs,

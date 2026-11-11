@@ -58,11 +58,6 @@ class AgentSpec:
                 "Verify document content and binary hashes",
                 "Hand off warnings for human review",
             ),
-            "market": (
-                "Read saved public postings",
-                "Read verified skills",
-                "Write cited market briefs",
-            ),
             "research": ("Read shortlisted postings", "Open pending evidence reviews"),
             "analytics": ("Read application events", "Compute aggregate conversion metrics"),
             "verification": ("Read source health", "Read profile readiness and approval counts"),
@@ -79,18 +74,11 @@ AGENTS = (
         ("discovery",),
     ),
     AgentSpec(
-        "market",
-        "Career intelligence",
-        "Find evidence-backed role themes in your tracked market.",
-        "/market-intelligence",
-        ("matching",),
-    ),
-    AgentSpec(
         "research",
         "Employer research",
         "Extract posting evidence for your shortlist; review stays human.",
         "/research",
-        ("market",),
+        ("matching",),
     ),
     AgentSpec(
         "analytics",

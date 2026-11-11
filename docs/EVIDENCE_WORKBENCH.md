@@ -94,26 +94,3 @@ The first scheduled freshness mission checked five feeds and found four more job
 LinkedIn and Handshake remain user-assisted because account scraping is restricted.
 Himalayas, USAJOBS authentication and broader availability checks were researched,
 not implemented as if they were already connected.
-
-## Research and validation
-
-Read [the cited research report](../reports/CareerOS%20evidence%20and%20discovery.md)
-for Tsenta, Teal, Huntr, Simplify, OpenResume, YAMLResume, RenderCV, JobCtrl and other
-references. It distinguishes recommendations from delivered functionality and
-commercial/source-available products from OSI open-source software. No reference
-code, branding or assets were copied.
-
-The baseline passed 621 tests. The updated full suite passed 634 tests; Ruff and
-strict mypy passed. New tests cover master preservation/comments/idempotence,
-non-destructive editing, feedback persistence, unsupported edits, source timestamp
-filters, provider cadence and scheduling deduplication, real support-agent handoffs,
-contact evidence, safe RSS parsing, lower-ranked pinned projects and private PNG
-previews with integrity checks. Offline route tests use a small PDF compiler stand-in;
-separate live checks use real cached Tectonic compilation and rendered inspection.
-Four existing draft applications were regenerated as one-page PDFs. Review warnings
-were not acknowledged automatically. A before-import backup was created, and the
-final backup includes master sources, documents, private briefs and feedback.
-
-The PDF preview uses [pypdfium2](https://pypdfium2.readthedocs.io/en/stable/python_api.html)
-locally, guarded by a mutex because PDFium does not support concurrent calls across
-threads. No candidate resume data is sent to a hosted renderer.

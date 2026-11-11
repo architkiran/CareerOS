@@ -41,7 +41,7 @@
 {% set all = d.eligible + d.research + d.review %}
 <div class="td" data-today>
   <header class="td-top">
-    <div class="td-headline"><h1>Today</h1><p>{{ now|localtime }}. {{ d.sources_ok }} sources healthy{% if d.sources_failing %}, <a href="/sources">{{ d.sources_failing|length }} failing</a>{% endif %}. {{ d.counts.get('rejected', 0) }} roles rejected by your rules and kept for audit.</p></div>
+    <div class="td-headline"><h1>Today</h1><p>{{ now|localtime }}. {{ d.sources_ok }} source{{ '' if d.sources_ok == 1 else 's' }} healthy{% if d.sources_failing %}, <a href="/sources">{{ d.sources_failing|length }} failing</a>{% endif %}. {{ d.counts.get('rejected', 0) }} roles rejected by your rules and kept for audit.</p></div>
     {% if not d.lca_loaded or not d.sponsorship_confirmed %}<div class="td-notices">
       {% if not d.lca_loaded %}<p class="td-notice">LCA history is not imported yet, so no employer can reach Level B and Eligible stays short. Download the latest LCA disclosure file from the US Department of Labor, then run <code>careeros lca import FILE --fiscal-year 2026</code>.</p>{% endif %}
       {% if not d.sponsorship_confirmed %}<p class="td-notice">Your sponsorship need is not confirmed in the profile, so every role is held back. <a href="/profile">Confirm it in your profile.</a></p>{% endif %}

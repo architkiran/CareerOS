@@ -33,7 +33,7 @@ class ArtifactRef(BaseModel):
     @property
     def href(self) -> str:
         return {
-            "market_brief": f"/market-intelligence?brief_id={self.id}",
+            "market_brief": "/mission-control",  # briefs were retired; old runs still load
             "interview_plan": f"/interviews/{self.id}",
             "resume_reference": f"/resumes/{self.id}/download",
             "document": f"/documents/{self.id}/download",

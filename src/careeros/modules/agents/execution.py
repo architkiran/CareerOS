@@ -255,25 +255,6 @@ def _local_step(session: Session, key: str) -> AgentOutput:
                 "no login or restriction was bypassed."
             ],
         )
-    if key == "market":
-        from careeros.modules.market.contracts import MarketReport
-        from careeros.modules.market.service import generate_brief
-
-        brief = generate_brief(session)
-        report = MarketReport.model_validate(brief.report_json)
-        return AgentOutput(
-            summary=f"Found {len(report.findings)} evidence-backed role themes "
-            f"across {report.recent_active_jobs} recently observed jobs.",
-            metrics={
-                "role_themes": len(report.findings),
-                "recent_active_jobs": report.recent_active_jobs,
-                "fresh_sources": len(report.fresh_source_ids),
-            },
-            warnings=[
-                w for w in report.warnings if not w.startswith("No evidence-backed role themes")
-            ],
-            artifacts=[ArtifactRef(kind="market_brief", id=brief.id)],
-        )
     if key == "matching":
         result = score_jobs(session, commit_every=25)
         profile = profile_summary(session)

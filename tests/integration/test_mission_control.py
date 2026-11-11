@@ -46,7 +46,7 @@ def test_start_controls_history_and_live_partial(app: FastAPI, client: TestClien
     assert "Attempt 1" in html and "degraded" in html
     assert "No enabled sources." in html
     partial = client.get("/partials/mission-control")
-    assert "6 of 6 steps complete" in partial.text
+    assert "5 of 5 steps complete" in partial.text
     assert "View results" in partial.text
     assert "Recent results" in client.get("/agents").text
     assert "Updated the career funnel" in client.get("/agents/analytics").text
