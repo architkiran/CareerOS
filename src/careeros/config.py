@@ -9,8 +9,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from careeros.common.fs import private_dir
 
-ModelProvider = Literal["disabled", "ollama", "llama_cpp"]
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -33,15 +31,6 @@ class Settings(BaseSettings):
     sse_heartbeat_seconds: float = Field(default=15.0, ge=1, le=120)
 
     # Runtime AI is disabled by default and spend caps default to $0 (ADR 0002).
-    model_provider: ModelProvider = "disabled"
-    model_daily_budget_usd: float = Field(default=0.0, ge=0)
-    model_monthly_budget_usd: float = Field(default=0.0, ge=0)
-    ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = ""
-    llama_base_url: str = "http://127.0.0.1:11435"
-    llama_model: str = "qwen3-4b.gguf"
-    llama_key_file: Path = Path(".tools/local-model.key")
-    model_timeout_seconds: float = Field(default=60, ge=1, le=600)
     # Binding to a non-local address needs authentication that doesn't exist yet.
     allow_remote: bool = False
     # Set only by the provided Docker image: the app listens on 0.0.0.0 *inside* the container,

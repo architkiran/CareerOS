@@ -33,8 +33,7 @@
 <section class="system-strip" aria-label="System status" data-testid="system-strip">
   <span>Database: {% if status.database.ok %}<strong class="ok">connected</strong> <span class="muted">({{ status.database.journal_mode }}, foreign keys {{ 'on' if status.database.foreign_keys else 'off' }})</span>{% else %}<strong class="bad">unavailable</strong> <span class="muted">{{ status.database.error }}</span>{% endif %}</span>
   <span>Schema: <strong class="{{ 'ok' if status.schema.up_to_date else 'warnc' }}">{{ 'Up to date' if status.schema.up_to_date else 'Migrations pending' }}</strong> <span class="muted">(Current: {{ status.schema.current_revision or 'none' }} · Head: {{ status.schema.head_revision or 'unknown' }})</span></span>
-  <span>AI: <strong>{{ status.model_provider }}</strong> <span class="muted">Budget: ${{ '%.2f'|format(status.model_daily_budget_usd) }}/day · ${{ '%.2f'|format(status.model_monthly_budget_usd) }}/month · spent ${{ '%.2f'|format(spent) }} in 30 days</span></span>
-  <span>Scheduler: <strong>{{ 'enabled' if status.scheduler_enabled else 'disabled' }}</strong></span>
+    <span>Scheduler: <strong>{{ 'enabled' if status.scheduler_enabled else 'disabled' }}</strong></span>
   <span class="muted">v{{ status.version }} · {{ status.environment }} · {{ 'localhost only' if status.localhost_only else 'network exposed' }}</span>
 </section>
 {% endblock %}

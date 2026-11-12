@@ -413,3 +413,24 @@ def claims_for(session: Session, document_id: str) -> list[DocumentClaim]:
 
 def document_count(session: Session) -> int:
     return int(session.scalar(select(func.count()).select_from(Document)) or 0)
+
+
+def source_fingerprint(session: Session, app_id: str) -> str:
+    """Hash of the verified profile and posting an editor draft was built from."""
+    import json
+    from dataclasses import asdict
+
+    from careeros.modules.sources.text import sha256
+
+    app = session.get(Application, app_id)
+    if not app:
+        raise LookupError("Application not found")
+    job = session.get(Job, app.job_id)
+    assert job
+    return sha256(
+        json.dumps(
+            [asdict(load_candidate(session)), job.description_hash, job.title],
+            sort_keys=True,
+            default=str,
+        )
+    )

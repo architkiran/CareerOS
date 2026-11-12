@@ -27,7 +27,7 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
 - **Workday fixed after the first live run**: robots.txt was requested as JSON and Workday
   answered 406 for 111 of 120 sites. Verified against a live Workday site on 2026-11-11.
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 801 tests pass; ruff and strict mypy clean.
+- 758 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 
@@ -42,6 +42,9 @@ those hosts. Their first live run happens on the candidate's Mac.
 - Market intelligence (briefs, page, agent step): 12 briefs produced, none used.
 - Remotive and We Work Remotely are switched off (migration 0019): 176 postings, none
   eligible or worth researching. Their adapters remain if you want them back.
+- Local AI resume rewriting: the model gateway, local runtime, rewrite proposals, job
+  summaries and their settings. Tailoring is done outside the app; the manual resume editor
+  and PDF export remain.
 - Ten superseded planning and validation documents, research notes and an unused stylesheet.
 
 Still present but superseded, to remove after Today has been used for a week: the lane

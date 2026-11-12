@@ -16,7 +16,6 @@ def test_dashboard_renders_ok_with_empty_activity(client: TestClient) -> None:
     assert 'data-testid="overall-status">ok<' in r.text
     assert 'data-testid="activity-empty"' in r.text
     assert "Up to date" in r.text
-    assert "$0.00/day" in r.text
 
 
 def test_dashboard_shows_events_escaped_in_local_time(app: FastAPI, client: TestClient) -> None:
@@ -90,4 +89,4 @@ def test_static_font_and_icon_served(client: TestClient) -> None:
 
 def test_system_strip_on_overview(client: TestClient) -> None:
     html = client.get("/advanced/system").text
-    assert 'data-testid="system-strip"' in html and "spent $0.00" in html
+    assert 'data-testid="system-strip"' in html

@@ -22,7 +22,6 @@ from careeros.modules.jobs.service import (
     public_board_links,
     recommended_jobs,
 )
-from careeros.modules.models.gateway import usage_summary
 from careeros.modules.profile.service import profile_summary
 from careeros.modules.system.overview import build_overview
 from careeros.modules.system.settings_store import get_setting
@@ -147,7 +146,6 @@ def _context(request: Request, session: Session) -> dict[str, Any]:
         "profile": profile_summary(session),
         "followups": approval_service.open_follow_ups(session, due_within_days=3)[:3],
         "application_rows": application_service.list_applications(session)[:3],
-        "usage": usage_summary(session),
         "worker_seen": seen,
         "worker_recent": seen is not None and utcnow() - seen < timedelta(seconds=75),
         "schedule_enabled": state.settings.mission_scheduler_enabled,

@@ -39,9 +39,6 @@ class SystemStatus:
     localhost_only: bool
     database: DatabaseCheck
     schema: SchemaCheck
-    model_provider: str
-    model_daily_budget_usd: float
-    model_monthly_budget_usd: float
     scheduler_enabled: bool
     messages: list[str] = field(default_factory=list)
 
@@ -97,9 +94,6 @@ def get_system_status(settings: Settings, engine: Engine) -> SystemStatus:
         localhost_only=settings.is_localhost_bound,
         database=db,
         schema=schema,
-        model_provider=settings.model_provider,
-        model_daily_budget_usd=settings.model_daily_budget_usd,
-        model_monthly_budget_usd=settings.model_monthly_budget_usd,
         scheduler_enabled=settings.scheduler_enabled,
         messages=messages,
     )

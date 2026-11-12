@@ -19,12 +19,6 @@ class AgentSpec:
     @property
     def tools(self) -> tuple[str, ...]:
         return {
-            "tailoring": (
-                "Read verified master evidence",
-                "Propose local model rewrites",
-                "Validate all roles, metrics and skills",
-                "Hand off proposed edits for review",
-            ),
             "evidence": (
                 "Read explicit posting requirements",
                 "Map verified skills, projects and experience",
@@ -61,7 +55,7 @@ class AgentSpec:
             "research": ("Read shortlisted postings", "Open pending evidence reviews"),
             "analytics": ("Read application events", "Compute aggregate conversion metrics"),
             "verification": ("Read source health", "Read profile readiness and approval counts"),
-        }[self.key]
+        }.get(self.key, ())
 
 
 AGENTS = (
@@ -99,10 +93,7 @@ ON_DEMAND_AGENTS = (
     AgentSpec(
         "tailoring",
         "Resume tailoring",
-        (
-            "Rewrite for a saved role using local inference; "
-            "preserve all experience and hand off edits for review."
-        ),
+        ("Retired. Kept so earlier runs still display."),
         "/applications",
     ),
     AgentSpec(

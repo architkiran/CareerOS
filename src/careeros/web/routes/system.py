@@ -42,12 +42,6 @@ def dashboard(request: Request, queued: str | None = None) -> HTMLResponse:
         except SQLAlchemyError:
             events_error = "Could not load dashboard data."
     cursor = events[0].id if events else 0
-    spent = 0.0
-    if status.schema.up_to_date:
-        from careeros.modules.models.gateway import usage_summary
-
-        with state.session_factory() as session:
-            spent = usage_summary(session).spent_30d
     response: HTMLResponse = state.templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -58,7 +52,6 @@ def dashboard(request: Request, queued: str | None = None) -> HTMLResponse:
             "ov": overview,
             "cursor": cursor,
             "queued": queued,
-            "spent": spent,
         },
     )
     return response

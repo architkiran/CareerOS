@@ -18,8 +18,6 @@ def test_health_ok_when_migrated(client: TestClient) -> None:
     assert body["database"]["foreign_keys"] is True
     assert body["schema"]["up_to_date"] is True
     assert body["localhost_only"] is True
-    assert body["model_provider"] == "disabled"
-    assert body["model_daily_budget_usd"] == 0
     assert body["messages"] == []
 
 

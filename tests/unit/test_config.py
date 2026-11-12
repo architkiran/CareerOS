@@ -15,25 +15,12 @@ def test_safe_defaults() -> None:
     s = make()
     assert s.app_host == "127.0.0.1"
     assert s.is_localhost_bound
-    assert s.model_provider == "disabled"
-    assert s.model_daily_budget_usd == 0
-    assert s.model_monthly_budget_usd == 0
     assert s.scheduler_enabled is False
 
 
 def test_rejects_non_sqlite_database() -> None:
     with pytest.raises(ValidationError, match="SQLite"):
         make(database_url="postgresql://localhost/careeros")
-
-
-def test_rejects_negative_budget() -> None:
-    with pytest.raises(ValidationError):
-        make(model_daily_budget_usd=-1)
-
-
-def test_rejects_unknown_model_provider() -> None:
-    with pytest.raises(ValidationError):
-        make(model_provider="openai")
 
 
 def test_rejects_invalid_log_level() -> None:
