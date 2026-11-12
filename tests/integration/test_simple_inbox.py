@@ -15,7 +15,10 @@ from tests.integration.test_fresh_referrals import make_role, match
 
 def test_default_landing_and_exactly_three_primary_screens(client: TestClient) -> None:
     result = client.get("/", follow_redirects=False)
-    assert result.status_code == 303 and result.headers["location"] == "/today"
+    assert result.status_code == 200
+    assert 'href="/today">Open today\'s board</a>' in result.text
+    # With nothing discovered the landing page says so and pads nothing in.
+    assert "No eligible roles in the last 30 days yet" in result.text
     page = client.get("/new-jobs").text
     nav = page.split('data-testid="workspace-nav"')[1].split("</nav>")[0]
     assert nav.count("<a ") == 4

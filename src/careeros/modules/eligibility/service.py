@@ -196,6 +196,32 @@ def evaluate_all(
     return summary
 
 
+FRESH_ORDER = {"today": 0, "week": 1, "earlier": 2, "older": 3}
+FRESH_LABEL = {
+    "today": "Posted in the last 24 hours",
+    "week": "This week",
+    "earlier": "Earlier this month",
+    "older": "Older than 30 days",
+}
+
+
+def freshness(
+    posted_at: datetime | None, first_seen_at: datetime, now: datetime
+) -> tuple[int, str, bool, str]:
+    """(age in hours, short label, publication date known?, band).
+
+    When the source gives no publication date the age is counted from our first sighting,
+    which can only understate it, so the card says the true date is unknown.
+    """
+    known = posted_at is not None
+    hours = max(int((now - (posted_at or first_seen_at)).total_seconds() // 3600), 0)
+    label = f"{hours}h" if hours < 24 else f"{hours // 24}d"
+    band = "today" if hours < 24 else "week" if hours < 168 else "earlier"
+    if hours >= 720:
+        band = "older"
+    return hours, label, known, band
+
+
 @dataclass
 class Card:
     job_id: str
@@ -222,6 +248,11 @@ class Card:
     saved_stage: str | None
     outreach: dict[str, Any] = field(default_factory=dict)
     applied: bool = False
+    rank: int = 0
+    age_hours: int = 0
+    age_label: str = ""
+    age_known: bool = True  # False when only our first sighting is known
+    fresh: str = "earlier"  # today | week | earlier | older
 
 
 @dataclass
@@ -240,7 +271,7 @@ class Digest:
 
 
 def build_digest(
-    session: Session, *, limit: int = 60, family: str | None = None, now: datetime | None = None
+    session: Session, *, limit: int = 150, family: str | None = None, now: datetime | None = None
 ) -> Digest:
     now = now or utcnow()
     official_jobs = set(
@@ -297,6 +328,7 @@ def build_digest(
             official=job.id in official_jobs,
             saved_stage=job.saved_stage,
             applied=job.id in applied_jobs,
+            rank=verdict.rank,
         )
         card.outreach = build_kit(
             company=company,
@@ -306,6 +338,9 @@ def build_digest(
             candidate_name=name,
             school=school if isinstance(school, str) and school else None,
             intro=str(intro),
+        )
+        card.age_hours, card.age_label, card.age_known, card.fresh = freshness(
+            job.posted_at, job.first_seen_at, now
         )
         # The same role can arrive from a community list and the employer's ATS under
         # different URLs. Show it once, preferring the employer-verified record.
@@ -321,6 +356,9 @@ def build_digest(
     counts = dict(
         session.execute(select(JobVerdict.verdict, func.count()).group_by(JobVerdict.verdict)).all()
     )
+    for cards in buckets.values():
+        # Freshest first; the fit rank only orders roles of the same age band.
+        cards.sort(key=lambda c: (FRESH_ORDER[c.fresh], -c.rank, c.age_hours))
     counts["shown_eligible"] = len(buckets["eligible"])
     counts["shown_research"] = len(buckets["research"])
     counts["shown_review"] = len(buckets["review"])

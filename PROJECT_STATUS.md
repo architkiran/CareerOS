@@ -27,7 +27,7 @@ Last updated: 2026-11-11. Branch: `feat/career-os-2-discovery-eligibility`.
 - **Workday fixed after the first live run**: robots.txt was requested as JSON and Workday
   answered 406 for 111 of 120 sites. Verified against a live Workday site on 2026-11-11.
 - **Surface**: `/today` page; `careeros discover` writes `exports/digest-YYYY-MM-DD.md`.
-- 758 tests pass; ruff and strict mypy clean.
+- 759 tests pass; ruff and strict mypy clean.
 
 ## Verified against real data
 
@@ -36,6 +36,17 @@ On 2026-11-11 the community feed was fetched live: 1,344 current listings → 1,
 research queue, 43 needing review. The Workday, Greenhouse, Lever and Ashby adapters are
 verified against fixtures only in this session, because the build environment could not reach
 those hosts. Their first live run happens on the candidate's Mac.
+
+## Interface ("Departures")
+
+- Identity: a station departure board. Navy board and rail, Overpass type, amber means new,
+  colour otherwise reserved for sponsorship evidence. Tokens and rules: top of `ui.css`.
+- Home (`/`): live mini-board of the freshest eligible roles, the six checks on a real role,
+  evidence levels with real counts, sources, and what the app never does.
+- Today: rows grouped by publication age (last 24 hours, this week, earlier this month);
+  roles older than 30 days are folded away. Ticket panel with the stub, evidence and outreach.
+- Verified by screenshot at 1440 and 820 wide; phone layout exists but headless Chrome could
+  not render narrower than 500px, and dark theme was not screenshotted.
 
 ## Removed on 2026-11-11
 

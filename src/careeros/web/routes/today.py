@@ -31,7 +31,13 @@ def today_page(
     response: HTMLResponse = request.app.state.templates.TemplateResponse(
         request,
         "today.html",
-        {"d": digest, "now": now, "families": families, "family": family},
+        {
+            "d": digest,
+            "now": now,
+            "families": families,
+            "family": family,
+            "fresh_label": eligibility.FRESH_LABEL,
+        },
     )
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -56,3 +62,72 @@ async def confirm_employer(
     eligibility.evaluate_all(session, company_id=company.id)
     session.commit()
     return RedirectResponse("/today", status_code=303)
+
+
+SOURCE_KIND = {
+    "greenhouse": "Greenhouse career sites",
+    "lever": "Lever career sites",
+    "ashby": "Ashby career sites",
+    "smartrecruiters": "SmartRecruiters career sites",
+    "workday": "Workday career sites",
+    "community": "Curated new-graduate list",
+    "jobicy": "Jobicy remote board",
+    "remotive": "Remotive remote board",
+    "wwr": "We Work Remotely",
+}
+LEVELS = (
+    ("A", "The posting says so", "A quote from the posting itself states sponsorship."),
+    ("B", "The employer has done it", "Certified filings on record. This role is unconfirmed."),
+    ("C", "Hearsay", "A third-party tag, or a filer whose name only looks similar."),
+    ("U", "Nothing either way", "No credible evidence. Held in the research queue."),
+    ("D", "The posting rules it out", "Rejected, with the sentence that rules it out."),
+)
+
+
+def landing(request: Request, session: Session) -> HTMLResponse:
+    """Home: what this is, the freshest cleared roles, and how a role earns its place."""
+    from sqlalchemy import func, select
+
+    from careeros.db.models import JobSourceRecord, JobVerdict, Source
+
+    now = utcnow()
+    digest = eligibility.build_digest(session, now=now)
+    fresh = [c for c in digest.eligible if c.fresh != "older"][:7]
+    by_level = dict(
+        session.execute(
+            select(JobVerdict.sponsorship_level, func.count())
+            .join(Job, Job.id == JobVerdict.job_id)
+            .where(
+                Job.status == "active",
+                # A to U count roles still on the board; D counts the ones it turned away.
+                (JobVerdict.verdict != "rejected") | (JobVerdict.sponsorship_level == "D"),
+            )
+            .group_by(JobVerdict.sponsorship_level)
+        ).all()
+    )
+    sources = session.execute(
+        select(
+            Source.source_type, func.count(func.distinct(Source.id)), func.count(JobSourceRecord.id)
+        )
+        .outerjoin(JobSourceRecord, JobSourceRecord.source_id == Source.id)
+        .where(Source.enabled.is_(True))
+        .group_by(Source.source_type)
+        .order_by(func.count(JobSourceRecord.id).desc())
+    ).all()
+    response: HTMLResponse = request.app.state.templates.TemplateResponse(
+        request,
+        "landing.html",
+        {
+            "d": digest,
+            "now": now,
+            "fresh": fresh,
+            "example": next(iter(fresh or digest.eligible or digest.research), None),
+            "levels": [(k, name, text, by_level.get(k, 0)) for k, name, text in LEVELS],
+            "sources": [(SOURCE_KIND.get(kind, kind), n, jobs) for kind, n, jobs in sources],
+            "evaluated": sum(
+                digest.counts.get(k, 0) for k in ("eligible", "research", "review", "rejected")
+            ),
+        },
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response

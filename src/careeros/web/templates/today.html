@@ -1,9 +1,10 @@
 {% extends "base.html" %}{% from "_macros.html" import csrf with context %}
 {% block title %}Today · CareerOS{% endblock %}
-{% macro age(c) %}{% if c.posted_at %}{{ [(now - c.posted_at).days, 0]|max }}d{% else %}seen {{ [(now - c.first_seen_at).days, 0]|max }}d{% endif %}{% endmacro %}
-{% macro row(c) %}<li><a class="td-row" href="#job-{{ c.job_id }}" data-row data-id="{{ c.job_id }}" data-bucket="{{ c.verdict }}" data-search="{{ (c.title ~ ' ' ~ c.company ~ ' ' ~ (c.location or '') ~ ' ' ~ (c.family or ''))|lower }}"><span class="td-ev td-ev-{{ c.level }}" title="Sponsorship evidence {{ c.level }}"></span><span><strong>{{ c.title }}</strong><span class="sub">{{ c.company }}{% if c.location %}, {{ c.location }}{% endif %}</span></span><span class="meta"><span class="fit-{{ c.fit }}">{{ c.fit or '' }}</span><span>{{ age(c) }}</span>{% if c.applied %}<span class="td-mark">Applied</span>{% elif c.saved_stage %}<span class="td-mark" data-saved-mark>Saved</span>{% endif %}</span></a></li>{% endmacro %}
+{% macro row(c) %}<li><a class="td-row" href="#job-{{ c.job_id }}" data-row data-id="{{ c.job_id }}" data-bucket="{{ c.verdict }}" data-fresh="{{ c.fresh }}" data-search="{{ (c.title ~ ' ' ~ c.company ~ ' ' ~ (c.location or '') ~ ' ' ~ (c.family or ''))|lower }}"><span class="bd-time {{ '' if c.age_known else 'unknown' }}" data-fresh="{{ c.fresh }}" title="{{ 'Published ' ~ c.age_label ~ ' ago' if c.age_known else 'First seen ' ~ c.age_label ~ ' ago. The source gives no publication date, so it may be older.' }}">{{ c.age_label }}</span><span><strong>{{ c.title }}</strong><span class="sub">{{ c.company }}{% if c.location %}, {{ c.location }}{% endif %}</span></span><span class="meta"><span class="fit-{{ c.fit }}">{{ c.fit or '' }}</span>{% if c.applied %}<span class="td-mark">Applied</span>{% elif c.saved_stage %}<span class="td-mark" data-saved-mark>Saved</span>{% endif %}</span><span class="cls cls-{{ c.level }}" title="Sponsorship evidence {{ c.level }}: {{ c.level_label }}">{{ c.level }}</span></a></li>{% endmacro %}
+{% macro board(cards) %}{% for band in ['today','week','earlier','older'] %}{% set rows = cards|selectattr('fresh','equalto',band)|list %}{% if rows %}<li class="bd-group" data-group="{{ band }}" data-bucket="{{ rows[0].verdict }}"><span>{{ fresh_label[band] }}</span></li>{% for c in rows %}{{ row(c) }}{% endfor %}{% endif %}{% endfor %}{% endmacro %}
 {% macro card(c) %}
 <article class="td-card" id="job-{{ c.job_id }}" data-card data-id="{{ c.job_id }}" data-bucket="{{ c.verdict }}" data-testid="os2-card">
+  <button type="button" class="ui-btn td-back" data-back>Back to the board</button>
   <h2>{{ c.title }}</h2>
   <p class="where">{{ c.company }}{% if c.location %}, {{ c.location }}{% else %}, location not stated{% endif %}</p>
   <div class="td-actions">
@@ -13,9 +14,10 @@
     {% if c.applied %}<span class="ui-btn ui-btn-quiet">Applied</span>{% else %}<details class="td-applied"><summary class="ui-btn">I applied</summary><form class="td-inline" method="post" action="/jobs/{{ c.job_id }}/record-applied">{{ csrf() }}<label>Date <input type="date" name="application_date"></label><label><input type="checkbox" name="confirmed" value="on" required> I submitted this application myself</label><button class="ui-btn ui-btn-primary">Record it</button></form></details>{% endif %}
     <form method="post" action="/inbox/jobs/{{ c.job_id }}/decision" data-async="dismiss">{{ csrf() }}<input type="hidden" name="action" value="dismiss"><input type="hidden" name="return_to" value="/today"><button class="ui-btn ui-btn-quiet">Dismiss</button></form>
   </div>
-  <div class="td-verdict"><span class="td-level td-level-{{ c.level }}" aria-hidden="true">{{ c.level }}</span><div><strong>{{ c.level_label }}</strong><p>{{ c.sponsorship.summary }}</p></div></div>
+  <dl class="td-stub"><div><dt>{{ 'Published' if c.age_known else 'First seen' }}</dt><dd>{{ c.age_label }} ago{{ '' if c.age_known else ' (date not given)' }}</dd></div><div><dt>Role family</dt><dd>{{ c.family or 'Other analyst' }}</dd></div><div><dt>Fit</dt><dd>{{ c.fit or 'Not rated' }}</dd></div><div><dt>Source</dt><dd>{{ 'Employer site' if c.official else 'Third-party list' }}</dd></div></dl>
+  <div class="td-verdict"><span class="cls cls-lg cls-{{ c.level }}" aria-hidden="true">{{ c.level }}</span><div><strong>{{ c.level_label }}</strong><p>{{ c.sponsorship.summary }}</p></div></div>
   <p class="td-next">{{ c.next_action }}</p>
-  <p class="td-facts"><span>{{ c.fit }} fit</span>{% if c.family %}<span>{{ c.family }}</span>{% endif %}<span>{% if c.posted_at %}Published {{ [(now - c.posted_at).days, 0]|max }} days ago{% else %}First seen {{ [(now - c.first_seen_at).days, 0]|max }} days ago, publication date unknown{% endif %}</span><span>{{ 'From the employer' if c.official else 'Third-party list only' }}</span></p>
+
 
   <section class="td-sec"><h3>Reach a person</h3>
     <div class="td-links">{% for label,url in c.outreach.searches %}<a class="ui-btn" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>{% endfor %}</div>
@@ -41,7 +43,7 @@
 {% set all = d.eligible + d.research + d.review %}
 <div class="td" data-today>
   <header class="td-top">
-    <div class="td-headline"><h1>Today</h1><p>{{ now|localtime }}. {{ d.sources_ok }} source{{ '' if d.sources_ok == 1 else 's' }} healthy{% if d.sources_failing %}, <a href="/sources">{{ d.sources_failing|length }} failing</a>{% endif %}. {{ d.counts.get('rejected', 0) }} roles rejected by your rules and kept for audit.</p></div>
+    <div class="td-headline"><div><h1>Today's board</h1><p>{{ d.sources_ok }} source{{ '' if d.sources_ok == 1 else 's' }} reporting{% if d.sources_failing %}, <a href="/sources">{{ d.sources_failing|length }} failing</a>{% endif %}. {{ '{:,}'.format(d.counts.get('rejected', 0)) }} roles turned away by your rules and kept for audit.</p></div><div class="td-clock" aria-label="Local time"><span data-clock></span><small>{% if d.last_success_at %}Last checked {{ d.last_success_at|localtime }}{% else %}Not checked yet{% endif %}</small></div></div>
     {% if not d.lca_loaded or not d.sponsorship_confirmed %}<div class="td-notices">
       {% if not d.lca_loaded %}<p class="td-notice">LCA history is not imported yet, so no employer can reach Level B and Eligible stays short. Download the latest LCA disclosure file from the US Department of Labor, then run <code>careeros lca import FILE --fiscal-year 2026</code>.</p>{% endif %}
       {% if not d.sponsorship_confirmed %}<p class="td-notice">Your sponsorship need is not confirmed in the profile, so every role is held back. <a href="/profile">Confirm it in your profile.</a></p>{% endif %}
@@ -62,8 +64,9 @@
   </header>
   <div class="td-split">
     <div class="td-list-wrap">
-      <ol class="td-list" data-list>{% for c in all %}{{ row(c) }}{% endfor %}</ol>
+      <ol class="td-list" data-list>{{ board(d.eligible) }}{{ board(d.research) }}{{ board(d.review) }}</ol>
       <p class="td-none" data-none {% if all %}hidden{% endif %}>{% if all %}Nothing in this queue matches.{% else %}No roles yet. Nothing has been padded in. Run discovery, or check <a href="/sources">job sources</a>.{% endif %}</p>
+      <p class="bd-foot" data-older-bar hidden><span data-older-count></span><button type="button" data-older-toggle>Show them</button></p>
       {% if d.rejected_reasons %}<details class="td-audit"><summary>Why {{ d.counts.get('rejected', 0) }} roles were rejected</summary><ul class="td-reasons">{% for reason,n in d.rejected_reasons %}<li><span>{{ reason }}</span><span>{{ n }}</span></li>{% endfor %}</ul></details>{% endif %}
     </div>
     <div class="td-detail" data-detail>{% for c in all %}{{ card(c) }}{% endfor %}</div>

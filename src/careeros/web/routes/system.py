@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy.exc import SQLAlchemyError
 
 from careeros.db.models import ActivityEvent
@@ -19,12 +19,20 @@ def health(request: Request) -> JSONResponse:
 
 
 @router.get("/")
-def home(queued: str | None = None) -> RedirectResponse:
+def home(request: Request, queued: str | None = None) -> Response:
     suffix = (
         "?refresh=already" if queued == "already" else "?refresh=queued" if queued == "1" else ""
     )
-    # A queued-refresh notice belongs to the legacy inbox that owns that button.
-    return RedirectResponse("/new-jobs" + suffix if suffix else "/today", 303)
+    if suffix:
+        # A queued-refresh notice belongs to the legacy inbox that owns that button.
+        return RedirectResponse("/new-jobs" + suffix, 303)
+    from careeros.web.routes.today import landing
+
+    state = request.app.state
+    if not get_system_status(state.settings, state.engine).schema.up_to_date:
+        return RedirectResponse("/advanced/system", 303)
+    with state.session_factory() as session:
+        return landing(request, session)
 
 
 @router.get("/advanced/system", response_class=HTMLResponse)

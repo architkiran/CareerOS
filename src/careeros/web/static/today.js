@@ -12,7 +12,12 @@
   var search = root.querySelector("[data-search-input]");
   var none = root.querySelector("[data-none]");
   var detail = root.querySelector("[data-detail]");
-  var bucket = "eligible", current = null;
+  var groups = Array.prototype.slice.call(root.querySelectorAll("[data-group]"));
+  var olderBar = root.querySelector("[data-older-bar]");
+  var olderCount = root.querySelector("[data-older-count]");
+  var olderToggle = root.querySelector("[data-older-toggle]");
+  var clock = root.querySelector("[data-clock]");
+  var bucket = "eligible", current = null, showOlder = false;
 
   function visible() { return rows.filter(function (r) { return !r.hidden && r.isConnected; }); }
   function transition(fn) {
@@ -43,9 +48,23 @@
   }
   function filter(keep) {
     var q = (search.value || "").trim().toLowerCase();
+    var older = 0;
     rows.forEach(function (r) {
-      r.hidden = r.dataset.bucket !== bucket || (q && r.dataset.search.indexOf(q) === -1);
+      var match = r.dataset.bucket === bucket && !(q && r.dataset.search.indexOf(q) === -1);
+      if (match && r.dataset.fresh === "older") older += 1;
+      // Roles older than 30 days stay folded away unless asked for or searched for.
+      r.hidden = !match || (r.dataset.fresh === "older" && !showOlder && !q);
     });
+    groups.forEach(function (g) {
+      g.hidden = !rows.some(function (r) {
+        return !r.hidden && r.isConnected && r.dataset.bucket === g.dataset.bucket && r.dataset.fresh === g.dataset.group;
+      });
+    });
+    if (olderBar) {
+      olderBar.hidden = older === 0 || Boolean(q);
+      olderCount.textContent = older + (older === 1 ? " role" : " roles") + " older than 30 days";
+      olderToggle.textContent = showOlder ? "Hide them" : "Show them";
+    }
     var list = visible();
     none.hidden = list.length > 0;
     if (!list.length) {
@@ -75,7 +94,17 @@
   }
 
   tabs.forEach(function (t) { t.addEventListener("click", function () { setBucket(t.dataset.tab); }); });
-  rows.forEach(function (r) { r.addEventListener("click", function (e) { e.preventDefault(); select(r.dataset.id); }); });
+  rows.forEach(function (r) { r.addEventListener("click", function (e) { e.preventDefault(); select(r.dataset.id); root.classList.add("is-reading"); }); });
+  root.querySelectorAll("[data-back]").forEach(function (b) { b.addEventListener("click", function () { root.classList.remove("is-reading"); }); });
+  if (olderToggle) olderToggle.addEventListener("click", function () { showOlder = !showOlder; filter(true); });
+  function tick() {
+    if (!clock) return;
+    var d = new Date();
+    clock.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  tick(); setInterval(tick, 20000);
+  // The board settles once on load; later filtering must not replay it.
+  setTimeout(function () { root.classList.add("settled"); }, 900);
   search.addEventListener("input", function () { filter(true); });
   search.addEventListener("keydown", function (e) { if (e.key === "Escape") { search.value = ""; filter(true); search.blur(); } });
   window.addEventListener("resize", moveInk);
@@ -116,6 +145,8 @@
             current = null;
             if (next) select(next.dataset.id); 
             card.remove();
+            root.classList.remove("is-reading");
+            filter(true);
             toast("Dismissed");
           }
         })

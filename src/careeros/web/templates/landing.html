@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}CareerOS{% endblock %}
+{% block content %}
+<div class="ld">
+  <section class="ld-hero">
+    <div>
+      <h1>Roles you can actually take, the day they post.</h1>
+      <p class="lede">CareerOS reads every posting from {{ d.sources_ok }} employer career site{{ '' if d.sources_ok == 1 else 's' }} and checks it against your rules before you see it: in the US, full-time, early career, still open, and backed by sponsorship evidence.</p>
+      <div class="ld-cta"><a class="ui-btn ui-btn-primary ui-btn-lg" href="/today">Open today's board</a><a class="ui-btn ui-btn-quiet ui-btn-lg" href="#checks">See how a role is cleared</a></div>
+    </div>
+    <div class="ld-board" aria-label="Freshest eligible roles">
+      <div class="ld-board-top"><strong>Eligible now, freshest first</strong><span data-clock></span></div>
+      {% if fresh %}<ol>{% for c in fresh %}<li><a class="td-row" href="/today#job-{{ c.job_id }}"><span class="bd-time {{ '' if c.age_known else 'unknown' }}" data-fresh="{{ c.fresh }}">{{ c.age_label }}</span><span><strong>{{ c.title }}</strong><span class="sub">{{ c.company }}{% if c.location %}, {{ c.location }}{% endif %}</span></span><span class="meta"><span class="fit-{{ c.fit }}">{{ c.fit or '' }}</span></span><span class="cls cls-{{ c.level }}" title="Sponsorship evidence {{ c.level }}">{{ c.level }}</span></a></li>{% endfor %}</ol>
+      <p class="ld-board-foot">{{ d.eligible|length }} eligible, {{ d.research|length }} waiting on sponsorship research, {{ d.review|length }} need a look.</p>
+      {% else %}<p class="ld-board-empty">No eligible roles in the last 30 days yet. Nothing is padded in. Run discovery, then check <a href="/sources">job sources</a>.</p>{% endif %}
+    </div>
+  </section>
+
+  <section class="ld-band alt" id="checks">
+    <div class="ld-two">
+      <div><h2>Six checks stand between a posting and your board.</h2><p>A role that fails one is turned away and the reason is kept. A role where a check cannot be read is held for you, never waved through. So far {{ '{:,}'.format(evaluated) }} postings have been checked and {{ '{:,}'.format(d.counts.get('rejected', 0)) }} turned away.</p></div>
+      {% if example %}<div class="ld-ticket"><h3>{{ example.title }}</h3><p>{{ example.company }}{% if example.location %}, {{ example.location }}{% endif %}</p>
+        <ul class="td-checks">{% for k in example.checks %}<li><span class="td-state td-state-{{ k.decision }}">{{ {'pass':'✓','assumed':'~','unknown':'?','fail':'×'}[k.decision] }}</span><div><strong>{{ k.label }}</strong>{% if k.decision == 'assumed' %} (assumed){% endif %}<p>{{ k.reason }}</p></div></li>{% endfor %}</ul></div>
+      {% else %}<div class="ld-ticket"><h3>No role to show yet</h3><p>Once discovery has run, a real role and its six checks appear here.</p></div>{% endif %}
+    </div>
+  </section>
+
+  <section class="ld-band">
+    <h2>Sponsorship is graded by evidence, not guessed.</h2>
+    <p>Each open role carries one letter. It says what kind of proof exists, and the role's page shows the quote or the public record behind it.</p>
+    <dl class="ld-levels">{% for key,name,text,n in levels %}<div><span class="cls cls-lg cls-{{ key }}">{{ key }}</span><div><dt>{{ name }}</dt><dd><p>{{ text }}</p></dd></div><span class="n">{{ '{:,}'.format(n) }}<small>{{ 'turned away' if key == 'D' else 'on your board' }}</small></span></div>{% endfor %}</dl>
+  </section>
+
+  <section class="ld-band alt">
+    <h2>Read from the employer, not a job board.</h2>
+    <p>Postings come from each employer's own career site, so dates and wording are theirs. One curated list widens the net, and anything found only there is marked as third-party until the employer's page confirms it.</p>
+    {% if sources %}<table class="ld-sources"><thead><tr><th>Where</th><th>Sites watched</th><th>Postings read</th></tr></thead><tbody>{% for label,n,jobs in sources %}<tr><td>{{ label }}</td><td>{{ n }}</td><td>{{ '{:,}'.format(jobs) }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  </section>
+
+  <section class="ld-band">
+    <h2>It prepares. You decide and send.</h2>
+    <ul class="ld-never"><li><strong>It never applies for you</strong><span>You open the employer's page and submit yourself, then record it here.</span></li><li><strong>It never sends a message</strong><span>Outreach drafts are yours to edit, copy and send.</span></li><li><strong>It never answers visa questions</strong><span>Work-authorization answers are always yours to give.</span></li></ul>
+  </section>
+
+  <section class="ld-band alt"><div class="ld-end"><h2>{{ fresh|length }} fresh role{{ '' if fresh|length == 1 else 's' }} cleared and waiting.</h2><a class="ui-btn ui-btn-primary ui-btn-lg" href="/today">Open today's board</a></div></section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static',path='landing.js') }}?v={{ asset_version('landing.js') if asset_version is defined else '1' }}" defer></script>{% endblock %}

@@ -275,3 +275,34 @@ def test_today_offers_an_outreach_kit_that_never_sends(session, client, tmp_path
     note = next(d for d in kit["drafts"] if d["key"] == "connect")
     assert len(note["text"]) <= NOTE_LIMIT and "—" not in "".join(d["text"] for d in kit["drafts"])
     assert kit["searches"][0][0].startswith("Example University alumni")
+
+
+def test_board_is_freshest_first_and_folds_roles_older_than_thirty_days(session, client, tmp_path):
+    from datetime import timedelta
+
+    from careeros.modules.eligibility.service import freshness
+
+    now = NOW
+    assert freshness(now - timedelta(hours=5), now, now) == (5, "5h", True, "today")
+    assert freshness(now - timedelta(days=3), now, now)[3] == "week"
+    assert freshness(now - timedelta(days=12), now, now)[1:] == ("12d", True, "earlier")
+    assert freshness(now - timedelta(days=45), now, now)[3] == "older"
+    # No publication date: age counts from first sighting and is flagged as unknown.
+    assert freshness(None, now - timedelta(hours=30), now) == (30, "1d", False, "week")
+
+    _profile(session)
+    feeds = Feeds()
+    old = dict(GH_JOB, id=124, title="Business Analyst", first_published="2026-08-01T10:00:00Z")
+    old["absolute_url"] = "https://boards.greenhouse.io/acmefinancial/jobs/124"
+    feeds.gh.append(old)
+    run_source(session, _source(session, "greenhouse", "acmefinancial", "Acme Financial"), feeds)
+    lca.import_file(session, _lca_csv(tmp_path), 2026)
+    eligibility.evaluate_all(session)
+    session.commit()
+    digest = eligibility.build_digest(session)
+    assert [c.fresh for c in digest.eligible][-1] == "older"
+    assert [c.title for c in digest.eligible][-1] == "Business Analyst"
+    page = client.get("/today").text
+    assert 'data-group="older"' in page and "Older than 30 days" in page
+    home = client.get("/").text
+    assert "Business Analyst" not in home.split("ld-board")[1].split("</ol>")[0]
